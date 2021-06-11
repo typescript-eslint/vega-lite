@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -17,6 +17,13 @@
         {"x": 6, "y": 40},
         {"x": 7, "y": 20}
       ]
+    },
+    {
+      "name": "data_0",
+      "source": "source_0",
+      "transform": [
+        {"type": "formula", "expr": "toNumber(datum[\"x\"])", "as": "x"}
+      ]
     }
   ],
   "marks": [
@@ -24,19 +31,19 @@
       "name": "marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"x\"]", "order": "descending"},
-      "from": {"data": "source_0"},
+      "sort": {"field": "datum[\"x\"]"},
+      "from": {"data": "data_0"},
       "encode": {
         "update": {
           "strokeCap": {"value": "square"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"x\": format(datum[\"x\"], \"\"), \"y\": format(datum[\"y\"], \"\")}"
+          "description": {
+            "signal": "\"x: \" + (format(datum[\"x\"], \"\")) + \"; y: \" + (format(datum[\"y\"], \"\"))"
           },
           "x": {"scale": "x", "field": "x"},
           "y": {"scale": "y", "field": "y"},
           "defined": {
-            "signal": "datum[\"x\"] !== null && !isNaN(datum[\"x\"]) && datum[\"y\"] !== null && !isNaN(datum[\"y\"])"
+            "signal": "isValid(datum[\"x\"]) && isFinite(+datum[\"x\"]) && isValid(datum[\"y\"]) && isFinite(+datum[\"y\"])"
           }
         }
       }
@@ -46,7 +53,7 @@
     {
       "name": "x",
       "type": "linear",
-      "domain": {"data": "source_0", "field": "x"},
+      "domain": {"data": "data_0", "field": "x"},
       "range": [0, {"signal": "width"}],
       "nice": true,
       "zero": false
@@ -54,7 +61,7 @@
     {
       "name": "y",
       "type": "linear",
-      "domain": {"data": "source_0", "field": "y"},
+      "domain": {"data": "data_0", "field": "y"},
       "range": [{"signal": "height"}, 0],
       "nice": true,
       "zero": true
@@ -64,34 +71,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "x",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "y",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -101,9 +90,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "x",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "y",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

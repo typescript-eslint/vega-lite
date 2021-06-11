@@ -1,33 +1,32 @@
+import {DataComponent} from '.';
 import * as log from '../../log';
 import {Model} from '../model';
 import {DataFlowNode} from './dataflow';
-import {checkLinks} from './debug';
-import {DataComponent} from './index';
-import {BottomUpOptimizer, TopDownOptimizer} from './optimizer';
+import {Optimizer} from './optimizer';
 import * as optimizers from './optimizers';
+import {moveFacetDown} from './subtree';
 
 export const FACET_SCALE_PREFIX = 'scale_';
 export const MAX_OPTIMIZATION_RUNS = 5;
 
 /**
- * Return all leaf nodes.
+ * Iterates over a dataflow graph and checks whether all links are consistent.
  */
-function getLeaves(roots: DataFlowNode[]) {
-  const leaves: DataFlowNode[] = [];
-  function append(node: DataFlowNode) {
-    if (node.numChildren() === 0) {
-      leaves.push(node);
-    } else {
-      node.children.forEach(append);
+export function checkLinks(nodes: readonly DataFlowNode[]): boolean {
+  for (const node of nodes) {
+    for (const child of node.children) {
+      if (child.parent !== node) {
+        // log.error('Dataflow graph is inconsistent.', node, child);
+        return false;
+      }
+    }
+
+    if (!checkLinks(node.children)) {
+      return false;
     }
   }
 
-  roots.forEach(append);
-  return leaves;
-}
-
-export function isTrue(x: boolean) {
-  return x;
+  return true;
 }
 
 /**
@@ -35,50 +34,47 @@ export function isTrue(x: boolean) {
  *
  * @param optimizer The optimizer instance to run.
  * @param nodes A set of nodes to optimize.
- * @param flag Flag that will be or'ed with return valued from optimization calls to the nodes.
  */
-function runOptimizer(optimizer: BottomUpOptimizer | TopDownOptimizer, nodes: DataFlowNode[], flag: boolean) {
-  const flags = nodes.map(node => {
-    if (optimizer instanceof BottomUpOptimizer) {
-      const runFlags = optimizer.optimizeNextFromLeaves(node);
-      optimizer.reset();
-      return runFlags;
-    } else {
-      return optimizer.run(node);
-    }
-  });
-  return flags.some(isTrue) || flag;
+function runOptimizer(optimizer: Optimizer, nodes: DataFlowNode[]): boolean {
+  let modified = false;
+
+  for (const node of nodes) {
+    modified = optimizer.optimize(node) || modified;
+  }
+
+  return modified;
 }
 
-function optimizationDataflowHelper(dataComponent: DataComponent, model: Model) {
+function optimizationDataflowHelper(dataComponent: DataComponent, model: Model, firstPass: boolean) {
   let roots = dataComponent.sources;
-  let mutatedFlag = false;
+  let modified = false;
 
-  // mutatedFlag should always be on the right side otherwise short circuit logic might cause the mutating method to not execute
-  mutatedFlag = runOptimizer(new optimizers.RemoveUnnecessaryNodes(), roots, mutatedFlag);
+  modified = runOptimizer(new optimizers.RemoveUnnecessaryOutputNodes(), roots) || modified;
+  modified = runOptimizer(new optimizers.RemoveUnnecessaryIdentifierNodes(model), roots) || modified;
 
   // remove source nodes that don't have any children because they also don't have output nodes
   roots = roots.filter(r => r.numChildren() > 0);
 
-  mutatedFlag = runOptimizer(new optimizers.RemoveUnusedSubtrees(), getLeaves(roots), mutatedFlag);
+  modified = runOptimizer(new optimizers.RemoveUnusedSubtrees(), roots) || modified;
 
   roots = roots.filter(r => r.numChildren() > 0);
 
-  mutatedFlag = runOptimizer(new optimizers.MoveParseUp(), getLeaves(roots), mutatedFlag);
-
-  mutatedFlag = runOptimizer(new optimizers.MergeBins(model), getLeaves(roots), mutatedFlag);
-
-  mutatedFlag = runOptimizer(new optimizers.RemoveDuplicateTimeUnits(), getLeaves(roots), mutatedFlag);
-
-  mutatedFlag = runOptimizer(new optimizers.MergeParse(), getLeaves(roots), mutatedFlag);
-
-  mutatedFlag = runOptimizer(new optimizers.MergeAggregateNodes(), getLeaves(roots), mutatedFlag);
-
-  mutatedFlag = runOptimizer(new optimizers.MergeIdenticalNodes(), roots, mutatedFlag);
+  if (!firstPass) {
+    // Only run these optimizations after the optimizer has moved down the facet node.
+    // With this change, we can be more aggressive in the optimizations.
+    modified = runOptimizer(new optimizers.MoveParseUp(), roots) || modified;
+    modified = runOptimizer(new optimizers.MergeBins(model), roots) || modified;
+    modified = runOptimizer(new optimizers.RemoveDuplicateTimeUnits(), roots) || modified;
+    modified = runOptimizer(new optimizers.MergeParse(), roots) || modified;
+    modified = runOptimizer(new optimizers.MergeAggregates(), roots) || modified;
+    modified = runOptimizer(new optimizers.MergeTimeUnits(), roots) || modified;
+    modified = runOptimizer(new optimizers.MergeIdenticalNodes(), roots) || modified;
+    modified = runOptimizer(new optimizers.MergeOutputs(), roots) || modified;
+  }
 
   dataComponent.sources = roots;
 
-  return mutatedFlag;
+  return modified;
 }
 
 /**
@@ -92,17 +88,17 @@ export function optimizeDataflow(data: DataComponent, model: Model) {
   let secondPassCounter = 0;
 
   for (let i = 0; i < MAX_OPTIMIZATION_RUNS; i++) {
-    if (!optimizationDataflowHelper(data, model)) {
+    if (!optimizationDataflowHelper(data, model, true)) {
       break;
     }
     firstPassCounter++;
   }
 
   // move facets down and make a copy of the subtree so that we can have scales at the top level
-  data.sources.map(optimizers.moveFacetDown);
+  data.sources.map(moveFacetDown);
 
   for (let i = 0; i < MAX_OPTIMIZATION_RUNS; i++) {
-    if (!optimizationDataflowHelper(data, model)) {
+    if (!optimizationDataflowHelper(data, model, false)) {
       break;
     }
     secondPassCounter++;

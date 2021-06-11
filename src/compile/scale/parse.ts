@@ -1,9 +1,8 @@
 import {ScaleChannel, SCALE_CHANNELS, SHAPE} from '../../channel';
-import {hasConditionalFieldDef, isFieldDef, TypedFieldDef} from '../../channeldef';
+import {getFieldOrDatumDef, ScaleDatumDef, TypedFieldDef} from '../../channeldef';
 import {GEOSHAPE} from '../../mark';
 import {
   NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES,
-  Scale,
   scaleCompatible,
   ScaleType,
   scaleTypePrecedence
@@ -20,14 +19,16 @@ import {parseScaleDomain} from './domain';
 import {parseScaleProperty, parseScaleRange} from './properties';
 import {scaleType} from './type';
 
-export function parseScales(model: Model) {
+export function parseScales(model: Model, {ignoreRange}: {ignoreRange?: boolean} = {}) {
   parseScaleCore(model);
   parseScaleDomain(model);
   for (const prop of NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES) {
     parseScaleProperty(model, prop);
   }
-  // range depends on zero
-  parseScaleRange(model);
+  if (!ignoreRange) {
+    // range depends on zero
+    parseScaleRange(model);
+  }
 }
 
 export function parseScaleCore(model: Model) {
@@ -42,32 +43,22 @@ export function parseScaleCore(model: Model) {
  * Parse scales for all channels of a model.
  */
 function parseUnitScaleCore(model: UnitModel): ScaleComponentIndex {
-  const {encoding, config, mark} = model;
+  const {encoding, mark, markDef} = model;
 
   return SCALE_CHANNELS.reduce((scaleComponents: ScaleComponentIndex, channel: ScaleChannel) => {
-    let fieldDef: TypedFieldDef<string>;
-    let specifiedScale: Scale | null;
-
-    const channelDef = encoding[channel];
+    const fieldOrDatumDef = getFieldOrDatumDef(encoding[channel]) as TypedFieldDef<string> | ScaleDatumDef; // must be typed def to have scale
 
     // Don't generate scale for shape of geoshape
-    if (isFieldDef(channelDef) && mark === GEOSHAPE && channel === SHAPE && channelDef.type === GEOJSON) {
+    if (fieldOrDatumDef && mark === GEOSHAPE && channel === SHAPE && fieldOrDatumDef.type === GEOJSON) {
       return scaleComponents;
     }
+    let specifiedScale = fieldOrDatumDef && fieldOrDatumDef['scale'];
 
-    if (isFieldDef(channelDef)) {
-      fieldDef = channelDef;
-      specifiedScale = channelDef.scale;
-    } else if (hasConditionalFieldDef(channelDef)) {
-      fieldDef = channelDef.condition;
-      specifiedScale = channelDef.condition['scale']; // We use ['scale'] since we know that channel here has scale for sure
-    }
+    if (fieldOrDatumDef && specifiedScale !== null && specifiedScale !== false) {
+      specifiedScale ??= {};
 
-    if (fieldDef && specifiedScale !== null && specifiedScale !== false) {
-      specifiedScale = specifiedScale || {};
-
-      const sType = scaleType(specifiedScale, channel, fieldDef, mark, config.scale);
-      scaleComponents[channel] = new ScaleComponent(model.scaleName(channel + '', true), {
+      const sType = scaleType(specifiedScale, channel, fieldOrDatumDef, markDef);
+      scaleComponents[channel] = new ScaleComponent(model.scaleName(`${channel}`, true), {
         value: sType,
         explicit: specifiedScale.type === sType
       });
@@ -84,10 +75,7 @@ const scaleTypeTieBreaker = tieBreakByComparing(
 function parseNonUnitScaleCore(model: Model) {
   const scaleComponents: ScaleComponentIndex = (model.component.scales = {});
 
-  const scaleTypeWithExplicitIndex: {
-    // Using Mapped Type to declare type (https://www.typescriptlang.org/docs/handbook/advanced-types.html#mapped-types)
-    [k in ScaleChannel]?: Explicit<ScaleType>
-  } = {};
+  const scaleTypeWithExplicitIndex: Partial<Record<ScaleChannel, Explicit<ScaleType>>> = {};
   const resolve = model.component.resolve;
 
   // Parse each child scale and determine if a particular channel can be merged.
@@ -95,9 +83,9 @@ function parseNonUnitScaleCore(model: Model) {
     parseScaleCore(child);
 
     // Instead of always merging right away -- check if it is compatible to merge first!
-    keys(child.component.scales).forEach((channel: ScaleChannel) => {
+    for (const channel of keys(child.component.scales)) {
       // if resolve is undefined, set default first
-      resolve.scale[channel] = resolve.scale[channel] || defaultScaleResolve(channel, model);
+      resolve.scale[channel] ??= defaultScaleResolve(channel, model);
 
       if (resolve.scale[channel] === 'shared') {
         const explicitScaleType = scaleTypeWithExplicitIndex[channel];
@@ -123,11 +111,11 @@ function parseNonUnitScaleCore(model: Model) {
           scaleTypeWithExplicitIndex[channel] = childScaleType;
         }
       }
-    });
+    }
   }
 
   // Merge each channel listed in the index
-  keys(scaleTypeWithExplicitIndex).forEach((channel: ScaleChannel) => {
+  for (const channel of keys(scaleTypeWithExplicitIndex)) {
     // Create new merged scale component
     const name = model.scaleName(channel, true);
     const typeWithExplicit = scaleTypeWithExplicitIndex[channel];
@@ -141,7 +129,7 @@ function parseNonUnitScaleCore(model: Model) {
         childScale.merged = true;
       }
     }
-  });
+  }
 
   return scaleComponents;
 }

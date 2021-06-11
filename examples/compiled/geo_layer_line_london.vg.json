@@ -1,10 +1,11 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 700,
   "height": 500,
   "style": "cell",
+  "encode": {"update": {"stroke": {"value": "transparent"}}},
   "data": [
     {
       "name": "source_0",
@@ -59,7 +60,8 @@
         "update": {
           "stroke": {"value": "white"},
           "strokeWidth": {"value": 2},
-          "fill": {"value": "#eee"}
+          "fill": {"value": "#eee"},
+          "ariaRoleDescription": {"value": "geoshape"}
         }
       },
       "transform": [{"type": "geoshape", "projection": "projection"}]
@@ -73,12 +75,14 @@
         "update": {
           "fill": {"value": "black"},
           "opacity": {"value": 0.6},
-          "tooltip": {
-            "signal": "{\"cx\": format(datum[\"cx\"], \"\"), \"cy\": format(datum[\"cy\"], \"\"), \"bLabel\": ''+datum[\"bLabel\"]}"
+          "description": {
+            "signal": "\"cx: \" + (format(datum[\"cx\"], \"\")) + \"; cy: \" + (format(datum[\"cy\"], \"\")) + \"; bLabel: \" + (isValid(datum[\"bLabel\"]) ? datum[\"bLabel\"] : \"\"+datum[\"bLabel\"])"
           },
           "x": {"field": "layer_1_x"},
           "y": {"field": "layer_1_y"},
-          "text": {"signal": "''+datum[\"bLabel\"]"},
+          "text": {
+            "signal": "isValid(datum[\"bLabel\"]) ? datum[\"bLabel\"] : \"\"+datum[\"bLabel\"]"
+          },
           "fontSize": {"value": 8},
           "align": {"value": "center"},
           "baseline": {"value": "middle"}
@@ -95,7 +99,10 @@
           "strokeWidth": {"value": 2},
           "fill": {"value": "transparent"},
           "stroke": {"scale": "color", "field": "id"},
-          "tooltip": {"signal": "{\"id\": ''+datum[\"id\"]}"}
+          "ariaRoleDescription": {"value": "geoshape"},
+          "description": {
+            "signal": "\"id: \" + (isValid(datum[\"id\"]) ? datum[\"id\"] : \"\"+datum[\"id\"])"
+          }
         }
       },
       "transform": [{"type": "geoshape", "projection": "projection"}]
@@ -140,10 +147,8 @@
       "offset": 0,
       "orient": "bottom-right",
       "stroke": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "encode": {"symbols": {"update": {"fill": {"value": "transparent"}}}}
     }
-  ],
-  "config": {"style": {"cell": {"stroke": "transparent"}}}
+  ]
 }

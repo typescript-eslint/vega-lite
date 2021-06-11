@@ -1,20 +1,28 @@
-import {Page} from 'puppeteer';
+import {TopLevelSpec} from '../src';
 import {SelectionType} from '../src/selection';
 import {brush, embedFn, hits as hitsMaster, spec, testRenderFn, tuples} from './util';
-
-declare const page: Page;
+import {Page} from 'puppeteer/lib/cjs/puppeteer/common/Page';
 
 describe('interval selections at runtime in unit views', () => {
+  let page: Page;
+  let embed: (specification: TopLevelSpec) => Promise<void>;
+  let testRender: (filename: string) => Promise<void>;
+
   beforeAll(async () => {
+    page = await (global as any).__BROWSER__.newPage();
+    embed = embedFn(page);
+    testRender = testRenderFn(page, `${type}/unit`);
     await page.goto('http://0.0.0.0:8000/test-runtime/');
+  });
+
+  afterAll(async () => {
+    await page.close();
   });
 
   const type: SelectionType = 'interval';
   const hits = hitsMaster.interval;
-  const embed = embedFn(page);
-  const testRender = testRenderFn(page, `${type}/unit`);
 
-  it('should add extents to the store', async done => {
+  it('should add extents to the store', async () => {
     for (let i = 0; i < hits.drag.length; i++) {
       await embed(spec('unit', i, {type}));
       const store = await page.evaluate(brush('drag', i));
@@ -31,7 +39,6 @@ describe('interval selections at runtime in unit views', () => {
       expect(store[0].values[1]).toHaveLength(2);
       await testRender(`drag_${i}`);
     }
-    done();
   });
 
   it('should respect projections', async () => {
@@ -104,8 +111,14 @@ describe('interval selections at runtime in unit views', () => {
   });
 
   it('should brush over ordinal/nominal domains', async () => {
-    const xextents = [[2, 3, 4], [6, 7, 8]];
-    const yextents = [[49, 52, 53, 54, 55, 66, 67, 68, 76, 81, 87, 91], [17, 19, 23, 24, 27, 28, 35, 39, 43, 48]];
+    const xextents = [
+      [2, 3, 4],
+      [6, 7, 8]
+    ];
+    const yextents = [
+      [49, 52, 53, 54, 55, 66, 67, 68, 76, 81, 87, 91],
+      [17, 19, 23, 24, 27, 28, 35, 39, 43, 48]
+    ];
 
     for (let i = 0; i < hits.drag.length; i++) {
       await embed(spec('unit', i, {type}, {x: {type: 'ordinal'}, y: {type: 'nominal'}}));
@@ -133,7 +146,10 @@ describe('interval selections at runtime in unit views', () => {
     const toNumber = (a: any) => a[0].values[0].map((d: any) => +d);
 
     await embed(spec('unit', 0, {type, encodings: ['x']}, {values, x: {type: 'temporal'}}));
-    let extents = [[1485969714000, 1493634384000], [1496346498000, 1504364922000]];
+    let extents = [
+      [1485969714000, 1493634384000],
+      [1496346498000, 1504364922000]
+    ];
     for (let i = 0; i < hits.drag.length; i++) {
       const store = toNumber(await page.evaluate(brush('drag', i)));
       expect(store).toEqual(expect.arrayContaining(extents[i]));
@@ -145,7 +161,10 @@ describe('interval selections at runtime in unit views', () => {
 
     await embed(spec('unit', 1, {type, encodings: ['x']}, {values, x: {type: 'temporal', timeUnit: 'day'}}));
 
-    extents = [[1136190528000, 1136361600000], [1136449728000, 1136535264000]];
+    extents = [
+      [1325492928000, 1325664000000],
+      [1325752128000, 1325837664000]
+    ];
     for (let i = 0; i < hits.drag.length; i++) {
       const store = toNumber(await page.evaluate(brush('drag', i)));
       expect(store).toEqual(expect.arrayContaining(extents[i]));

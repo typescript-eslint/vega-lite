@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": {
     "url": "data/cars.json"
   },
@@ -85,7 +85,6 @@
         "x": {
           "aggregate": "min",
           "field": "xc",
-          "type": "quantitative",
           "title": "Origin",
           "axis": {
             "orient": "top"
@@ -93,13 +92,9 @@
         },
         "color": {
           "field": "Origin",
-          "type": "nominal",
           "legend": null
         },
-        "text": {
-          "field": "Origin",
-          "type": "nominal"
-        }
+        "text": {"field": "Origin"}
       }
     },
     {
@@ -114,19 +109,12 @@
               "type": "quantitative",
               "axis": null
             },
-            "x2": {
-              "field": "x2",
-              "type": "quantitative"
-            },
+            "x2": {"field": "x2"},
             "y": {
               "field": "y",
-              "type": "quantitative",
-              "axis": null
-            },
-            "y2": {
-              "field": "y2",
               "type": "quantitative"
             },
+            "y2": {"field": "y2"},
             "color": {
               "field": "Origin",
               "type": "nominal",
@@ -176,11 +164,7 @@
       ]
     }
   ],
-  "resolve": {
-    "scale": {
-      "x": "shared"
-    }
-  },
+  "resolve": {"scale": {"x": "shared"}},
   "config": {
     "view": {
       "stroke": ""

@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A scatterplot showing horsepower and miles per gallons for various cars.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -25,8 +25,8 @@
             "bin_maxbins_6_Acceleration_end"
           ],
           "signal": "bin_maxbins_6_Acceleration_bins",
-          "maxbins": 6,
-          "extent": {"signal": "bin_maxbins_6_Acceleration_extent"}
+          "extent": {"signal": "bin_maxbins_6_Acceleration_extent"},
+          "maxbins": 6
         },
         {
           "type": "aggregate",
@@ -64,21 +64,20 @@
           "name": "marks",
           "type": "line",
           "style": ["line"],
-          "sort": {"field": "datum[\"Year\"]", "order": "descending"},
+          "sort": {"field": "datum[\"Year\"]"},
           "from": {"data": "faceted_path_main"},
           "encode": {
             "update": {
               "stroke": {
-                "scale": "color",
-                "field": "bin_maxbins_6_Acceleration"
+                "signal": "scale(\"color\", 0.5 * datum[\"bin_maxbins_6_Acceleration\"] + 0.5 * datum[\"bin_maxbins_6_Acceleration_end\"])"
               },
-              "tooltip": {
-                "signal": "{\"Mean of Horsepower\": format(datum[\"mean_Horsepower\"], \"\"), \"Year\": timeFormat(datum[\"Year\"], '%b %d, %Y'), \"Acceleration (binned)\": datum[\"bin_maxbins_6_Acceleration\"] === null || isNaN(datum[\"bin_maxbins_6_Acceleration\"]) ? \"null\" : format(datum[\"bin_maxbins_6_Acceleration\"], \"\") + \" - \" + format(datum[\"bin_maxbins_6_Acceleration_end\"], \"\")}"
+              "description": {
+                "signal": "\"Mean of Horsepower: \" + (format(datum[\"mean_Horsepower\"], \"\")) + \"; Year: \" + (timeFormat(datum[\"Year\"], '%b %d, %Y')) + \"; Acceleration (binned): \" + (!isValid(datum[\"bin_maxbins_6_Acceleration\"]) || !isFinite(+datum[\"bin_maxbins_6_Acceleration\"]) ? \"null\" : format(datum[\"bin_maxbins_6_Acceleration\"], \"\") + \" – \" + format(datum[\"bin_maxbins_6_Acceleration_end\"], \"\"))"
               },
               "x": {"scale": "x", "field": "Year"},
               "y": {"scale": "y", "field": "mean_Horsepower"},
               "defined": {
-                "signal": "datum[\"Year\"] !== null && !isNaN(datum[\"Year\"]) && datum[\"mean_Horsepower\"] !== null && !isNaN(datum[\"mean_Horsepower\"])"
+                "signal": "isValid(datum[\"Year\"]) && isFinite(+datum[\"Year\"]) && isValid(datum[\"mean_Horsepower\"]) && isFinite(+datum[\"mean_Horsepower\"])"
               }
             }
           }
@@ -113,34 +112,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Year",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Mean of Horsepower",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -150,16 +131,35 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Year",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Mean of Horsepower",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
   "legends": [
     {
       "stroke": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "stroke",
       "title": "Acceleration (binned)"
     }

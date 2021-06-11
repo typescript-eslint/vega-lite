@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "Two horizonally concatenated charts that show a histogram of precipitation in Seattle and the relationship between min and max temperature.",
   "data": {
     "url": "data/weather.csv"
@@ -20,8 +20,7 @@
         },
         "y": {
           "aggregate": "mean",
-          "field": "precipitation",
-          "type": "quantitative"
+          "field": "precipitation"
         }
       }
     },
@@ -35,8 +34,7 @@
         },
         "y": {
           "aggregate": "median",
-          "field": "precipitation",
-          "type": "quantitative"
+          "field": "precipitation"
         }
       }
     },
@@ -45,17 +43,14 @@
       "encoding": {
         "x": {
           "field": "temp_min",
-          "type": "quantitative",
           "bin": true
         },
         "y": {
           "field": "temp_max",
-          "type": "quantitative",
           "bin": true
         },
         "size": {
-          "aggregate": "count",
-          "type": "quantitative"
+          "aggregate": "count"
         }
       }
     }

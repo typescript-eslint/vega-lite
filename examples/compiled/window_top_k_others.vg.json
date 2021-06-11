@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Top-K plot with \"others\" by Trevor Manz, adapted from https://observablehq.com/@manzt/top-k-plot-with-others-vega-lite-example.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "title": {
@@ -19,7 +19,7 @@
           "type": "aggregate",
           "groupby": ["Director"],
           "ops": ["mean"],
-          "fields": ["Worldwide_Gross"],
+          "fields": ["Worldwide Gross"],
           "as": ["aggregate_gross"]
         },
         {
@@ -47,6 +47,10 @@
           "ops": ["mean"],
           "fields": ["aggregate_gross"],
           "as": ["mean_aggregate_gross"]
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"mean_aggregate_gross\"]) && isFinite(+datum[\"mean_aggregate_gross\"])"
         }
       ]
     }
@@ -67,13 +71,14 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"Mean of aggregate_gross\": format(datum[\"mean_aggregate_gross\"], \"\"), \"ranked_director\": ''+datum[\"ranked_director\"]}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"Mean of aggregate_gross: \" + (format(datum[\"mean_aggregate_gross\"], \"\")) + \"; ranked_director: \" + (isValid(datum[\"ranked_director\"]) ? datum[\"ranked_director\"] : \"\"+datum[\"ranked_director\"])"
           },
           "x": {"scale": "x", "field": "mean_aggregate_gross"},
           "x2": {"scale": "x", "value": 0},
           "y": {"scale": "y", "field": "ranked_director"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     }
@@ -108,31 +113,26 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
     },
     {
-      "scale": "y",
-      "orient": "left",
+      "scale": "x",
+      "orient": "bottom",
       "grid": false,
+      "labelFlush": true,
       "labelOverlap": true,
-      "zindex": 1
-    }
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {"scale": "y", "orient": "left", "grid": false, "zindex": 0}
   ]
 }

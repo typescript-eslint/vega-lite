@@ -1,31 +1,24 @@
-import {Orientation} from 'vega';
-import {Encoding} from '../encoding';
+import {Interpolate, Orientation} from 'vega';
 import {Field} from '../channeldef';
+import {Encoding, normalizeEncoding} from '../encoding';
 import * as log from '../log';
 import {MarkDef} from '../mark';
-import {NormalizerParams} from '../normalize/index';
+import {NormalizerParams} from '../normalize';
 import {GenericUnitSpec, NormalizedLayerSpec} from '../spec';
-import {Flag, keys} from '../util';
-import {Interpolate} from '../vega.schema';
 import {CompositeMarkNormalizer} from './base';
 import {GenericCompositeMarkDef, makeCompositeAggregatePartFactory, PartsMixins} from './common';
 import {ErrorBarCenter, ErrorBarExtent, errorBarParams, ErrorEncoding} from './errorbar';
 
 export type ErrorBandUnitSpec<
-  EE = {} // extra encoding parameter (for faceted composite unit spec)
+  EE = undefined // extra encoding parameter (for faceted composite unit spec)
 > = GenericUnitSpec<ErrorEncoding<Field> & EE, ErrorBand | ErrorBandDef>;
 
-export const ERRORBAND: 'errorband' = 'errorband';
+export const ERRORBAND = 'errorband' as const;
 export type ErrorBand = typeof ERRORBAND;
 
-export type ErrorBandPart = 'band' | 'borders';
+export const ERRORBAND_PARTS = ['band', 'borders'] as const;
 
-const ERRORBAND_PART_INDEX: Flag<ErrorBandPart> = {
-  band: 1,
-  borders: 1
-};
-
-export const ERRORBAND_PARTS = keys(ERRORBAND_PART_INDEX);
+type ErrorBandPart = typeof ERRORBAND_PARTS[number];
 
 export type ErrorBandPartsMixins = PartsMixins<ErrorBandPart>;
 
@@ -36,7 +29,7 @@ export interface ErrorBandConfig extends ErrorBandPartsMixins {
    * - `"median"`: the median of the data points.
    *
    * __Default value:__ `"mean"`.
-   * @hide
+   * @hidden
    */
 
   // center is not needed right now but will be added back to the schema if future features require it.
@@ -73,6 +66,7 @@ export interface ErrorBandConfig extends ErrorBandPartsMixins {
 
   /**
    * The tension parameter for the interpolation type of the error band.
+   *
    * @minimum 0
    * @maximum 1
    */
@@ -100,6 +94,12 @@ export function normalizeErrorBand(
   spec: GenericUnitSpec<Encoding<string>, ErrorBand | ErrorBandDef>,
   {config}: NormalizerParams
 ): NormalizedLayerSpec {
+  // Need to initEncoding first so we can infer type
+  spec = {
+    ...spec,
+    encoding: normalizeEncoding(spec.encoding, config)
+  };
+
   const {
     transform,
     continuousAxisChannelDef,
@@ -125,17 +125,19 @@ export function normalizeErrorBand(
   let bordersMark: MarkDef = {type: is2D ? 'line' : 'rule'};
   const interpolate = {
     ...(errorBandDef.interpolate ? {interpolate: errorBandDef.interpolate} : {}),
-    ...(errorBandDef.tension && errorBandDef.interpolate ? {interpolate: errorBandDef.tension} : {})
+    ...(errorBandDef.tension && errorBandDef.interpolate ? {tension: errorBandDef.tension} : {})
   };
 
   if (is2D) {
     bandMark = {
       ...bandMark,
-      ...interpolate
+      ...interpolate,
+      ariaRoleDescription: 'errorband'
     };
     bordersMark = {
       ...bordersMark,
-      ...interpolate
+      ...interpolate,
+      aria: false
     };
   } else if (errorBandDef.interpolate) {
     log.warn(log.message.errorBand1DNotSupport('interpolate'));
@@ -158,6 +160,7 @@ export function normalizeErrorBand(
         partName: 'borders',
         mark: bordersMark,
         positionPrefix: 'lower',
+
         extraEncoding: tooltipEncoding
       }),
       ...makeErrorBandPart({

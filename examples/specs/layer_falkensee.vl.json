@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "The population of the German city of Falkensee over time",
   "width": 500,
   "data": {
@@ -70,9 +70,7 @@
       "encoding": {
         "x": {
           "field": "start",
-          "type": "temporal",
-          "timeUnit": "year",
-          "axis": null
+          "timeUnit": "year"
         },
         "x2": {
           "field": "end",
@@ -86,8 +84,8 @@
       "encoding": {
         "x": {
           "field": "year",
-          "type": "temporal",
-          "timeUnit": "year"
+          "timeUnit": "year",
+          "title": "year (year)"
         },
         "y": {"field": "population", "type": "quantitative"},
         "color": {"value": "#333"}
@@ -98,7 +96,6 @@
       "encoding": {
         "x": {
           "field": "year",
-          "type": "temporal",
           "timeUnit": "year"
         },
         "y": {"field": "population", "type": "quantitative"},

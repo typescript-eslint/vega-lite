@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 900,
   "height": 400,
@@ -24,7 +24,7 @@
     {
       "name": "source_0",
       "url": "data/wheat.json",
-      "format": {"type": "json"},
+      "format": {"type": "json", "parse": {"year": "number"}},
       "transform": [
         {"type": "formula", "expr": "+datum.year + 5", "as": "year_end"}
       ]
@@ -35,7 +35,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"year\"] !== null && !isNaN(datum[\"year\"]) && datum[\"wheat\"] !== null && !isNaN(datum[\"wheat\"])"
+          "expr": "isValid(datum[\"wheat\"]) && isFinite(+datum[\"wheat\"]) && isValid(datum[\"year\"]) && isFinite(+datum[\"year\"])"
         }
       ]
     },
@@ -45,7 +45,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"year\"] !== null && !isNaN(datum[\"year\"])"
+          "expr": "isValid(datum[\"year\"]) && isFinite(+datum[\"year\"])"
         }
       ]
     },
@@ -61,7 +61,7 @@
         {"type": "formula", "expr": "95", "as": "y"},
         {
           "type": "filter",
-          "expr": "datum[\"start\"] !== null && !isNaN(datum[\"start\"]) && datum[\"y\"] !== null && !isNaN(datum[\"y\"])"
+          "expr": "isValid(datum[\"y\"]) && isFinite(+datum[\"y\"]) && isValid(datum[\"start\"]) && isFinite(+datum[\"start\"])"
         }
       ]
     },
@@ -81,7 +81,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"x\"] !== null && !isNaN(datum[\"x\"]) && datum[\"off2\"] !== null && !isNaN(datum[\"off2\"])"
+          "expr": "isValid(datum[\"off2\"]) && isFinite(+datum[\"off2\"]) && isValid(datum[\"x\"]) && isFinite(+datum[\"x\"])"
         }
       ]
     }
@@ -96,16 +96,20 @@
         "update": {
           "fill": {"value": "#aaa"},
           "stroke": {"value": "#999"},
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"wheat: \" + (format(datum[\"wheat\"], \"\")) + \"; year: \" + (format(datum[\"year\"], \"d\")) + \"; year_end: \" + (format(datum[\"year_end\"], \"\"))"
+          },
           "x": [
             {
-              "test": "datum[\"year\"] === null || isNaN(datum[\"year\"])",
+              "test": "!isValid(datum[\"year\"]) || !isFinite(+datum[\"year\"])",
               "value": 0
             },
             {"scale": "x", "field": "year"}
           ],
           "x2": [
             {
-              "test": "datum[\"year_end\"] === null || isNaN(datum[\"year_end\"])",
+              "test": "!isValid(datum[\"year_end\"]) || !isFinite(+datum[\"year_end\"])",
               "value": 0
             },
             {"scale": "x", "field": "year_end"}
@@ -125,15 +129,18 @@
           "opacity": {"value": 0.5},
           "stroke": {"value": "#000"},
           "strokeWidth": {"value": 0.6},
+          "description": {
+            "signal": "\"year: \" + (format(datum[\"year\"], \"d\"))"
+          },
           "x": [
             {
-              "test": "datum[\"year\"] === null || isNaN(datum[\"year\"])",
+              "test": "!isValid(datum[\"year\"]) || !isFinite(+datum[\"year\"])",
               "value": 0
             },
             {"scale": "x", "field": "year"}
           ],
-          "y": {"field": {"group": "height"}},
-          "y2": {"value": 0}
+          "y": {"value": 0},
+          "y2": {"field": {"group": "height"}}
         }
       }
     },
@@ -141,18 +148,21 @@
       "name": "layer_2_marks",
       "type": "area",
       "style": ["area"],
-      "sort": {"field": "datum[\"year\"]", "order": "descending"},
+      "sort": {"field": "datum[\"year\"]"},
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "orient": {"value": "vertical"},
           "fill": {"value": "#a4cedb"},
+          "description": {
+            "signal": "\"wages: \" + (format(datum[\"wages\"], \"\")) + \"; year: \" + (format(datum[\"year\"], \"d\"))"
+          },
           "x": {"scale": "x", "field": "year"},
           "y": {"scale": "y", "field": "wages"},
           "y2": {"scale": "y", "value": 0},
           "defined": {
-            "signal": "datum[\"year\"] !== null && !isNaN(datum[\"year\"]) && datum[\"wages\"] !== null && !isNaN(datum[\"wages\"])"
+            "signal": "isValid(datum[\"year\"]) && isFinite(+datum[\"year\"]) && isValid(datum[\"wages\"]) && isFinite(+datum[\"wages\"])"
           }
         }
       }
@@ -161,16 +171,19 @@
       "name": "layer_3_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"year\"]", "order": "descending"},
+      "sort": {"field": "datum[\"year\"]"},
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "stroke": {"value": "#000"},
+          "description": {
+            "signal": "\"wages: \" + (format(datum[\"wages\"], \"\")) + \"; year: \" + (format(datum[\"year\"], \"d\"))"
+          },
           "x": {"scale": "x", "field": "year"},
           "y": {"scale": "y", "field": "wages"},
           "defined": {
-            "signal": "datum[\"year\"] !== null && !isNaN(datum[\"year\"]) && datum[\"wages\"] !== null && !isNaN(datum[\"wages\"])"
+            "signal": "isValid(datum[\"year\"]) && isFinite(+datum[\"year\"]) && isValid(datum[\"wages\"]) && isFinite(+datum[\"wages\"])"
           }
         }
       }
@@ -179,15 +192,18 @@
       "name": "layer_4_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"year\"]", "order": "descending"},
+      "sort": {"field": "datum[\"year\"]"},
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#EE8182"},
+          "description": {
+            "signal": "\"wages: \" + (format(datum[\"wages\"], \"\")) + \"; year: \" + (format(datum[\"year\"], \"d\"))"
+          },
           "x": {"scale": "x", "field": "year"},
           "y": {"scale": "y", "field": "wages", "offset": -2},
           "defined": {
-            "signal": "datum[\"year\"] !== null && !isNaN(datum[\"year\"]) && datum[\"wages\"] !== null && !isNaN(datum[\"wages\"])"
+            "signal": "isValid(datum[\"year\"]) && isFinite(+datum[\"year\"]) && isValid(datum[\"wages\"]) && isFinite(+datum[\"wages\"])"
           }
         }
       }
@@ -201,16 +217,20 @@
         "update": {
           "stroke": {"value": "#000"},
           "fill": {"scale": "fill", "field": "commonwealth"},
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"y: \" + (format(datum[\"y\"], \"\")) + \"; start: \" + (format(datum[\"start\"], \"d\")) + \"; end: \" + (format(datum[\"end\"], \"\")) + \"; offset: \" + (format(datum[\"offset\"], \"\")) + \"; commonwealth: \" + (isValid(datum[\"commonwealth\"]) ? datum[\"commonwealth\"] : \"\"+datum[\"commonwealth\"])"
+          },
           "x": [
             {
-              "test": "datum[\"start\"] === null || isNaN(datum[\"start\"])",
+              "test": "!isValid(datum[\"start\"]) || !isFinite(+datum[\"start\"])",
               "value": 0
             },
             {"scale": "x", "field": "start"}
           ],
           "x2": [
             {
-              "test": "datum[\"end\"] === null || isNaN(datum[\"end\"])",
+              "test": "!isValid(datum[\"end\"]) || !isFinite(+datum[\"end\"])",
               "value": 0
             },
             {"scale": "x", "field": "end"}
@@ -231,15 +251,20 @@
           "fontSize": {"value": 9},
           "fontStyle": {"value": "italic"},
           "fill": {"value": "black"},
+          "description": {
+            "signal": "\"off2: \" + (format(datum[\"off2\"], \"\")) + \"; x: \" + (format(datum[\"x\"], \"d\")) + \"; name: \" + (isValid(datum[\"name\"]) ? datum[\"name\"] : \"\"+datum[\"name\"])"
+          },
           "x": [
             {
-              "test": "datum[\"x\"] === null || isNaN(datum[\"x\"])",
+              "test": "!isValid(datum[\"x\"]) || !isFinite(+datum[\"x\"])",
               "value": 0
             },
             {"scale": "x", "field": "x"}
           ],
           "y": {"scale": "y", "field": "off2", "offset": 16},
-          "text": {"signal": "''+datum[\"name\"]"},
+          "text": {
+            "signal": "isValid(datum[\"name\"]) ? datum[\"name\"] : \"\"+datum[\"name\"]"
+          },
           "align": {"value": "center"}
         }
       }
@@ -292,33 +317,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "format": "d",
-      "tickCount": 5,
-      "labelFlush": true,
-      "labelOverlap": true,
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "tickCount": 5,
       "gridScale": "y",
       "grid": true,
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -328,9 +336,28 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 1
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "format": "d",
+      "tickCount": 5,
+      "labelFlush": true,
+      "labelOverlap": true,
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 1
     }
   ],

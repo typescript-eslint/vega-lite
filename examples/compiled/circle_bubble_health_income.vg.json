@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A bubble plot showing the correlation between health and income for 187 countries in the world (modified from an example in Lisa Charlotte Rost's blog post 'One Chart, Twelve Charting Libraries' --http://lisacharlotterost.github.io/2016/05/17/one-chart-code/).",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 500,
   "height": 300,
@@ -15,7 +15,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"health\"] !== null && !isNaN(datum[\"health\"]) && datum[\"income\"] !== null && !isNaN(datum[\"income\"]) && datum[\"population\"] !== null && !isNaN(datum[\"population\"])"
+          "expr": "isValid(datum[\"health\"]) && isFinite(+datum[\"health\"]) && isValid(datum[\"income\"]) && isFinite(+datum[\"income\"]) && isValid(datum[\"population\"]) && isFinite(+datum[\"population\"])"
         }
       ]
     }
@@ -28,10 +28,11 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "view", "update": "vlSelectionResolve(\"view_store\")"},
+    {"name": "view", "update": "vlSelectionResolve(\"view_store\", \"union\")"},
     {
       "name": "view_income",
       "on": [
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"},
         {
           "events": {"signal": "view_translate_delta"},
           "update": "panLog(view_translate_anchor.extent_x, -view_translate_delta.x / width)"
@@ -39,13 +40,13 @@
         {
           "events": {"signal": "view_zoom_delta"},
           "update": "zoomLog(domain(\"x\"), view_zoom_anchor.x, view_zoom_delta)"
-        },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        }
       ]
     },
     {
       "name": "view_health",
       "on": [
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"},
         {
           "events": {"signal": "view_translate_delta"},
           "update": "panLinear(view_translate_anchor.extent_y, view_translate_delta.y / height)"
@@ -53,8 +54,7 @@
         {
           "events": {"signal": "view_zoom_delta"},
           "update": "zoomLinear(domain(\"y\"), view_zoom_anchor.y, view_zoom_delta)"
-        },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        }
       ]
     },
     {
@@ -124,7 +124,12 @@
     },
     {
       "name": "view_modify",
-      "update": "modify(\"view_store\", view_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "view_tuple"},
+          "update": "modify(\"view_store\", view_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -133,18 +138,20 @@
       "type": "symbol",
       "clip": true,
       "style": ["circle"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"value": "#000"},
-          "tooltip": {
-            "signal": "{\"health\": format(datum[\"health\"], \"\"), \"income\": format(datum[\"income\"], \"\"), \"population\": format(datum[\"population\"], \"\")}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"health: \" + (format(datum[\"health\"], \"\")) + \"; income: \" + (format(datum[\"income\"], \"\")) + \"; population: \" + (format(datum[\"population\"], \"\"))"
           },
           "x": {"scale": "x", "field": "income"},
           "y": [
             {
-              "test": "datum[\"health\"] === null || isNaN(datum[\"health\"])",
+              "test": "!isValid(datum[\"health\"]) || !isFinite(+datum[\"health\"])",
               "field": {"group": "height"}
             },
             {"scale": "y", "field": "health"}
@@ -185,22 +192,37 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "income",
-      "labelFlush": true,
-      "labelOverlap": "greedy",
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "income",
+      "labelFlush": true,
+      "labelOverlap": "greedy",
       "zindex": 0
     },
     {
@@ -211,33 +233,18 @@
       "minExtent": 30,
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ],
   "legends": [
     {
       "size": "size",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "population",
       "encode": {
         "symbols": {
           "update": {
             "fill": {"value": "#000"},
-            "shape": {"value": "circle"},
             "opacity": {"value": 0.7},
             "stroke": {"value": "transparent"}
           }

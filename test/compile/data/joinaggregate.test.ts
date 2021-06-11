@@ -1,9 +1,7 @@
-/* tslint:disable:quotemark */
-
-import {DataFlowNode} from '../../../src/compile/data/dataflow';
 import {JoinAggregateTransformNode} from '../../../src/compile/data/joinaggregate';
 import {makeJoinAggregateFromFacet} from '../../../src/compile/data/joinaggregatefacet';
 import {Transform} from '../../../src/transform';
+import {PlaceholderDataFlowNode} from './util';
 
 describe('compile/data/joinaggregate', () => {
   it('creates correct joinaggregate nodes for calculating sort field of crossed facet', () => {
@@ -26,7 +24,7 @@ describe('compile/data/joinaggregate', () => {
       makeJoinAggregateFromFacet(null, {
         row: {field: 'a', type: 'nominal'}
       })
-    ).toEqual(null);
+    ).toBeNull();
   });
 
   it('should return a proper vg transform', () => {
@@ -101,6 +99,20 @@ describe('compile/data/joinaggregate', () => {
     expect(joinaggregate.dependentFields()).toEqual(new Set(['g', 'f']));
   });
 
+  it('should generate the correct dependent fields when groupby is undefined', () => {
+    const transform: Transform = {
+      joinaggregate: [
+        {
+          field: 'f',
+          op: 'mean',
+          as: 'mean_f'
+        }
+      ]
+    };
+    const joinaggregate = new JoinAggregateTransformNode(null, transform);
+    expect(joinaggregate.dependentFields()).toEqual(new Set(['f']));
+  });
+
   it('should clone to an equivalent version', () => {
     const transform: Transform = {
       joinaggregate: [
@@ -116,7 +128,7 @@ describe('compile/data/joinaggregate', () => {
   });
 
   it('should never clone parent', () => {
-    const parent = new DataFlowNode(null);
+    const parent = new PlaceholderDataFlowNode(null);
     const joinaggregate = new JoinAggregateTransformNode(parent, null);
     expect(joinaggregate.clone().parent).toBeNull();
   });

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": {"url": "data/cars.json"},
   "mark": {
     "type": "errorband",
@@ -13,10 +13,6 @@
       "scale": {"zero": false},
       "title": "Miles per Gallon (95% CIs)"
     },
-    "x": {
-      "field": "Year",
-      "type": "temporal",
-      "timeUnit": "year"
-    }
+    "x": {"timeUnit": "year", "field": "Year"}
   }
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {
@@ -20,10 +20,11 @@
           "fields": ["id"],
           "as": ["geo"]
         },
+        {"type": "filter", "expr": "isValid(datum[\"geo\"])"},
         {"type": "geojson", "geojson": "geo", "signal": "child_geojson_0"},
         {
           "type": "filter",
-          "expr": "datum[\"pct\"] !== null && !isNaN(datum[\"pct\"])"
+          "expr": "isValid(datum[\"pct\"]) && isFinite(+datum[\"pct\"])"
         }
       ]
     },
@@ -71,7 +72,9 @@
       "from": {"data": "row_domain"},
       "sort": {"field": "datum[\"group\"]", "order": "ascending"},
       "title": {
-        "text": {"signal": "''+parent[\"group\"]"},
+        "text": {
+          "signal": "isValid(parent[\"group\"]) ? parent[\"group\"] : \"\"+parent[\"group\"]"
+        },
         "orient": "left",
         "style": "guide-label",
         "frame": "group",
@@ -102,8 +105,9 @@
           "encode": {
             "update": {
               "fill": {"scale": "color", "field": "pct"},
-              "tooltip": {
-                "signal": "{\"geo\": ''+datum[\"geo\"], \"pct\": format(datum[\"pct\"], \"\")}"
+              "ariaRoleDescription": {"value": "geoshape"},
+              "description": {
+                "signal": "\"geo: \" + (isValid(datum[\"geo\"]) ? datum[\"geo\"] : \"\"+datum[\"geo\"]) + \"; pct: \" + (format(datum[\"pct\"], \"\"))"
               }
             }
           },
@@ -132,7 +136,6 @@
     {
       "fill": "color",
       "gradientLength": {"signal": "clamp(child_height, 64, 200)"},
-      "symbolType": "circle",
       "title": "pct"
     }
   ]

@@ -1,22 +1,19 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Stock prices of 5 Tech Companies over Time with Averages.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
   "style": "cell",
   "data": [
-    {"name": "source_0", "url": "data/stocks.csv", "format": {"type": "csv"}},
     {
-      "name": "data_0",
-      "source": "source_0",
-      "transform": [
-        {"type": "formula", "expr": "toDate(datum[\"date\"])", "as": "date"}
-      ]
+      "name": "source_0",
+      "url": "data/stocks.csv",
+      "format": {"type": "csv", "parse": {"date": "date"}}
     },
     {
-      "name": "data_1",
+      "name": "data_0",
       "source": "source_0",
       "transform": [
         {
@@ -25,6 +22,10 @@
           "ops": ["mean"],
           "fields": ["price"],
           "as": ["mean_price"]
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"mean_price\"]) && isFinite(+datum[\"mean_price\"])"
         }
       ]
     }
@@ -36,7 +37,7 @@
       "from": {
         "facet": {
           "name": "faceted_path_layer_0_main",
-          "data": "data_0",
+          "data": "source_0",
           "groupby": ["symbol"]
         }
       },
@@ -51,18 +52,18 @@
           "name": "layer_0_marks",
           "type": "line",
           "style": ["line"],
-          "sort": {"field": "datum[\"date\"]", "order": "descending"},
+          "sort": {"field": "datum[\"date\"]"},
           "from": {"data": "faceted_path_layer_0_main"},
           "encode": {
             "update": {
               "stroke": {"scale": "color", "field": "symbol"},
-              "tooltip": {
-                "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y'), \"price\": format(datum[\"price\"], \"\"), \"symbol\": ''+datum[\"symbol\"]}"
+              "description": {
+                "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y')) + \"; price: \" + (format(datum[\"price\"], \"\")) + \"; symbol: \" + (isValid(datum[\"symbol\"]) ? datum[\"symbol\"] : \"\"+datum[\"symbol\"])"
               },
               "x": {"scale": "x", "field": "date"},
               "y": {"scale": "y", "field": "price"},
               "defined": {
-                "signal": "datum[\"date\"] !== null && !isNaN(datum[\"date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+                "signal": "isValid(datum[\"date\"]) && isFinite(+datum[\"date\"]) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
               }
             }
           }
@@ -73,16 +74,16 @@
       "name": "layer_1_marks",
       "type": "rule",
       "style": ["rule"],
-      "from": {"data": "data_1"},
+      "from": {"data": "data_0"},
       "encode": {
         "update": {
           "stroke": {"scale": "color", "field": "symbol"},
-          "tooltip": {
-            "signal": "{\"Mean of price\": format(datum[\"mean_price\"], \"\"), \"symbol\": ''+datum[\"symbol\"]}"
+          "description": {
+            "signal": "\"Mean of price: \" + (format(datum[\"mean_price\"], \"\")) + \"; symbol: \" + (isValid(datum[\"symbol\"]) ? datum[\"symbol\"] : \"\"+datum[\"symbol\"])"
           },
-          "x": {"value": 0},
+          "x": {"field": {"group": "width"}},
+          "x2": {"value": 0},
           "y": {"scale": "y", "field": "mean_price"},
-          "x2": {"field": {"group": "width"}},
           "strokeWidth": {"value": 2}
         }
       }
@@ -92,7 +93,7 @@
     {
       "name": "x",
       "type": "time",
-      "domain": {"data": "data_0", "field": "date"},
+      "domain": {"data": "source_0", "field": "date"},
       "range": [0, {"signal": "width"}]
     },
     {
@@ -100,8 +101,8 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "price"},
-          {"data": "data_1", "field": "mean_price"}
+          {"data": "source_0", "field": "price"},
+          {"data": "data_0", "field": "mean_price"}
         ]
       },
       "range": [{"signal": "height"}, 0],
@@ -113,8 +114,8 @@
       "type": "ordinal",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "symbol"},
-          {"data": "data_1", "field": "symbol"}
+          {"data": "source_0", "field": "symbol"},
+          {"data": "data_0", "field": "symbol"}
         ],
         "sort": true
       },
@@ -125,34 +126,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "price, Mean of price",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -162,18 +145,31 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "price, Mean of price",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "zindex": 0
     }
   ],
-  "legends": [
-    {
-      "stroke": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "symbol"
-    }
-  ]
+  "legends": [{"stroke": "color", "symbolType": "stroke", "title": "symbol"}]
 }

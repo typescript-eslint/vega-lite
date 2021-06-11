@@ -25,13 +25,14 @@ permalink: /docs/sort.html
 
 The `sort` property of [a mark properties channel](encoding.html#mark-props) determines the order of the scale domain. Supported `sort` values depend on the field's scale type.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 ## Sorting Continuous Fields
 
@@ -52,7 +53,7 @@ If the channel has a discrete scale (ordinal or nominal), `sort` can be one of: 
 
 ### Sort by the Field's Natural Order
 
-To order the data by the values' natural order in Javascript (e.g.,`"a"` < `"b"`), the `sort` property can be:
+To order the data by the values' natural order in JavaScript (e.g.,`"a"` < `"b"`), the `sort` property can be:
 
 - `"ascending"` (Default) – sort by the field's value in ascending order.
 - `"descending"` – sort by the field's value in descending order.
@@ -61,13 +62,17 @@ To order the data by the values' natural order in Javascript (e.g.,`"a"` < `"b"`
 
 ### Sort by Another Encoding Channel
 
-To sort data by another encoding channel, the `sort` property can be an object with the `encoding` property:
+To sort data by another encoding channel, the `sort` property can be an encoding channel name to sort by (e.g., `"x"` or `"y"`) with an optional minus prefix for descending sort (e.g., `"-x"` to sort by x-field, descending).
+
+For example, the following plot sorts the y-values by the x-values (in descending order).
+
+<div class="vl-example" data-name="bar_aggregate_sort_by_encoding"></div>
+
+This is equivalent to using an object with the `encoding` and optional `"order"` property:
 
 {% include table.html props="encoding,order" source="SortByEncoding" %}
 
-For example, the following plot sorts the y-values by the x-values.
-
-<div class="vl-example" data-name="bar_aggregate_sort_by_encoding"></div>
+For example, `"sort": "-x"` is equivalent to `"sort": {"encoding": "x", "order": "descending"}`.
 
 ### Sort by a Different Field
 

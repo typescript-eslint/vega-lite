@@ -19,13 +19,14 @@ An error bar summarizes an error range of quantitative values using a set of sum
 
 To create an error bar, set `mark` to `"errorbar"`.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -126,6 +127,12 @@ You can customize the color, size, and opacity of the bar in the `errorbar` by u
 Here is an example of a `errorbar` with the `color` encoding channel set to `{"value": "#4682b4"}`.
 
 <div class="vl-example" data-name="layer_point_errorbar_2d_horizontal_color_encoding"></div>
+
+## Tooltip Encoding Channels
+
+You can add custom tooltips to error bars. The custom tooltip will override the default error bar's tooltips.
+
+<div class="vl-example" data-name="errorbar_tooltip"></div>
 
 {:#config}
 

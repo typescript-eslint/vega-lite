@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -14,9 +14,10 @@
       "transform": [
         {"type": "identifier", "as": "_vgsid_"},
         {
-          "type": "formula",
-          "as": "yearmonthdate_date",
-          "expr": "datetime(year(datum[\"date\"]), month(datum[\"date\"]), date(datum[\"date\"]), 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["year", "month", "date"],
+          "as": ["yearmonthdate_date", "yearmonthdate_date_end"]
         }
       ]
     },
@@ -26,7 +27,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"yearmonthdate_date\"] !== null && !isNaN(datum[\"yearmonthdate_date\"])"
+          "expr": "(isDate(datum[\"yearmonthdate_date\"]) || (isValid(datum[\"yearmonthdate_date\"]) && isFinite(+datum[\"yearmonthdate_date\"])))"
         }
       ]
     }
@@ -39,7 +40,10 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "hover", "update": "vlSelectionResolve(\"hover_store\")"},
+    {
+      "name": "hover",
+      "update": "vlSelectionResolve(\"hover_store\", \"union\", true, true)"
+    },
     {
       "name": "hover_tuple",
       "on": [
@@ -48,7 +52,7 @@
           "update": "datum && item().mark.marktype !== 'group' ? {unit: \"layer_2\", fields: hover_tuple_fields, values: [(item().isVoronoi ? datum.datum : datum)[\"_vgsid_\"]]} : null",
           "force": true
         },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"}
       ]
     },
     {
@@ -56,8 +60,24 @@
       "value": [{"type": "E", "field": "_vgsid_"}]
     },
     {
+      "name": "hover_toggle",
+      "value": false,
+      "on": [
+        {
+          "events": [{"source": "scope", "type": "mouseover"}],
+          "update": "event.shiftKey"
+        },
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "false"}
+      ]
+    },
+    {
       "name": "hover_modify",
-      "update": "modify(\"hover_store\", hover_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "hover_tuple"},
+          "update": "modify(\"hover_store\", hover_toggle ? null : hover_tuple, hover_toggle ? null : true, hover_toggle ? hover_tuple : null)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -65,18 +85,22 @@
       "name": "layer_0_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"yearmonthdate_date\"]", "order": "descending"},
+      "sort": {"field": "datum[\"yearmonthdate_date\"]"},
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "stroke": {"value": "orange"},
           "tooltip": {
-            "signal": "{\"date (year-month-date)\": timeFormat(datum[\"yearmonthdate_date\"], '%b %d, %Y'), \"temp_max\": format(datum[\"temp_max\"], \"\"), \"temp_min\": format(datum[\"temp_min\"], \"\")}"
+            "signal": "{\"date (year-month-date)\": timeFormat(datum[\"yearmonthdate_date\"], timeUnitSpecifier([\"year\",\"month\",\"date\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})), \"temp_max\": format(datum[\"temp_max\"], \"\"), \"temp_min\": format(datum[\"temp_min\"], \"\")}"
+          },
+          "description": {
+            "signal": "\"date (year-month-date): \" + (timeFormat(datum[\"yearmonthdate_date\"], timeUnitSpecifier([\"year\",\"month\",\"date\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; temp_max: \" + (format(datum[\"temp_max\"], \"\")) + \"; temp_min: \" + (format(datum[\"temp_min\"], \"\"))"
           },
           "x": {"scale": "x", "field": "yearmonthdate_date"},
           "y": {"scale": "y", "field": "temp_max"},
           "defined": {
-            "signal": "datum[\"yearmonthdate_date\"] !== null && !isNaN(datum[\"yearmonthdate_date\"]) && datum[\"temp_max\"] !== null && !isNaN(datum[\"temp_max\"])"
+            "signal": "isValid(datum[\"yearmonthdate_date\"]) && isFinite(+datum[\"yearmonthdate_date\"]) && isValid(datum[\"temp_max\"]) && isFinite(+datum[\"temp_max\"])"
           }
         }
       }
@@ -85,18 +109,22 @@
       "name": "layer_1_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"yearmonthdate_date\"]", "order": "descending"},
+      "sort": {"field": "datum[\"yearmonthdate_date\"]"},
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "stroke": {"value": "red"},
           "tooltip": {
-            "signal": "{\"date (year-month-date)\": timeFormat(datum[\"yearmonthdate_date\"], '%b %d, %Y'), \"temp_max\": format(datum[\"temp_max\"], \"\"), \"temp_min\": format(datum[\"temp_min\"], \"\")}"
+            "signal": "{\"date (year-month-date)\": timeFormat(datum[\"yearmonthdate_date\"], timeUnitSpecifier([\"year\",\"month\",\"date\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})), \"temp_max\": format(datum[\"temp_max\"], \"\"), \"temp_min\": format(datum[\"temp_min\"], \"\")}"
+          },
+          "description": {
+            "signal": "\"date (year-month-date): \" + (timeFormat(datum[\"yearmonthdate_date\"], timeUnitSpecifier([\"year\",\"month\",\"date\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; temp_max: \" + (format(datum[\"temp_max\"], \"\")) + \"; temp_min: \" + (format(datum[\"temp_min\"], \"\"))"
           },
           "x": {"scale": "x", "field": "yearmonthdate_date"},
           "y": {"scale": "y", "field": "temp_min"},
           "defined": {
-            "signal": "datum[\"yearmonthdate_date\"] !== null && !isNaN(datum[\"yearmonthdate_date\"]) && datum[\"temp_min\"] !== null && !isNaN(datum[\"temp_min\"])"
+            "signal": "isValid(datum[\"yearmonthdate_date\"]) && isFinite(+datum[\"yearmonthdate_date\"]) && isValid(datum[\"temp_min\"]) && isFinite(+datum[\"temp_min\"])"
           }
         }
       }
@@ -105,22 +133,26 @@
       "name": "layer_2_marks",
       "type": "rule",
       "style": ["rule"],
+      "interactive": true,
       "from": {"data": "data_0"},
       "encode": {
         "update": {
           "stroke": [
             {
-              "test": "(!(vlSelectionTest(\"hover_store\", datum)))",
-              "value": "transparent"
+              "test": "length(data(\"hover_store\")) && vlSelectionTest(\"hover_store\", datum)",
+              "value": "black"
             },
-            {"value": "black"}
+            {"value": "transparent"}
           ],
           "tooltip": {
-            "signal": "{\"date (year-month-date)\": timeFormat(datum[\"yearmonthdate_date\"], '%b %d, %Y'), \"temp_max\": format(datum[\"temp_max\"], \"\"), \"temp_min\": format(datum[\"temp_min\"], \"\")}"
+            "signal": "{\"date (year-month-date)\": timeFormat(datum[\"yearmonthdate_date\"], timeUnitSpecifier([\"year\",\"month\",\"date\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})), \"temp_max\": format(datum[\"temp_max\"], \"\"), \"temp_min\": format(datum[\"temp_min\"], \"\")}"
+          },
+          "description": {
+            "signal": "\"date (year-month-date): \" + (timeFormat(datum[\"yearmonthdate_date\"], timeUnitSpecifier([\"year\",\"month\",\"date\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; temp_max: \" + (format(datum[\"temp_max\"], \"\")) + \"; temp_min: \" + (format(datum[\"temp_min\"], \"\"))"
           },
           "x": {"scale": "x", "field": "yearmonthdate_date"},
-          "y": {"field": {"group": "height"}},
-          "y2": {"value": 0}
+          "y": {"value": 0},
+          "y2": {"field": {"group": "height"}}
         }
       }
     }
@@ -150,39 +182,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date (year-month-date)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%b %d, %Y')"}}
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "temp_max, temp_min",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -192,9 +201,32 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date (year-month-date)",
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\",\"month\",\"date\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "temp_max, temp_min",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],

@@ -19,13 +19,14 @@ An error band summarizes an error range of quantitative values using a set of su
 
 To create an error band, set `mark` to `"errorband"`.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -108,6 +109,12 @@ Here is an example of a `errorband` with the `color` encoding channel set to `{"
 <div class="vl-example" data-name="errorband_2d_horizontal_color_encoding"></div>
 
 {:#config}
+
+## Tooltip Encoding Channels
+
+You can add custom tooltips to error bands. The custom tooltip will override the default error band's tooltips.
+
+<div class="vl-example" data-name="errorband_tooltip"></div>
 
 ## Mark Config
 

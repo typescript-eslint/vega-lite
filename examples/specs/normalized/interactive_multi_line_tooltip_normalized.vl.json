@@ -1,13 +1,13 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "data": {"url": "data/seattle-weather.csv", "format": {"type": "csv"}},
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {"url": "data/seattle-weather.csv"},
   "layer": [
     {
       "mark": {"type": "line", "color": "orange"},
       "encoding": {
-        "x": {"timeUnit": "yearmonthdate", "field": "date", "type": "temporal"},
+        "x": {"timeUnit": "yearmonthdate", "field": "date"},
         "tooltip": [
-          {"timeUnit": "yearmonthdate", "field": "date", "type": "temporal"},
+          {"timeUnit": "yearmonthdate", "field": "date"},
           {"field": "temp_max", "type": "quantitative"},
           {"field": "temp_min", "type": "quantitative"}
         ],
@@ -17,9 +17,9 @@
     {
       "mark": {"type": "line", "color": "red"},
       "encoding": {
-        "x": {"timeUnit": "yearmonthdate", "field": "date", "type": "temporal"},
+        "x": {"timeUnit": "yearmonthdate", "field": "date"},
         "tooltip": [
-          {"timeUnit": "yearmonthdate", "field": "date", "type": "temporal"},
+          {"timeUnit": "yearmonthdate", "field": "date"},
           {"field": "temp_max", "type": "quantitative"},
           {"field": "temp_min", "type": "quantitative"}
         ],
@@ -28,18 +28,19 @@
     },
     {
       "mark": "rule",
-      "selection": {
-        "hover": {"type": "single", "on": "mouseover", "empty": "none"}
-      },
+      "params": [
+        {"name": "hover", "select": {"type": "point", "on": "mouseover"}}
+      ],
       "encoding": {
-        "x": {"timeUnit": "yearmonthdate", "field": "date", "type": "temporal"},
+        "x": {"timeUnit": "yearmonthdate", "field": "date"},
         "tooltip": [
-          {"timeUnit": "yearmonthdate", "field": "date", "type": "temporal"},
+          {"timeUnit": "yearmonthdate", "field": "date"},
           {"field": "temp_max", "type": "quantitative"},
           {"field": "temp_min", "type": "quantitative"}
         ],
         "color": {
-          "condition": {"selection": {"not": "hover"}, "value": "transparent"}
+          "condition": {"param": "hover", "empty": false, "value": "black"},
+          "value": "transparent"
         }
       }
     }

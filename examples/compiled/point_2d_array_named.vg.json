@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -25,7 +25,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"b\"] !== null && !isNaN(datum[\"b\"])"
+          "expr": "isValid(datum[\"b\"]) && isFinite(+datum[\"b\"])"
         }
       ]
     }
@@ -48,8 +48,9 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"a\": ''+datum[\"a\"], \"b\": format(datum[\"b\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"a: \" + (isValid(datum[\"a\"]) ? datum[\"a\"] : \"\"+datum[\"a\"]) + \"; b: \" + (format(datum[\"b\"], \"\"))"
           },
           "x": {"scale": "plotname_x", "field": "a"},
           "y": {"scale": "plotname_y", "field": "b"}
@@ -76,6 +77,20 @@
   ],
   "axes": [
     {
+      "scale": "plotname_y",
+      "orient": "left",
+      "gridScale": "plotname_x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "plotname_x",
       "orient": "bottom",
       "grid": false,
@@ -83,7 +98,7 @@
       "labelAlign": "right",
       "labelAngle": 270,
       "labelBaseline": "middle",
-      "zindex": 1
+      "zindex": 0
     },
     {
       "scale": "plotname_y",
@@ -92,19 +107,6 @@
       "title": "b",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "plotname_y",
-      "orient": "left",
-      "gridScale": "plotname_x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ]

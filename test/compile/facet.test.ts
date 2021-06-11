@@ -1,11 +1,10 @@
-/* tslint:disable quotemark */
-
+import {SignalRef} from 'vega';
 import {ROW} from '../../src/channel';
 import {FacetModel} from '../../src/compile/facet';
 import {assembleLabelTitle} from '../../src/compile/header/assemble';
 import * as log from '../../src/log';
 import {DEFAULT_SPACING} from '../../src/spec/base';
-import {FacetMapping} from '../../src/spec/facet';
+import {FacetFieldDef, FacetMapping} from '../../src/spec/facet';
 import {ORDINAL} from '../../src/type';
 import {parseFacetModel, parseFacetModelWithScale} from '../util';
 
@@ -29,7 +28,7 @@ describe('FacetModel', () => {
     );
 
     it(
-      'should drop channel without field and value and throws warning',
+      'should throw warning about quantitative field used for faceting',
       log.wrap(localLogger => {
         const model = parseFacetModel({
           facet: {
@@ -41,9 +40,39 @@ describe('FacetModel', () => {
           }
         });
         expect(model.facet).toEqual({row: {field: 'a', type: 'quantitative'}});
-        expect(localLogger.warns[0]).toEqual(log.message.facetChannelShouldBeDiscrete(ROW));
+        expect(localLogger.warns[0]).toEqual(log.message.channelShouldBeDiscrete(ROW));
       })
     );
+
+    it('converts orient to titleOrient and labelOrient', () => {
+      const model = parseFacetModel({
+        facet: {
+          row: {field: 'a', type: 'nominal', header: {orient: 'right'}}
+        },
+        spec: {
+          mark: 'point',
+          encoding: {}
+        }
+      });
+      expect(model.facet).toEqual({
+        row: {field: 'a', type: 'nominal', header: {titleOrient: 'right', labelOrient: 'right'}}
+      });
+    });
+
+    it('keeps header: null', () => {
+      const model = parseFacetModel({
+        facet: {
+          row: {field: 'a', type: 'nominal', header: null}
+        },
+        spec: {
+          mark: 'point',
+          encoding: {}
+        }
+      });
+      expect(model.facet).toEqual({
+        row: {field: 'a', type: 'nominal', header: null}
+      });
+    });
   });
 
   describe('parseAxisAndHeader', () => {
@@ -76,7 +105,7 @@ describe('FacetModel', () => {
     it('applies number format for fieldref of a quantitative field', () => {
       const model = parseFacetModelWithScale({
         facet: {
-          column: {field: 'a', type: 'quantitative', format: 'd'}
+          column: {field: 'a', type: 'nominal', header: {format: 'd'}}
         },
         spec: {
           mark: 'point',
@@ -161,7 +190,7 @@ describe('FacetModel', () => {
     it('should sort headers in ascending order', () => {
       const model = parseFacetModelWithScale({
         facet: {
-          column: {field: 'a', type: 'ordinal', format: 'd'}
+          column: {field: 'a', type: 'ordinal'}
         },
         spec: {
           mark: 'point',
@@ -330,7 +359,6 @@ describe('FacetModel', () => {
 
     it('returns a layout with header band if child spec is also a facet', () => {
       const model = parseFacetModelWithScale({
-        $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
         data: {url: 'data/cars.json'},
         facet: {row: {field: 'Origin', type: 'ordinal'}},
         spec: {
@@ -353,7 +381,6 @@ describe('FacetModel', () => {
 
     it('returns a layout with titleAnchor ="end" when titleOrient is right', () => {
       const model = parseFacetModelWithScale({
-        $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
         data: {url: 'data/cars.json'},
         facet: {row: {field: 'Origin', type: 'ordinal', header: {titleOrient: 'right'}}},
         spec: {
@@ -373,7 +400,6 @@ describe('FacetModel', () => {
 
     it('returns a layout with titleAnchor ="end" when titleOrient is bottom', () => {
       const model = parseFacetModelWithScale({
-        $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
         data: {url: 'data/cars.json'},
         facet: {column: {field: 'Origin', type: 'ordinal', header: {titleOrient: 'bottom'}}},
         spec: {
@@ -394,7 +420,7 @@ describe('FacetModel', () => {
 
   describe('assembleMarks', () => {
     it('add label title for orthogonal orient label', () => {
-      const facet: FacetMapping<string> = {
+      const facet: FacetMapping<string, FacetFieldDef<string, SignalRef>> = {
         row: {field: 'a', type: 'ordinal', header: {labelOrient: 'top'}}
       };
       const model: FacetModel = parseFacetModelWithScale({
@@ -524,11 +550,11 @@ describe('FacetModel', () => {
     it('should add calculate cardinality for child column facet', () => {
       const model: FacetModel = parseFacetModelWithScale({
         facet: {
-          column: {field: 'a', type: 'quantitative'}
+          column: {field: 'a', type: 'nominal'}
         },
         spec: {
           facet: {
-            column: {field: 'c', type: 'quantitative'}
+            column: {field: 'c', type: 'nominal'}
           },
           spec: {
             mark: 'point',

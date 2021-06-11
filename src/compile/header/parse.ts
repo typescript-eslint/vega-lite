@@ -1,15 +1,18 @@
-import {AxisOrient} from 'vega';
+import {AxisOrient, SignalRef} from 'vega';
+import {isArray} from 'vega-util';
 import {FacetChannel, FACET_CHANNELS} from '../../channel';
 import {title as fieldDefTitle} from '../../channeldef';
-import {contains} from '../../util';
+import {contains, getFirstDefined} from '../../util';
+import {isSignalRef} from '../../vega.schema';
 import {assembleAxis} from '../axis/assemble';
 import {FacetModel} from '../facet';
 import {parseGuideResolve} from '../resolve';
 import {getHeaderProperty} from './common';
 import {HeaderChannel, HeaderComponent} from './component';
 
-export function getHeaderType(orient: AxisOrient) {
-  if (orient === 'top' || orient === 'left') {
+export function getHeaderType(orient: AxisOrient | SignalRef) {
+  if (orient === 'top' || orient === 'left' || isSignalRef(orient)) {
+    // we always use header for orient signal since we can't dynamically make header becomes footer
     return 'header';
   }
   return 'footer';
@@ -25,28 +28,34 @@ export function parseFacetHeaders(model: FacetModel) {
 }
 
 function parseFacetHeader(model: FacetModel, channel: FacetChannel) {
+  const {facet, config, child, component} = model;
   if (model.channelHasField(channel)) {
-    const fieldDef = model.facet[channel];
-    const titleConfig = getHeaderProperty('title', null, model.config, channel);
-    let title = fieldDefTitle(fieldDef, model.config, {
+    const fieldDef = facet[channel];
+    const titleConfig = getHeaderProperty('title', null, config, channel);
+    let title = fieldDefTitle(fieldDef, config, {
       allowDisabling: true,
       includeDefault: titleConfig === undefined || !!titleConfig
     });
 
-    if (model.child.component.layoutHeaders[channel].title) {
+    if (child.component.layoutHeaders[channel].title) {
+      // TODO: better handle multiline titles
+      title = isArray(title) ? title.join(', ') : title;
+
       // merge title with child to produce "Title / Subtitle / Sub-subtitle"
-      title += ' / ' + model.child.component.layoutHeaders[channel].title;
-      model.child.component.layoutHeaders[channel].title = null;
+      title += ` / ${child.component.layoutHeaders[channel].title}`;
+      child.component.layoutHeaders[channel].title = null;
     }
 
-    const labelOrient = getHeaderProperty('labelOrient', fieldDef, model.config, channel);
+    const labelOrient = getHeaderProperty('labelOrient', fieldDef.header, config, channel);
 
+    const labels =
+      fieldDef.header !== null ? getFirstDefined(fieldDef.header?.labels, config.header.labels, true) : false;
     const headerType = contains(['bottom', 'right'], labelOrient) ? 'footer' : 'header';
 
-    model.component.layoutHeaders[channel] = {
-      title,
+    component.layoutHeaders[channel] = {
+      title: fieldDef.header !== null ? title : null,
       facetFieldDef: fieldDef,
-      [headerType]: channel === 'facet' ? [] : [makeHeaderComponent(model, channel, true)]
+      [headerType]: channel === 'facet' ? [] : [makeHeaderComponent(model, channel, labels)]
     };
   }
 }
@@ -74,12 +83,14 @@ function mergeChildAxis(model: FacetModel, channel: 'x' | 'y') {
       const layoutHeader = layoutHeaders[headerChannel];
       for (const axisComponent of child.component.axes[channel]) {
         const headerType = getHeaderType(axisComponent.get('orient'));
-        layoutHeader[headerType] = layoutHeader[headerType] || [makeHeaderComponent(model, headerChannel, false)];
+        layoutHeader[headerType] ??= [makeHeaderComponent(model, headerChannel, false)];
 
         // FIXME: assemble shouldn't be called here, but we do it this way so we only extract the main part of the axes
         const mainAxis = assembleAxis(axisComponent, 'main', model.config, {header: true});
-        // LayoutHeader no longer keep track of property precedence, thus let's combine.
-        layoutHeader[headerType][0].axes.push(mainAxis);
+        if (mainAxis) {
+          // LayoutHeader no longer keep track of property precedence, thus let's combine.
+          layoutHeader[headerType][0].axes.push(mainAxis);
+        }
         axisComponent.mainExtracted = true;
       }
     } else {

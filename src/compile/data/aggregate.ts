@@ -1,24 +1,34 @@
-import {AggregateOp} from 'vega';
+import {AggregateOp, AggregateTransform as VgAggregateTransform} from 'vega';
 import {isArgmaxDef, isArgminDef} from '../../aggregate';
-import {isBinning} from '../../bin';
-import {Channel, getPositionChannelFromLatLong, isGeoPositionChannel, isScaleChannel} from '../../channel';
-import {binRequiresRange, FieldDef, isTypedFieldDef, vgField} from '../../channeldef';
+import {
+  Channel,
+  getPositionChannelFromLatLong,
+  getSecondaryRangeChannel,
+  isGeoPositionChannel,
+  isScaleChannel
+} from '../../channel';
+import {binRequiresRange, FieldDef, hasBandEnd, isTypedFieldDef, vgField} from '../../channeldef';
 import * as log from '../../log';
 import {AggregateTransform} from '../../transform';
 import {Dict, duplicate, hash, keys, replacePathInField, setEqual} from '../../util';
-import {VgAggregateTransform} from '../../vega.schema';
-import {ModelWithField} from '../model';
+import {isUnitModel, ModelWithField} from '../model';
 import {UnitModel} from '../unit';
 import {DataFlowNode} from './dataflow';
 
-type Measures = Dict<{[key in AggregateOp]?: Set<string>}>;
+type Measures = Dict<Partial<Record<AggregateOp, Set<string>>>>;
 
 function addDimension(dims: Set<string>, channel: Channel, fieldDef: FieldDef<string>, model: ModelWithField) {
-  if (isTypedFieldDef(fieldDef) && isBinning(fieldDef.bin)) {
-    dims.add(vgField(fieldDef, {}));
-    dims.add(vgField(fieldDef, {binSuffix: 'end'}));
+  const channelDef2 = isUnitModel(model) ? model.encoding[getSecondaryRangeChannel(channel)] : undefined;
 
-    if (binRequiresRange(fieldDef, channel)) {
+  if (
+    isTypedFieldDef(fieldDef) &&
+    isUnitModel(model) &&
+    hasBandEnd(fieldDef, channelDef2, model.markDef, model.config)
+  ) {
+    dims.add(vgField(fieldDef, {}));
+    dims.add(vgField(fieldDef, {suffix: 'end'}));
+
+    if (fieldDef.bin && binRequiresRange(fieldDef, channel)) {
       dims.add(vgField(fieldDef, {binSuffix: 'range'}));
     }
   } else if (isGeoPositionChannel(channel)) {
@@ -37,7 +47,7 @@ function mergeMeasures(parentMeasures: Measures, childMeasures: Measures) {
     for (const op of keys(ops)) {
       if (field in parentMeasures) {
         // add operator to existing measure field
-        parentMeasures[field][op] = new Set([...(parentMeasures[field][op] || []), ...ops[op]]);
+        parentMeasures[field][op] = new Set([...(parentMeasures[field][op] ?? []), ...ops[op]]);
       } else {
         parentMeasures[field] = {[op]: ops[op]};
       }
@@ -78,26 +88,26 @@ export class AggregateNode extends DataFlowNode {
       return null;
     }
 
-    model.forEachFieldDef((fieldDef, channel) => {
+    model.forEachFieldDef((fieldDef, channel: Channel) => {
       const {aggregate, field} = fieldDef;
       if (aggregate) {
         if (aggregate === 'count') {
-          meas['*'] = meas['*'] || {};
+          meas['*'] ??= {};
           meas['*']['count'] = new Set([vgField(fieldDef, {forAs: true})]);
         } else {
           if (isArgminDef(aggregate) || isArgmaxDef(aggregate)) {
             const op = isArgminDef(aggregate) ? 'argmin' : 'argmax';
             const argField = aggregate[op];
-            meas[argField] = meas[argField] || {};
+            meas[argField] ??= {};
             meas[argField][op] = new Set([vgField({op, field: argField}, {forAs: true})]);
           } else {
-            meas[field] = meas[field] || {};
+            meas[field] ??= {};
             meas[field][aggregate] = new Set([vgField(fieldDef, {forAs: true})]);
           }
 
           // For scale channel with domain === 'unaggregated', add min/max so we can use their union as unaggregated domain
           if (isScaleChannel(channel) && model.scaleDomain(channel) === 'unaggregated') {
-            meas[field] = meas[field] || {};
+            meas[field] ??= {};
             meas[field]['min'] = new Set([vgField({field, aggregate: 'min'}, {forAs: true})]);
             meas[field]['max'] = new Set([vgField({field, aggregate: 'max'}, {forAs: true})]);
           }
@@ -122,16 +132,16 @@ export class AggregateNode extends DataFlowNode {
       const {op, field, as} = s;
       if (op) {
         if (op === 'count') {
-          meas['*'] = meas['*'] || {};
+          meas['*'] ??= {};
           meas['*']['count'] = new Set([as ? as : vgField(s, {forAs: true})]);
         } else {
-          meas[field] = meas[field] || {};
+          meas[field] ??= {};
           meas[field][op] = new Set([as ? as : vgField(s, {forAs: true})]);
         }
       }
     }
 
-    for (const s of t.groupby || []) {
+    for (const s of t.groupby ?? []) {
       dims.add(s);
     }
 
@@ -152,7 +162,7 @@ export class AggregateNode extends DataFlowNode {
     }
   }
 
-  public addDimensions(fields: string[]) {
+  public addDimensions(fields: readonly string[]) {
     fields.forEach(this.dimensions.add, this.dimensions);
   }
 
@@ -198,7 +208,7 @@ export class AggregateNode extends DataFlowNode {
 
     const result: VgAggregateTransform = {
       type: 'aggregate',
-      groupby: [...this.dimensions],
+      groupby: [...this.dimensions].map(replacePathInField),
       ops,
       fields,
       as

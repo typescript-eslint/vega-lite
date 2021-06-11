@@ -1,14 +1,15 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "Though Vega-Lite supports only one scale per axes, one can create a parallel coordinate plot by folding variables, using `joinaggregate` to normalize their values and using ticks and rules to manually create axes.",
   "data": {
-    "url": "data/iris.json"
+    "url": "data/penguins.json"
   },
   "width": 600,
   "height": 300,
   "transform": [
+    {"filter": "datum['Beak Length (mm)']"},
     {"window": [{"op": "count", "as": "index"}]},
-    {"fold": ["petalLength", "petalWidth", "sepalLength", "sepalWidth"]},
+    {"fold": ["Beak Length (mm)", "Beak Depth (mm)", "Flipper Length (mm)", "Body Mass (g)"]},
     {
       "joinaggregate": [
         {"op": "min", "field": "value", "as": "min"},
@@ -26,34 +27,34 @@
     }
   ],
   "layer": [{
-    "mark": {"type": "rule", "color": "#ccc", "tooltip": null},
+    "mark": {"type": "rule", "color": "#ccc"},
     "encoding": {
-      "detail": {"aggregate": "count", "type": "quantitative"},
-      "x": {"type": "nominal", "field": "key"}
+      "detail": {"aggregate": "count"},
+      "x": {"field": "key"}
     }
   }, {
     "mark": "line",
     "encoding": {
-      "color": {"type": "nominal", "field": "species"},
+      "color": {"type": "nominal", "field": "Species"},
       "detail": {"type": "nominal", "field": "index"},
       "opacity": {"value": 0.3},
       "x": {"type": "nominal", "field": "key"},
       "y": {"type": "quantitative", "field": "norm_val", "axis": null},
       "tooltip": [{
         "type": "quantitative",
-        "field": "petalLength"
+        "field": "Beak Length (mm)"
       }, {
         "type": "quantitative",
-        "field": "petalWidth"
+        "field": "Beak Depth (mm)"
       }, {
         "type": "quantitative",
-        "field": "sepalLength"
+        "field": "Flipper Length (mm)"
       }, {
         "type": "quantitative",
-        "field": "sepalWidth"
+        "field": "Body Mass (g)"
       }]
     }
-  },{
+  }, {
     "encoding": {
       "x": {"type": "nominal", "field": "key"},
       "y": {"value": 0}
@@ -61,13 +62,12 @@
     "layer": [{
       "mark": {"type": "text", "style": "label"},
       "encoding": {
-        "text": {"aggregate": "max", "field": "max", "type": "quantitative"}
+        "text": {"aggregate": "max", "field": "max"}
       }
     }, {
       "mark": {"type": "tick", "style": "tick", "size": 8, "color": "#ccc"}
     }]
-  },{
-
+  }, {
     "encoding": {
       "x": {"type": "nominal", "field": "key"},
       "y": {"value": 150}
@@ -75,12 +75,12 @@
     "layer": [{
       "mark": {"type": "text", "style": "label"},
       "encoding": {
-        "text": {"aggregate": "min", "field": "mid", "type": "quantitative"}
+        "text": {"aggregate": "min", "field": "mid"}
       }
     }, {
       "mark": {"type": "tick", "style": "tick", "size": 8, "color": "#ccc"}
     }]
-  },{
+  }, {
     "encoding": {
       "x": {"type": "nominal", "field": "key"},
       "y": {"value": 300}
@@ -88,7 +88,7 @@
     "layer": [{
       "mark": {"type": "text", "style": "label"},
       "encoding": {
-        "text": {"aggregate": "min", "field": "min", "type": "quantitative"}
+        "text": {"aggregate": "min", "field": "min"}
       }
     }, {
       "mark": {"type": "tick", "style": "tick", "size": 8, "color": "#ccc"}
@@ -98,8 +98,8 @@
     "axisX": {"domain": false, "labelAngle": 0, "tickColor": "#ccc", "title": null},
     "view": {"stroke": null},
     "style": {
-      "label": {"baseline": "middle", "align": "right", "dx": -5, "tooltip": null},
-      "tick": {"orient": "horizontal", "tooltip": null}
+      "label": {"baseline": "middle", "align": "right", "dx": -5},
+      "tick": {"orient": "horizontal"}
     }
   }
 }

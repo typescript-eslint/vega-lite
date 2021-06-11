@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "description": "A vertical 1D box plot showing median, min, and max in the US population distribution of age groups in 2000.",
-  "autosize": "pad",
+  "description": "A vertical box plot showing median and lower and upper quartiles of the distribution of body mass of penguins.",
+  "background": "white",
   "padding": 5,
   "width": 20,
   "height": 200,
@@ -9,7 +9,7 @@
   "data": [
     {
       "name": "source_0",
-      "url": "data/population.json",
+      "url": "data/penguins.json",
       "format": {"type": "json"}
     },
     {
@@ -18,9 +18,9 @@
       "transform": [
         {
           "type": "joinaggregate",
-          "as": ["lower_box_people", "upper_box_people"],
+          "as": ["lower_box_Body Mass (g)", "upper_box_Body Mass (g)"],
           "ops": ["q1", "q3"],
-          "fields": ["people", "people"],
+          "fields": ["Body Mass (g)", "Body Mass (g)"],
           "groupby": []
         }
       ]
@@ -31,11 +31,11 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "(datum[\"people\"] < datum[\"lower_box_people\"] - 1.5 * (datum[\"upper_box_people\"] - datum[\"lower_box_people\"])) || (datum[\"people\"] > datum[\"upper_box_people\"] + 1.5 * (datum[\"upper_box_people\"] - datum[\"lower_box_people\"]))"
+          "expr": "(datum[\"Body Mass (g)\"] < datum[\"lower_box_Body Mass (g)\"] - 1.5 * (datum[\"upper_box_Body Mass (g)\"] - datum[\"lower_box_Body Mass (g)\"])) || (datum[\"Body Mass (g)\"] > datum[\"upper_box_Body Mass (g)\"] + 1.5 * (datum[\"upper_box_Body Mass (g)\"] - datum[\"lower_box_Body Mass (g)\"]))"
         },
         {
           "type": "filter",
-          "expr": "datum[\"people\"] !== null && !isNaN(datum[\"people\"])"
+          "expr": "isValid(datum[\"Body Mass (g)\"]) && isFinite(+datum[\"Body Mass (g)\"])"
         }
       ]
     },
@@ -45,88 +45,53 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "(datum[\"lower_box_people\"] - 1.5 * (datum[\"upper_box_people\"] - datum[\"lower_box_people\"]) <= datum[\"people\"]) && (datum[\"people\"] <= datum[\"upper_box_people\"] + 1.5 * (datum[\"upper_box_people\"] - datum[\"lower_box_people\"]))"
+          "expr": "(datum[\"lower_box_Body Mass (g)\"] - 1.5 * (datum[\"upper_box_Body Mass (g)\"] - datum[\"lower_box_Body Mass (g)\"]) <= datum[\"Body Mass (g)\"]) && (datum[\"Body Mass (g)\"] <= datum[\"upper_box_Body Mass (g)\"] + 1.5 * (datum[\"upper_box_Body Mass (g)\"] - datum[\"lower_box_Body Mass (g)\"]))"
         },
         {
           "type": "aggregate",
           "groupby": [],
           "ops": ["min", "max", "min", "max"],
           "fields": [
-            "people",
-            "people",
-            "lower_box_people",
-            "upper_box_people"
+            "Body Mass (g)",
+            "Body Mass (g)",
+            "lower_box_Body Mass (g)",
+            "upper_box_Body Mass (g)"
           ],
           "as": [
-            "lower_whisker_people",
-            "upper_whisker_people",
-            "lower_box_people",
-            "upper_box_people"
+            "lower_whisker_Body Mass (g)",
+            "upper_whisker_Body Mass (g)",
+            "lower_box_Body Mass (g)",
+            "upper_box_Body Mass (g)"
           ]
         }
       ]
     },
     {
       "name": "data_3",
-      "source": "data_2",
-      "transform": [
-        {
-          "type": "filter",
-          "expr": "datum[\"lower_whisker_people\"] !== null && !isNaN(datum[\"lower_whisker_people\"])"
-        }
-      ]
-    },
-    {
-      "name": "data_4",
-      "source": "data_2",
-      "transform": [
-        {
-          "type": "filter",
-          "expr": "datum[\"upper_box_people\"] !== null && !isNaN(datum[\"upper_box_people\"])"
-        }
-      ]
-    },
-    {
-      "name": "data_5",
       "source": "source_0",
       "transform": [
         {
           "type": "aggregate",
           "groupby": [],
           "ops": ["q1", "q3", "median", "min", "max"],
-          "fields": ["people", "people", "people", "people", "people"],
+          "fields": [
+            "Body Mass (g)",
+            "Body Mass (g)",
+            "Body Mass (g)",
+            "Body Mass (g)",
+            "Body Mass (g)"
+          ],
           "as": [
-            "lower_box_people",
-            "upper_box_people",
-            "mid_box_people",
-            "min_people",
-            "max_people"
+            "lower_box_Body Mass (g)",
+            "upper_box_Body Mass (g)",
+            "mid_box_Body Mass (g)",
+            "min_Body Mass (g)",
+            "max_Body Mass (g)"
           ]
-        }
-      ]
-    },
-    {
-      "name": "data_6",
-      "source": "data_5",
-      "transform": [
-        {
-          "type": "filter",
-          "expr": "datum[\"lower_box_people\"] !== null && !isNaN(datum[\"lower_box_people\"])"
-        }
-      ]
-    },
-    {
-      "name": "data_7",
-      "source": "data_5",
-      "transform": [
-        {
-          "type": "filter",
-          "expr": "datum[\"mid_box_people\"] !== null && !isNaN(datum[\"mid_box_people\"])"
         }
       ]
     }
   ],
-  "signals": [{"name": "width", "update": "width"}],
   "marks": [
     {
       "name": "layer_0_layer_0_marks",
@@ -138,11 +103,18 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"people\": format(datum[\"people\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"Body Mass (g): \" + (format(datum[\"Body Mass (g)\"], \"\"))"
           },
           "x": {"signal": "width", "mult": 0.5},
-          "y": {"scale": "y", "field": "people"}
+          "y": [
+            {
+              "test": "!isValid(datum[\"Body Mass (g)\"]) || !isFinite(+datum[\"Body Mass (g)\"])",
+              "field": {"group": "height"}
+            },
+            {"scale": "y", "field": "Body Mass (g)"}
+          ]
         }
       }
     },
@@ -150,16 +122,17 @@
       "name": "layer_0_layer_1_layer_0_marks",
       "type": "rule",
       "style": ["rule", "boxplot-rule"],
-      "from": {"data": "data_3"},
+      "aria": false,
+      "from": {"data": "data_2"},
       "encode": {
         "update": {
           "stroke": {"value": "black"},
           "tooltip": {
-            "signal": "{\"Upper Whisker of people\": format(datum[\"upper_whisker_people\"], \"\"), \"Lower Whisker of people\": format(datum[\"lower_whisker_people\"], \"\")}"
+            "signal": "{\"Upper Whisker of Body Mass (g)\": format(datum[\"upper_whisker_Body Mass (g)\"], \"\"), \"Lower Whisker of Body Mass (g)\": format(datum[\"lower_whisker_Body Mass (g)\"], \"\")}"
           },
           "x": {"signal": "width", "mult": 0.5},
-          "y": {"scale": "y", "field": "lower_whisker_people"},
-          "y2": {"scale": "y", "field": "lower_box_people"}
+          "y": {"scale": "y", "field": "lower_whisker_Body Mass (g)"},
+          "y2": {"scale": "y", "field": "lower_box_Body Mass (g)"}
         }
       }
     },
@@ -167,16 +140,17 @@
       "name": "layer_0_layer_1_layer_1_marks",
       "type": "rule",
       "style": ["rule", "boxplot-rule"],
-      "from": {"data": "data_4"},
+      "aria": false,
+      "from": {"data": "data_2"},
       "encode": {
         "update": {
           "stroke": {"value": "black"},
           "tooltip": {
-            "signal": "{\"Upper Whisker of people\": format(datum[\"upper_whisker_people\"], \"\"), \"Lower Whisker of people\": format(datum[\"lower_whisker_people\"], \"\")}"
+            "signal": "{\"Upper Whisker of Body Mass (g)\": format(datum[\"upper_whisker_Body Mass (g)\"], \"\"), \"Lower Whisker of Body Mass (g)\": format(datum[\"lower_whisker_Body Mass (g)\"], \"\")}"
           },
           "x": {"signal": "width", "mult": 0.5},
-          "y": {"scale": "y", "field": "upper_box_people"},
-          "y2": {"scale": "y", "field": "upper_whisker_people"}
+          "y": {"scale": "y", "field": "upper_box_Body Mass (g)"},
+          "y2": {"scale": "y", "field": "upper_whisker_Body Mass (g)"}
         }
       }
     },
@@ -184,17 +158,21 @@
       "name": "layer_1_layer_0_marks",
       "type": "rect",
       "style": ["bar", "boxplot-box"],
-      "from": {"data": "data_6"},
+      "from": {"data": "data_3"},
       "encode": {
         "update": {
+          "ariaRoleDescription": {"value": "box"},
           "fill": {"value": "#4c78a8"},
           "tooltip": {
-            "signal": "{\"Max of people\": format(datum[\"max_people\"], \"\"), \"Q3 of people\": format(datum[\"upper_box_people\"], \"\"), \"Median of people\": format(datum[\"mid_box_people\"], \"\"), \"Q1 of people\": format(datum[\"lower_box_people\"], \"\"), \"Min of people\": format(datum[\"min_people\"], \"\")}"
+            "signal": "{\"Max of Body Mass (g)\": format(datum[\"max_Body Mass (g)\"], \"\"), \"Q3 of Body Mass (g)\": format(datum[\"upper_box_Body Mass (g)\"], \"\"), \"Median of Body Mass (g)\": format(datum[\"mid_box_Body Mass (g)\"], \"\"), \"Q1 of Body Mass (g)\": format(datum[\"lower_box_Body Mass (g)\"], \"\"), \"Min of Body Mass (g)\": format(datum[\"min_Body Mass (g)\"], \"\")}"
+          },
+          "description": {
+            "signal": "\"Body Mass (g): \" + (format(datum[\"lower_box_Body Mass (g)\"], \"\")) + \"; upper_box_Body Mass (g): \" + (format(datum[\"upper_box_Body Mass (g)\"], \"\")) + \"; Max of Body Mass (g): \" + (format(datum[\"max_Body Mass (g)\"], \"\")) + \"; Q3 of Body Mass (g): \" + (format(datum[\"upper_box_Body Mass (g)\"], \"\")) + \"; Median of Body Mass (g): \" + (format(datum[\"mid_box_Body Mass (g)\"], \"\")) + \"; Q1 of Body Mass (g): \" + (format(datum[\"lower_box_Body Mass (g)\"], \"\")) + \"; Min of Body Mass (g): \" + (format(datum[\"min_Body Mass (g)\"], \"\"))"
           },
           "xc": {"signal": "width", "mult": 0.5},
           "width": {"value": 14},
-          "y": {"scale": "y", "field": "lower_box_people"},
-          "y2": {"scale": "y", "field": "upper_box_people"}
+          "y": {"scale": "y", "field": "lower_box_Body Mass (g)"},
+          "y2": {"scale": "y", "field": "upper_box_Body Mass (g)"}
         }
       }
     },
@@ -202,16 +180,17 @@
       "name": "layer_1_layer_1_marks",
       "type": "rect",
       "style": ["tick", "boxplot-median"],
-      "from": {"data": "data_7"},
+      "aria": false,
+      "from": {"data": "data_3"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"value": "white"},
           "tooltip": {
-            "signal": "{\"Max of people\": format(datum[\"max_people\"], \"\"), \"Q3 of people\": format(datum[\"upper_box_people\"], \"\"), \"Median of people\": format(datum[\"mid_box_people\"], \"\"), \"Q1 of people\": format(datum[\"lower_box_people\"], \"\"), \"Min of people\": format(datum[\"min_people\"], \"\")}"
+            "signal": "{\"Max of Body Mass (g)\": format(datum[\"max_Body Mass (g)\"], \"\"), \"Q3 of Body Mass (g)\": format(datum[\"upper_box_Body Mass (g)\"], \"\"), \"Median of Body Mass (g)\": format(datum[\"mid_box_Body Mass (g)\"], \"\"), \"Q1 of Body Mass (g)\": format(datum[\"lower_box_Body Mass (g)\"], \"\"), \"Min of Body Mass (g)\": format(datum[\"min_Body Mass (g)\"], \"\")}"
           },
           "xc": {"signal": "width", "mult": 0.5},
-          "yc": {"scale": "y", "field": "mid_box_people"},
+          "yc": {"scale": "y", "field": "mid_box_Body Mass (g)"},
           "width": {"value": 14},
           "height": {"value": 1}
         }
@@ -224,31 +203,22 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_1", "field": "people"},
-          {"data": "data_3", "field": "lower_whisker_people"},
-          {"data": "data_3", "field": "lower_box_people"},
-          {"data": "data_4", "field": "upper_box_people"},
-          {"data": "data_4", "field": "upper_whisker_people"},
-          {"data": "data_6", "field": "lower_box_people"},
-          {"data": "data_6", "field": "upper_box_people"},
-          {"data": "data_7", "field": "mid_box_people"}
+          {"data": "data_1", "field": "Body Mass (g)"},
+          {"data": "data_2", "field": "lower_whisker_Body Mass (g)"},
+          {"data": "data_2", "field": "lower_box_Body Mass (g)"},
+          {"data": "data_2", "field": "upper_box_Body Mass (g)"},
+          {"data": "data_2", "field": "upper_whisker_Body Mass (g)"},
+          {"data": "data_3", "field": "lower_box_Body Mass (g)"},
+          {"data": "data_3", "field": "upper_box_Body Mass (g)"},
+          {"data": "data_3", "field": "mid_box_Body Mass (g)"}
         ]
       },
       "range": [{"signal": "height"}, 0],
-      "nice": true,
-      "zero": true
+      "zero": false,
+      "nice": true
     }
   ],
   "axes": [
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "population",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
     {
       "scale": "y",
       "orient": "left",
@@ -256,9 +226,19 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Body Mass (g)",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

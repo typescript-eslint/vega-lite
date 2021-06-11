@@ -1,39 +1,41 @@
 import {AggregateOp} from 'vega';
 import {BinParams} from './bin';
+import {FieldName} from './channeldef';
 import {Data} from './data';
 import {ImputeParams} from './impute';
-import {LogicalOperand, normalizeLogicalOperand} from './logical';
+import {LogicalComposition, normalizeLogicalComposition} from './logical';
+import {ParameterName} from './parameter';
 import {normalizePredicate, Predicate} from './predicate';
 import {SortField} from './sort';
-import {TimeUnit} from './timeunit';
-import {JoinAggregateTransform} from './transform';
+import {TimeUnit, TimeUnitParams} from './timeunit';
 
 export interface FilterTransform {
   /**
-   * The `filter` property must be one of the predicate definitions:
+   * The `filter` property must be a predication definition, which can take one of the following forms:
    *
    * 1) an [expression](https://vega.github.io/vega-lite/docs/types.html#expression) string,
-   * where `datum` can be used to refer to the current data object
+   * where `datum` can be used to refer to the current data object.
+   * For example, `{filter: "datum.b2 > 60"}` would make the output data includes only items that have values in the field `b2` over 60.
    *
-   * 2) one of the field predicates: [`equal`](https://vega.github.io/vega-lite/docs/filter.html#equal-predicate),
-   * [`lt`](https://vega.github.io/vega-lite/docs/filter.html#lt-predicate),
-   * [`lte`](https://vega.github.io/vega-lite/docs/filter.html#lte-predicate),
-   * [`gt`](https://vega.github.io/vega-lite/docs/filter.html#gt-predicate),
-   * [`gte`](https://vega.github.io/vega-lite/docs/filter.html#gte-predicate),
-   * [`range`](https://vega.github.io/vega-lite/docs/filter.html#range-predicate),
-   * [`oneOf`](https://vega.github.io/vega-lite/docs/filter.html#one-of-predicate),
-   * or [`valid`](https://vega.github.io/vega-lite/docs/filter.html#valid-predicate),
+   * 2) one of the [field predicates](https://vega.github.io/vega-lite/docs/predicate.html#field-predicate):
+   * [`equal`](https://vega.github.io/vega-lite/docs/predicate.html#field-equal-predicate),
+   * [`lt`](https://vega.github.io/vega-lite/docs/predicate.html#lt-predicate),
+   * [`lte`](https://vega.github.io/vega-lite/docs/predicate.html#lte-predicate),
+   * [`gt`](https://vega.github.io/vega-lite/docs/predicate.html#gt-predicate),
+   * [`gte`](https://vega.github.io/vega-lite/docs/predicate.html#gte-predicate),
+   * [`range`](https://vega.github.io/vega-lite/docs/predicate.html#range-predicate),
+   * [`oneOf`](https://vega.github.io/vega-lite/docs/predicate.html#one-of-predicate),
+   * or [`valid`](https://vega.github.io/vega-lite/docs/predicate.html#valid-predicate),
+
+   * 3) a [selection predicate](https://vega.github.io/vega-lite/docs/predicate.html#selection-predicate), which define the names of a selection that the data point should belong to (or a logical composition of selections).
    *
-   * 3) a [selection predicate](https://vega.github.io/vega-lite/docs/filter.html#selection-predicate)
-   *
-   * 4) a logical operand that combines (1), (2), or (3).
+   * 4) a [logical composition](https://vega.github.io/vega-lite/docs/predicate.html#composition) of (1), (2), or (3).
    */
-  // TODO: https://github.com/vega/vega-lite/issues/2901
-  filter: LogicalOperand<Predicate>;
+  filter: LogicalComposition<Predicate>;
 }
 
 export function isFilter(t: Transform): t is FilterTransform {
-  return t['filter'] !== undefined;
+  return 'filter' in t;
 }
 
 export interface CalculateTransform {
@@ -45,41 +47,43 @@ export interface CalculateTransform {
   /**
    * The field for storing the computed formula value.
    */
-  as: string;
+  as: FieldName;
 }
 
 export interface BinTransform {
   /**
    * An object indicating bin properties, or simply `true` for using default bin parameters.
    */
-  bin: boolean | BinParams;
+  bin: true | BinParams;
 
   /**
    * The data field to bin.
    */
-  field: string;
+  field: FieldName;
 
   /**
    * The output fields at which to write the start and end bin values.
+   * This can be either a string or an array of strings with two elements denoting the name for the fields for bin start and bin end respectively.
+   * If a single string (e.g., `"val"`) is provided, the end field will be `"val_end"`.
    */
-  as: string | string[];
+  as: FieldName | FieldName[];
 }
 
 export interface TimeUnitTransform {
   /**
    * The timeUnit.
    */
-  timeUnit: TimeUnit;
+  timeUnit: TimeUnit | TimeUnitParams;
 
   /**
    * The data field to apply time unit.
    */
-  field: string;
+  field: FieldName;
 
   /**
    * The output field to write the timeUnit value.
    */
-  as: string;
+  as: FieldName;
 }
 
 export interface AggregateTransform {
@@ -91,12 +95,12 @@ export interface AggregateTransform {
   /**
    * The data fields to group by. If not specified, a single group containing all data objects will be used.
    */
-  groupby?: string[];
+  groupby?: FieldName[];
 }
 
 export interface AggregatedFieldDef {
   /**
-   * The aggregation operation to apply to the fields (e.g., sum, average or count).
+   * The aggregation operation to apply to the fields (e.g., `"sum"`, `"average"`, or `"count"`).
    * See the [full list of supported aggregation operations](https://vega.github.io/vega-lite/docs/aggregate.html#ops)
    * for more information.
    */
@@ -105,25 +109,27 @@ export interface AggregatedFieldDef {
   /**
    * The data field for which to compute aggregate function. This is required for all aggregation operations except `"count"`.
    */
-  field?: string;
+  field?: FieldName;
 
   /**
    * The output field names to use for each aggregated field.
    */
-  as: string;
+  as: FieldName;
 }
 
 export interface StackTransform {
   /**
    * The field which is stacked.
    */
-  stack: string;
+  stack: FieldName;
   /**
    * The data fields to group by.
    */
-  groupby: string[];
+  groupby: FieldName[];
   /**
-   * Mode for stacking marks.
+   * Mode for stacking marks. One of `"zero"` (default), `"center"`, or `"normalize"`.
+   * The `"zero"` offset will stack starting at `0`. The `"center"` offset will center the stacks. The `"normalize"` offset will compute percentage values for each stack point, with output values in the range `[0,1]`.
+   *
    * __Default value:__ `"zero"`
    */
   offset?: 'zero' | 'center' | 'normalize';
@@ -132,12 +138,10 @@ export interface StackTransform {
    */
   sort?: SortField[];
   /**
-   * Output field names. This can be either a string or an array of strings with
-   * two elements denoting the name for the fields for stack start and stack end
-   * respectively.
-   * If a single string(eg."val") is provided, the end field will be "val_end".
+   * Output field names. This can be either a string or an array of strings with two elements denoting the name for the fields for stack start and stack end respectively.
+   * If a single string(e.g., `"val"`) is provided, the end field will be `"val_end"`.
    */
-  as: string | string[];
+  as: FieldName | [FieldName, FieldName];
 }
 
 export type WindowOnlyOp =
@@ -155,7 +159,7 @@ export type WindowOnlyOp =
 
 export interface WindowFieldDef {
   /**
-   * The window or aggregation operation to apply within a window (e.g.,`rank`, `lead`, `sum`, `average` or `count`). See the list of all supported operations [here](https://vega.github.io/vega-lite/docs/window.html#ops).
+   * The window or aggregation operation to apply within a window (e.g., `"rank"`, `"lead"`, `"sum"`, `"average"` or `"count"`). See the list of all supported operations [here](https://vega.github.io/vega-lite/docs/window.html#ops).
    */
   op: AggregateOp | WindowOnlyOp;
 
@@ -167,14 +171,14 @@ export interface WindowFieldDef {
   param?: number;
 
   /**
-   * The data field for which to compute the aggregate or window function. This can be omitted for window functions that do not operate over a field such as `count`, `rank`, `dense_rank`.
+   * The data field for which to compute the aggregate or window function. This can be omitted for window functions that do not operate over a field such as `"count"`, `"rank"`, `"dense_rank"`.
    */
-  field?: string;
+  field?: FieldName;
 
   /**
    * The output name for the window operation.
    */
-  as: string;
+  as: FieldName;
 }
 
 export interface WindowTransform {
@@ -200,29 +204,29 @@ export interface WindowTransform {
   /**
    * The data fields for partitioning the data objects into separate windows. If unspecified, all data points will be in a single window.
    */
-  groupby?: string[];
+  groupby?: FieldName[];
 
   /**
-   * A sort field definition for sorting data objects within a window. If two data objects are considered equal by the comparator, they are considered “peer” values of equal rank. If sort is not specified, the order is undefined: data objects are processed in the order they are observed and none are considered peers (the ignorePeers parameter is ignored and treated as if set to `true`).
+   * A sort field definition for sorting data objects within a window. If two data objects are considered equal by the comparator, they are considered "peer" values of equal rank. If sort is not specified, the order is undefined: data objects are processed in the order they are observed and none are considered peers (the ignorePeers parameter is ignored and treated as if set to `true`).
    */
   sort?: SortField[];
 }
 
 export interface JoinAggregateFieldDef {
   /**
-   * The aggregation operation to apply (e.g., sum, average or count). See the list of all supported operations [here](https://vega.github.io/vega-lite/docs/aggregate.html#ops).
+   * The aggregation operation to apply (e.g., `"sum"`, `"average"` or `"count"`). See the list of all supported operations [here](https://vega.github.io/vega-lite/docs/aggregate.html#ops).
    */
   op: AggregateOp;
 
   /**
-   * The data field for which to compute the aggregate function. This can be omitted for functions that do not operate over a field such as `count`.
+   * The data field for which to compute the aggregate function. This can be omitted for functions that do not operate over a field such as `"count"`.
    */
-  field?: string;
+  field?: FieldName;
 
   /**
    * The output name for the join aggregate operation.
    */
-  as: string;
+  as: FieldName;
 }
 
 export interface JoinAggregateTransform {
@@ -234,7 +238,7 @@ export interface JoinAggregateTransform {
   /**
    * The data fields for partitioning the data objects into separate groups. If unspecified, all data points will be in a single group.
    */
-  groupby?: string[];
+  groupby?: FieldName[];
 }
 
 export interface ImputeSequence {
@@ -255,26 +259,26 @@ export interface ImputeSequence {
 }
 
 export function isImputeSequence(t: ImputeSequence | any[] | undefined): t is ImputeSequence {
-  return t && t['start'] !== undefined && t['stop'] !== undefined;
+  return t?.['stop'] !== undefined;
 }
 
 export interface ImputeTransform extends ImputeParams {
   /**
    * The data field for which the missing values should be imputed.
    */
-  impute: string;
+  impute: FieldName;
 
   /**
    * A key field that uniquely identifies data objects within a group.
    * Missing key values (those occurring in the data but not in the current group) will be imputed.
    */
-  key: string;
+  key: FieldName;
 
   /**
    * An optional array of fields by which to group the values.
    * Imputation will then be performed on a per-group basis.
    */
-  groupby?: string[];
+  groupby?: FieldName[];
 }
 
 export interface FlattenTransform {
@@ -284,14 +288,14 @@ export interface FlattenTransform {
    * If the lengths of parallel arrays do not match,
    * the longest array will be used with `null` values added for missing entries.
    */
-  flatten: string[];
+  flatten: FieldName[];
 
   /**
    * The output field names for extracted array values.
    *
    * __Default value:__ The field name of the corresponding array field
    */
-  as?: string[];
+  as?: FieldName[];
 }
 
 export interface SampleTransform {
@@ -303,20 +307,30 @@ export interface SampleTransform {
   sample: number;
 }
 
-export interface LookupData {
+export interface LookupBase {
+  /**
+   * Key in data to lookup.
+   */
+  key: FieldName;
+  /**
+   * Fields in foreign data or selection to lookup.
+   * If not specified, the entire object is queried.
+   */
+  fields?: FieldName[];
+}
+
+export interface LookupData extends LookupBase {
   /**
    * Secondary data source to lookup in.
    */
   data: Data;
+}
+
+export interface LookupSelection extends LookupBase {
   /**
-   * Key in data to lookup.
+   * Selection parameter name to look up.
    */
-  key: string;
-  /**
-   * Fields in foreign data to lookup.
-   * If not specified, the entire object is queried.
-   */
-  fields?: string[];
+  param: ParameterName;
 }
 
 export interface LookupTransform {
@@ -326,105 +340,348 @@ export interface LookupTransform {
   lookup: string;
 
   /**
-   * Secondary data reference.
+   * The output fields on which to store the looked up data values.
+   *
+   * For data lookups, this property may be left blank if `from.fields`
+   * has been specified (those field names will be used); if `from.fields`
+   * has not been specified, `as` must be a string.
+   *
+   * For selection lookups, this property is optional: if unspecified,
+   * looked up values will be stored under a property named for the selection;
+   * and if specified, it must correspond to `from.fields`.
    */
-  from: LookupData;
-
-  /**
-   * The field or fields for storing the computed formula value.
-   * If `from.fields` is specified, the transform will use the same names for `as`.
-   * If `from.fields` is not specified, `as` has to be a string and we put the whole object into the data under the specified name.
-   */
-  as?: string | string[];
+  as?: FieldName | FieldName[];
 
   /**
    * The default value to use if lookup fails.
    *
    * __Default value:__ `null`
    */
-  default?: string;
+  default?: any;
+
+  /**
+   * Data source or selection for secondary data reference.
+   */
+  from: LookupData | LookupSelection;
+}
+
+export function isLookup(t: Transform): t is LookupTransform {
+  return 'lookup' in t;
+}
+
+export function isLookupData(from: LookupData | LookupSelection): from is LookupData {
+  return 'data' in from;
+}
+
+export function isLookupSelection(from: LookupData | LookupSelection): from is LookupSelection {
+  return 'param' in from;
 }
 
 export interface FoldTransform {
   /**
    * An array of data fields indicating the properties to fold.
    */
-  fold: string[];
+  fold: FieldName[];
 
   /**
    * The output field names for the key and value properties produced by the fold transform.
    * __Default value:__ `["key", "value"]`
    */
-  as?: [string, string];
+  as?: [FieldName, FieldName];
 }
 
-export function isLookup(t: Transform): t is LookupTransform {
-  return t['lookup'] !== undefined;
+export interface PivotTransform {
+  /**
+   * The data field to pivot on. The unique values of this field become new field names in the output stream.
+   */
+  pivot: FieldName;
+
+  /**
+   * The data field to populate pivoted fields. The aggregate values of this field become the values of the new pivoted fields.
+   */
+  value: FieldName;
+
+  /**
+   * The optional data fields to group by. If not specified, a single group containing all data objects will be used.
+   */
+  groupby?: FieldName[];
+
+  /**
+   * An optional parameter indicating the maximum number of pivoted fields to generate.
+   * The default (`0`) applies no limit. The pivoted `pivot` names are sorted in ascending order prior to enforcing the limit.
+   * __Default value:__ `0`
+   */
+  limit?: number;
+
+  /**
+   * The aggregation operation to apply to grouped `value` field values.
+   * __Default value:__ `sum`
+   */
+  op?: AggregateOp;
+}
+
+export function isPivot(t: Transform): t is PivotTransform {
+  return 'pivot' in t;
+}
+
+export interface DensityTransform {
+  /**
+   * The data field for which to perform density estimation.
+   */
+  density: FieldName;
+
+  /**
+   * The data fields to group by. If not specified, a single group containing all data objects will be used.
+   */
+  groupby?: FieldName[];
+
+  /**
+   * A boolean flag indicating whether to produce density estimates (false) or cumulative density estimates (true).
+   *
+   * __Default value:__ `false`
+   */
+  cumulative?: boolean;
+
+  /**
+   * A boolean flag indicating if the output values should be probability estimates (false) or smoothed counts (true).
+   *
+   * __Default value:__ `false`
+   */
+  counts?: boolean;
+
+  /**
+   * The bandwidth (standard deviation) of the Gaussian kernel. If unspecified or set to zero, the bandwidth value is automatically estimated from the input data using Scott’s rule.
+   */
+  bandwidth?: number;
+
+  /**
+   * A [min, max] domain from which to sample the distribution. If unspecified, the extent will be determined by the observed minimum and maximum values of the density value field.
+   */
+  extent?: [number, number];
+
+  /**
+   * The minimum number of samples to take along the extent domain for plotting the density.
+   *
+   * __Default value:__ `25`
+   */
+  minsteps?: number;
+
+  /**
+   * The maximum number of samples to take along the extent domain for plotting the density.
+   *
+   * __Default value:__ `200`
+   */
+  maxsteps?: number;
+
+  /**
+   * The exact number of samples to take along the extent domain for plotting the density. If specified, overrides both minsteps and maxsteps to set an exact number of uniform samples. Potentially useful in conjunction with a fixed extent to ensure consistent sample points for stacked densities.
+   */
+  steps?: number;
+
+  /**
+   * The output fields for the sample value and corresponding density estimate.
+   *
+   * __Default value:__ `["value", "density"]`
+   */
+  as?: [FieldName, FieldName];
+}
+
+export function isDensity(t: Transform): t is DensityTransform {
+  return 'density' in t;
+}
+
+export interface QuantileTransform {
+  /**
+   * The data field for which to perform quantile estimation.
+   */
+  quantile: FieldName;
+
+  /**
+   * The data fields to group by. If not specified, a single group containing all data objects will be used.
+   */
+  groupby?: FieldName[];
+
+  /**
+   * An array of probabilities in the range (0, 1) for which to compute quantile values. If not specified, the *step* parameter will be used.
+   */
+  probs?: number[];
+
+  /**
+   * A probability step size (default 0.01) for sampling quantile values. All values from one-half the step size up to 1 (exclusive) will be sampled. This parameter is only used if the *probs* parameter is not provided.
+   */
+  step?: number;
+
+  /**
+   * The output field names for the probability and quantile values.
+   *
+   * __Default value:__ `["prob", "value"]`
+   */
+  as?: [FieldName, FieldName];
+}
+
+export function isQuantile(t: Transform): t is QuantileTransform {
+  return 'quantile' in t;
+}
+
+export interface RegressionTransform {
+  /**
+   * The data field of the dependent variable to predict.
+   */
+  regression: FieldName;
+
+  /**
+   * The data field of the independent variable to use a predictor.
+   */
+  on: FieldName;
+
+  /**
+   * The data fields to group by. If not specified, a single group containing all data objects will be used.
+   */
+  groupby?: FieldName[];
+
+  /**
+   * The functional form of the regression model. One of `"linear"`, `"log"`, `"exp"`, `"pow"`, `"quad"`, or `"poly"`.
+   *
+   * __Default value:__ `"linear"`
+   */
+  method?: 'linear' | 'log' | 'exp' | 'pow' | 'quad' | 'poly';
+
+  /**
+   * The polynomial order (number of coefficients) for the 'poly' method.
+   *
+   * __Default value:__ `3`
+   */
+  order?: number;
+
+  /**
+   * A [min, max] domain over the independent (x) field for the starting and ending points of the generated trend line.
+   */
+  extent?: [number, number];
+
+  /**
+   * A boolean flag indicating if the transform should return the regression model parameters (one object per group), rather than trend line points.
+   * The resulting objects include a `coef` array of fitted coefficient values (starting with the intercept term and then including terms of increasing order)
+   * and an `rSquared` value (indicating the total variance explained by the model).
+   *
+   * __Default value:__ `false`
+   */
+  params?: boolean;
+
+  /**
+   * The output field names for the smoothed points generated by the regression transform.
+   *
+   * __Default value:__ The field names of the input x and y values.
+   */
+  as?: [FieldName, FieldName];
+}
+
+export function isRegression(t: Transform): t is RegressionTransform {
+  return 'regression' in t;
+}
+
+export interface LoessTransform {
+  /**
+   * The data field of the dependent variable to smooth.
+   */
+  loess: FieldName;
+
+  /**
+   * The data field of the independent variable to use a predictor.
+   */
+  on: FieldName;
+
+  /**
+   * The data fields to group by. If not specified, a single group containing all data objects will be used.
+   */
+  groupby?: FieldName[];
+
+  /**
+   * A bandwidth parameter in the range `[0, 1]` that determines the amount of smoothing.
+   *
+   * __Default value:__ `0.3`
+   */
+  bandwidth?: number;
+
+  /**
+   * The output field names for the smoothed points generated by the loess transform.
+   *
+   * __Default value:__ The field names of the input x and y values.
+   */
+  as?: [FieldName, FieldName];
+}
+
+export function isLoess(t: Transform): t is LoessTransform {
+  return 'loess' in t;
 }
 
 export function isSample(t: Transform): t is SampleTransform {
-  return t['sample'] !== undefined;
+  return 'sample' in t;
 }
 
 export function isWindow(t: Transform): t is WindowTransform {
-  return t['window'] !== undefined;
+  return 'window' in t;
 }
 
 export function isJoinAggregate(t: Transform): t is JoinAggregateTransform {
-  return t['joinaggregate'] !== undefined;
+  return 'joinaggregate' in t;
 }
 
 export function isFlatten(t: Transform): t is FlattenTransform {
-  return t['flatten'] !== undefined;
+  return 'flatten' in t;
 }
 export function isCalculate(t: Transform): t is CalculateTransform {
-  return t['calculate'] !== undefined;
+  return 'calculate' in t;
 }
 
 export function isBin(t: Transform): t is BinTransform {
-  return !!t['bin'];
+  return 'bin' in t;
 }
 
 export function isImpute(t: Transform): t is ImputeTransform {
-  return t['impute'] !== undefined;
+  return 'impute' in t;
 }
 
 export function isTimeUnit(t: Transform): t is TimeUnitTransform {
-  return t['timeUnit'] !== undefined;
+  return 'timeUnit' in t;
 }
 
 export function isAggregate(t: Transform): t is AggregateTransform {
-  return t['aggregate'] !== undefined;
+  return 'aggregate' in t;
 }
 
 export function isStack(t: Transform): t is StackTransform {
-  return t['stack'] !== undefined;
+  return 'stack' in t;
 }
 
 export function isFold(t: Transform): t is FoldTransform {
-  return t['fold'] !== undefined;
+  return 'fold' in t;
 }
 
 export type Transform =
   | AggregateTransform
   | BinTransform
   | CalculateTransform
+  | DensityTransform
   | FilterTransform
   | FlattenTransform
   | FoldTransform
   | ImputeTransform
   | JoinAggregateTransform
+  | LoessTransform
   | LookupTransform
+  | QuantileTransform
+  | RegressionTransform
   | TimeUnitTransform
   | SampleTransform
   | StackTransform
-  | WindowTransform;
+  | WindowTransform
+  | PivotTransform;
 
 export function normalizeTransform(transform: Transform[]) {
   return transform.map(t => {
     if (isFilter(t)) {
       return {
-        filter: normalizeLogicalOperand(t.filter, normalizePredicate)
+        filter: normalizeLogicalComposition(t.filter, normalizePredicate)
       };
     }
     return t;

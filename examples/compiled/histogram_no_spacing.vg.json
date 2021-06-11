@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -13,25 +13,25 @@
       "transform": [
         {
           "type": "extent",
-          "field": "IMDB_Rating",
+          "field": "IMDB Rating",
           "signal": "bin_maxbins_10_IMDB_Rating_extent"
         },
         {
           "type": "bin",
-          "field": "IMDB_Rating",
+          "field": "IMDB Rating",
           "as": [
-            "bin_maxbins_10_IMDB_Rating",
-            "bin_maxbins_10_IMDB_Rating_end"
+            "bin_maxbins_10_IMDB Rating",
+            "bin_maxbins_10_IMDB Rating_end"
           ],
           "signal": "bin_maxbins_10_IMDB_Rating_bins",
-          "maxbins": 10,
-          "extent": {"signal": "bin_maxbins_10_IMDB_Rating_extent"}
+          "extent": {"signal": "bin_maxbins_10_IMDB_Rating_extent"},
+          "maxbins": 10
         },
         {
           "type": "aggregate",
           "groupby": [
-            "bin_maxbins_10_IMDB_Rating",
-            "bin_maxbins_10_IMDB_Rating_end"
+            "bin_maxbins_10_IMDB Rating",
+            "bin_maxbins_10_IMDB Rating_end"
           ],
           "ops": ["count"],
           "fields": [null],
@@ -39,7 +39,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_10_IMDB_Rating\"] !== null && !isNaN(datum[\"bin_maxbins_10_IMDB_Rating\"])"
+          "expr": "isValid(datum[\"bin_maxbins_10_IMDB Rating\"]) && isFinite(+datum[\"bin_maxbins_10_IMDB Rating\"])"
         }
       ]
     }
@@ -53,22 +53,27 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"IMDB_Rating (binned)\": datum[\"bin_maxbins_10_IMDB_Rating\"] === null || isNaN(datum[\"bin_maxbins_10_IMDB_Rating\"]) ? \"null\" : format(datum[\"bin_maxbins_10_IMDB_Rating\"], \"\") + \" - \" + format(datum[\"bin_maxbins_10_IMDB_Rating_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"IMDB Rating (binned): \" + (!isValid(datum[\"bin_maxbins_10_IMDB Rating\"]) || !isFinite(+datum[\"bin_maxbins_10_IMDB Rating\"]) ? \"null\" : format(datum[\"bin_maxbins_10_IMDB Rating\"], \"\") + \" – \" + format(datum[\"bin_maxbins_10_IMDB Rating_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\"))"
           },
           "x2": [
             {
-              "test": "datum[\"bin_maxbins_10_IMDB_Rating\"] === null || isNaN(datum[\"bin_maxbins_10_IMDB_Rating\"])",
+              "test": "!isValid(datum[\"bin_maxbins_10_IMDB Rating\"]) || !isFinite(+datum[\"bin_maxbins_10_IMDB Rating\"])",
               "value": 0
             },
-            {"scale": "x", "field": "bin_maxbins_10_IMDB_Rating"}
+            {"scale": "x", "field": "bin_maxbins_10_IMDB Rating", "offset": 0.5}
           ],
           "x": [
             {
-              "test": "datum[\"bin_maxbins_10_IMDB_Rating\"] === null || isNaN(datum[\"bin_maxbins_10_IMDB_Rating\"])",
+              "test": "!isValid(datum[\"bin_maxbins_10_IMDB Rating\"]) || !isFinite(+datum[\"bin_maxbins_10_IMDB Rating\"])",
               "value": 0
             },
-            {"scale": "x", "field": "bin_maxbins_10_IMDB_Rating_end"}
+            {
+              "scale": "x",
+              "field": "bin_maxbins_10_IMDB Rating_end",
+              "offset": 0.5
+            }
           ],
           "y": {"scale": "y", "field": "__count"},
           "y2": {"scale": "y", "value": 0}
@@ -98,14 +103,28 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
-      "title": "IMDB_Rating (binned)",
+      "title": "IMDB Rating (binned)",
       "labelFlush": true,
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(width/10)"},
-      "zindex": 1
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -114,19 +133,6 @@
       "title": "Count of Records",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ]

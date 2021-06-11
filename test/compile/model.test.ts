@@ -1,5 +1,6 @@
 import {NameMap} from '../../src/compile/model';
-import {parseFacetModel, parseFacetModelWithScale, parseModel} from '../util';
+import {parseFacetModelWithScale, parseModel} from '../util';
+import {DataSourceType} from '../../src/data';
 
 describe('Model', () => {
   describe('NameMap', () => {
@@ -24,80 +25,6 @@ describe('Model', () => {
     });
   });
 
-  describe('hasDescendantWithFieldOnChannel', () => {
-    it('should return true if a child plot has a field on x', () => {
-      const model = parseFacetModel({
-        facet: {row: {field: 'a', type: 'nominal'}},
-        spec: {
-          mark: 'point',
-          encoding: {
-            x: {field: 'x', type: 'quantitative'}
-          }
-        }
-      });
-      expect(model.hasDescendantWithFieldOnChannel('x')).toBeTruthy();
-    });
-
-    it('should return true if a descendant plot has x', () => {
-      const model = parseFacetModel({
-        facet: {row: {field: 'a', type: 'nominal'}},
-        spec: {
-          layer: [
-            {
-              mark: 'point',
-              encoding: {
-                x: {field: 'x', type: 'quantitative'}
-              }
-            },
-            {
-              mark: 'point',
-              encoding: {
-                color: {field: 'x', type: 'quantitative'}
-              }
-            }
-          ]
-        }
-      });
-      expect(model.hasDescendantWithFieldOnChannel('x')).toBeTruthy();
-    });
-
-    it('should return false if no descendant plot has a field on x', () => {
-      const model = parseFacetModel({
-        facet: {row: {field: 'a', type: 'nominal'}},
-        spec: {
-          mark: 'point',
-          encoding: {
-            color: {field: 'x', type: 'quantitative'}
-          }
-        }
-      });
-      expect(!model.hasDescendantWithFieldOnChannel('x')).toBeTruthy();
-    });
-
-    it('should return false if no descendant plot has a field on x', () => {
-      const model = parseFacetModel({
-        facet: {row: {field: 'a', type: 'nominal'}},
-        spec: {
-          layer: [
-            {
-              mark: 'point',
-              encoding: {
-                color: {field: 'x', type: 'quantitative'}
-              }
-            },
-            {
-              mark: 'point',
-              encoding: {
-                color: {field: 'x', type: 'quantitative'}
-              }
-            }
-          ]
-        }
-      });
-      expect(!model.hasDescendantWithFieldOnChannel('x')).toBeTruthy();
-    });
-  });
-
   describe('assembleGroupStyle', () => {
     it('returns cell by default', () => {
       const model = parseModel({
@@ -116,6 +43,20 @@ describe('Model', () => {
       });
 
       expect(model.assembleGroupStyle()).toBe('notcell');
+    });
+  });
+
+  describe('getDataName', () => {
+    it('returns correct names for DataSourceType', () => {
+      const model = parseModel({
+        data: {values: []},
+        mark: 'point'
+      });
+      expect(model.getDataName(DataSourceType.Column)).toBe('column');
+      expect(model.getDataName(DataSourceType.Lookup)).toBe('lookup');
+      expect(model.getDataName(DataSourceType.Main)).toBe('main');
+      expect(model.getDataName(DataSourceType.Raw)).toBe('raw');
+      expect(model.getDataName(DataSourceType.Row)).toBe('row');
     });
   });
 
@@ -143,7 +84,7 @@ describe('Model', () => {
       });
 
       expect(model.child.getSizeSignalRef('width')).toEqual({
-        signal: `bandspace(datum[\"distinct_b\"], 1, 0.345) * child_x_step`
+        signal: `bandspace(datum["distinct_b"], 1, 0.345) * child_x_step`
       });
     });
   });
@@ -160,6 +101,30 @@ describe('Model', () => {
         fill: {value: 'red'},
         stroke: {value: 'blue'}
       });
+    });
+
+    it('should support signals', () => {
+      const model = parseModel({
+        data: {values: []},
+        mark: 'point',
+        view: {fill: {signal: '"red"'}}
+      });
+
+      expect(model.assembleGroupEncodeEntry(true)).toEqual({
+        fill: {signal: '"red"'}
+      });
+    });
+
+    it('should support descriptions for non-top level models', () => {
+      const model = parseModel({
+        data: {values: []},
+        mark: 'point',
+        description: 'My awesome view'
+      });
+
+      expect(model.assembleGroupEncodeEntry(true)).toBeUndefined();
+
+      expect(model.assembleGroupEncodeEntry(false)['description']).toEqual({value: 'My awesome view'});
     });
   });
 });

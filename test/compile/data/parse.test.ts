@@ -1,21 +1,21 @@
-/* tslint:disable:quotemark */
 import {AncestorParse} from '../../../src/compile/data';
 import {AggregateNode} from '../../../src/compile/data/aggregate';
 import {BinNode} from '../../../src/compile/data/bin';
 import {CalculateNode} from '../../../src/compile/data/calculate';
-import {DataFlowNode} from '../../../src/compile/data/dataflow';
 import {FilterNode} from '../../../src/compile/data/filter';
 import {FlattenTransformNode} from '../../../src/compile/data/flatten';
 import {FoldTransformNode} from '../../../src/compile/data/fold';
 import {ParseNode} from '../../../src/compile/data/formatparse';
 import {ImputeNode} from '../../../src/compile/data/impute';
 import {findSource, parseTransformArray} from '../../../src/compile/data/parse';
+import {PivotTransformNode} from '../../../src/compile/data/pivot';
 import {SampleTransformNode} from '../../../src/compile/data/sample';
 import {TimeUnitNode} from '../../../src/compile/data/timeunit';
 import {WindowTransformNode} from '../../../src/compile/data/window';
 import {Transform} from '../../../src/transform';
 import {parseUnitModel} from '../../util';
-import {SourceNode} from './../../../src/compile/data/source';
+import {SourceNode} from '../../../src/compile/data/source';
+import {PlaceholderDataFlowNode} from './util';
 
 describe('compile/data/parse', () => {
   describe('parseTransformArray()', () => {
@@ -29,10 +29,10 @@ describe('compile/data/parse', () => {
         }
       });
 
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const result = parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof CalculateNode).toBe(true);
-      expect(result instanceof FilterNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(CalculateNode);
+      expect(result).toBeInstanceOf(FilterNode);
     });
 
     it('should add a parse node for filter transforms with time unit', () => {
@@ -67,12 +67,12 @@ describe('compile/data/parse', () => {
         }
       });
 
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const parse = new AncestorParse();
       const result = parseTransformArray(root, model, parse);
 
-      expect(root.children[0] instanceof ParseNode).toBe(true);
-      expect(result instanceof FilterNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(ParseNode);
+      expect(result).toBeInstanceOf(FilterNode);
       expect((root.children[0] as ParseNode).parse).toEqual({
         date: 'date'
       });
@@ -83,18 +83,26 @@ describe('compile/data/parse', () => {
       const model = parseUnitModel({
         data: {values: []},
         mark: 'point',
-        transform: [{bin: true, field: 'field', as: 'a'}, {timeUnit: 'month', field: 'field', as: 'b'}],
+        transform: [
+          {bin: true, field: 'field', as: 'a'},
+          {timeUnit: 'month', field: 'field', as: 'b'}
+        ],
         encoding: {
           x: {field: 'a', type: 'temporal', timeUnit: 'month'}
         }
       });
 
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const parse = new AncestorParse();
       const result = parseTransformArray(root, model, parse);
-      expect(root.children[0] instanceof BinNode);
-      expect(result instanceof TimeUnitNode);
-      expect(parse.combine()).toEqual({a: 'number', a_end: 'number', b: 'date', field: 'date'});
+      expect(root.children[0]).toBeInstanceOf(BinNode);
+      expect(result).toBeInstanceOf(TimeUnitNode);
+      expect(parse.combine()).toEqual({
+        a: 'number',
+        a_end: 'number',
+        b: 'date',
+        field: 'date'
+      });
     });
 
     it('should return a BinNode and a AggregateNode', () => {
@@ -103,17 +111,23 @@ describe('compile/data/parse', () => {
         mark: 'point',
         transform: [
           {bin: true, field: 'field', as: 'a'},
-          {aggregate: [{op: 'count', field: 'f', as: 'b'}, {op: 'sum', field: 'f', as: 'c'}], groupby: ['field']}
+          {
+            aggregate: [
+              {op: 'count', field: 'f', as: 'b'},
+              {op: 'sum', field: 'f', as: 'c'}
+            ],
+            groupby: ['field']
+          }
         ],
         encoding: {
           x: {field: 'a', type: 'temporal', timeUnit: 'month'}
         }
       });
 
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const result = parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof BinNode).toBe(true);
-      expect(result instanceof AggregateNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(BinNode);
+      expect(result).toBeInstanceOf(AggregateNode);
     });
 
     it('should return a ImputeTransform Node', () => {
@@ -126,10 +140,10 @@ describe('compile/data/parse', () => {
           y: {field: 'b', type: 'quantitative'}
         }
       });
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const result = parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof ImputeNode).toBe(true);
-      expect(result instanceof ImputeNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(ImputeNode);
+      expect(result).toBeInstanceOf(ImputeNode);
     });
     it('should return a WindowTransform Node', () => {
       const transform: Transform = {
@@ -149,9 +163,9 @@ describe('compile/data/parse', () => {
           x: {field: 'a', type: 'temporal', timeUnit: 'month'}
         }
       });
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof WindowTransformNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(WindowTransformNode);
     });
     it('should return a WindowTransform Node with optional properties', () => {
       const transform: Transform = {
@@ -177,60 +191,9 @@ describe('compile/data/parse', () => {
           x: {field: 'a', type: 'temporal', timeUnit: 'month'}
         }
       });
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof WindowTransformNode).toBe(true);
-    });
-
-    it('should return a WindowTransform Node', () => {
-      const transform: Transform = {
-        window: [
-          {
-            op: 'count',
-            field: 'f',
-            as: 'b'
-          }
-        ]
-      };
-      const model = parseUnitModel({
-        data: {values: []},
-        mark: 'point',
-        transform: [transform],
-        encoding: {
-          x: {field: 'a', type: 'temporal', timeUnit: 'month'}
-        }
-      });
-      const root = new DataFlowNode(null);
-      parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof WindowTransformNode).toBe(true);
-    });
-    it('should return a WindowTransform Node with optional properties', () => {
-      const transform: Transform = {
-        window: [
-          {
-            op: 'row_number',
-            as: 'ordered_row_number'
-          }
-        ],
-        ignorePeers: false,
-        sort: [
-          {
-            field: 'f',
-            order: 'ascending'
-          }
-        ]
-      };
-      const model = parseUnitModel({
-        data: {values: []},
-        mark: 'point',
-        transform: [transform],
-        encoding: {
-          x: {field: 'a', type: 'temporal', timeUnit: 'month'}
-        }
-      });
-      const root = new DataFlowNode(null);
-      parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof WindowTransformNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(WindowTransformNode);
     });
 
     it('should return a FoldTransformNode', () => {
@@ -247,10 +210,30 @@ describe('compile/data/parse', () => {
           y: {field: 'B', type: 'quantitative'}
         }
       });
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const result = parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof FoldTransformNode).toBe(true);
-      expect(result instanceof FoldTransformNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(FoldTransformNode);
+      expect(result).toBeInstanceOf(FoldTransformNode);
+    });
+
+    it('should return a PivotTransformNode', () => {
+      const transform: Transform = {
+        pivot: 'a',
+        value: 'b'
+      };
+      const model = parseUnitModel({
+        data: {values: []},
+        mark: 'point',
+        transform: [transform],
+        encoding: {
+          x: {field: 'a', type: 'temporal'},
+          y: {field: 'b', type: 'quantitative'}
+        }
+      });
+      const root = new PlaceholderDataFlowNode(null);
+      const result = parseTransformArray(root, model, new AncestorParse());
+      expect(root.children[0]).toBeInstanceOf(PivotTransformNode);
+      expect(result).toBeInstanceOf(PivotTransformNode);
     });
 
     it('should return a FlattenTransformNode', () => {
@@ -266,10 +249,10 @@ describe('compile/data/parse', () => {
           y: {field: 'b', type: 'quantitative'}
         }
       });
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const result = parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof FlattenTransformNode).toBe(true);
-      expect(result instanceof FlattenTransformNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(FlattenTransformNode);
+      expect(result).toBeInstanceOf(FlattenTransformNode);
     });
 
     it('should return a SampleTransformNode', () => {
@@ -285,10 +268,10 @@ describe('compile/data/parse', () => {
           y: {field: 'B', type: 'quantitative'}
         }
       });
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const result = parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof SampleTransformNode).toBe(true);
-      expect(result instanceof SampleTransformNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(SampleTransformNode);
+      expect(result).toBeInstanceOf(SampleTransformNode);
     });
 
     it('should return a 3 Transforms from an Impute', () => {
@@ -310,25 +293,31 @@ describe('compile/data/parse', () => {
           color: {field: 'c', type: 'nominal'}
         }
       });
-      const root = new DataFlowNode(null);
+      const root = new PlaceholderDataFlowNode(null);
       const result = parseTransformArray(root, model, new AncestorParse());
-      expect(root.children[0] instanceof ImputeNode).toBe(true);
-      expect(result instanceof ImputeNode).toBe(true);
+      expect(root.children[0]).toBeInstanceOf(ImputeNode);
+      expect(result).toBeInstanceOf(ImputeNode);
     });
   });
 
   describe('findSource', () => {
     const values = new SourceNode({values: [1, 2, 3]});
     const named = new SourceNode({name: 'foo'});
+    const namedUrl = new SourceNode({url: 'foo.csv', name: 'foo_csv'});
     const url = new SourceNode({url: 'foo.csv'});
 
     it('should find named source', () => {
-      const actual = findSource({name: 'foo'}, [values, named, url]);
+      const actual = findSource({name: 'foo'}, [values, url, named]);
       expect(actual).toBe(named);
     });
 
+    it('should not find source with different name', () => {
+      const actual = findSource({name: 'bar'}, [values, named, url]);
+      expect(actual).toBeNull();
+    });
+
     it('should find value source', () => {
-      const actual = findSource({values: [1, 2, 3]}, [values, named, url]);
+      const actual = findSource({values: [1, 2, 3]}, [named, url, values]);
       expect(actual).toBe(values);
     });
 
@@ -337,8 +326,45 @@ describe('compile/data/parse', () => {
       expect(actual).toBe(url);
     });
 
-    it('should not find new data source', () => {
+    it('should find url source without a name', () => {
+      // we assign the name to the source in parseRoot
+      const actual = findSource({url: 'foo.csv', name: 'fo_csv'}, [values, named, url]);
+      expect(actual).toBe(url);
+    });
+
+    it('should not find source with different URL', () => {
       const actual = findSource({url: 'bar.csv'}, [values, named, url]);
+      expect(actual).toBeNull();
+    });
+
+    it('should not find source with same URL but different name', () => {
+      const actual = findSource({url: 'foo.csv', name: 'incompatible_name'}, [values, named, namedUrl]);
+      expect(actual).toBeNull();
+    });
+
+    it('should find source with same URL that has a name', () => {
+      const actual = findSource({url: 'foo.csv'}, [values, named, namedUrl]);
+      expect(actual).toBe(namedUrl);
+    });
+
+    it('should not find a source with mesh and feature', () => {
+      const actual = findSource({url: 'foo.csv', format: {type: 'topojson', mesh: 'states'}}, [
+        new SourceNode({url: 'foo.csv', format: {type: 'topojson', feature: 'counties'}})
+      ]);
+      expect(actual).toBeNull();
+    });
+
+    it('should not find a source with conflicting features', () => {
+      const actual = findSource({url: 'foo.csv', format: {type: 'topojson', feature: 'states'}}, [
+        new SourceNode({url: 'foo.csv', format: {type: 'topojson', feature: 'counties'}})
+      ]);
+      expect(actual).toBeNull();
+    });
+
+    it('should not find a source with conflicting meshes', () => {
+      const actual = findSource({url: 'foo.csv', format: {type: 'topojson', mesh: 'states'}}, [
+        new SourceNode({url: 'foo.csv', format: {type: 'topojson', mesh: 'counties'}})
+      ]);
       expect(actual).toBeNull();
     });
   });

@@ -1,6 +1,7 @@
 import {expression} from '../src/compile/predicate';
 import {
   fieldFilterExpression,
+  FieldValidPredicate,
   isFieldEqualPredicate,
   isFieldLTEPredicate,
   isFieldOneOfPredicate,
@@ -8,14 +9,13 @@ import {
   isFieldValidPredicate,
   Predicate
 } from '../src/predicate';
-import {TimeUnit} from '../src/timeunit';
-import {without} from '../src/util';
-import {FieldValidPredicate} from './../src/predicate';
+import {without} from './util';
 
 describe('filter', () => {
   const equalFilter = {field: 'color', equal: 'red'};
   const oneOfFilter = {field: 'color', oneOf: ['red', 'yellow']};
   const rangeFilter = {field: 'x', range: [0, 5]};
+  const rangeSignalFilter = {field: 'x', range: {signal: 'range'}};
   const exprFilter = 'datum["x"]===5';
   const lessThanEqualsFilter = {field: 'x', lte: 'z'};
   const validFilter: FieldValidPredicate = {field: 'x', valid: true};
@@ -70,6 +70,10 @@ describe('filter', () => {
       expect(isFieldRangePredicate(rangeFilter)).toBe(true);
     });
 
+    it('should return true for a range predicate with range signal', () => {
+      expect(isFieldRangePredicate(rangeSignalFilter)).toBe(true);
+    });
+
     it('should return false for other filters', () => {
       without(allFilters, [rangeFilter]).forEach(filter => {
         expect(isFieldRangePredicate(filter)).toBe(false);
@@ -117,7 +121,7 @@ describe('filter', () => {
 
     it('should return correct expression for valid', () => {
       const expr = expression(null, {field: 'x', valid: true});
-      expect(expr).toBe('datum["x"]!==null&&!isNaN(datum["x"])');
+      expect(expr).toBe('isValid(datum["x"]) && isFinite(+datum["x"])');
     });
 
     it('should return a correct expression for an EqualFilter with datetime object', () => {
@@ -127,30 +131,30 @@ describe('filter', () => {
           month: 'January'
         }
       });
-      expect(expr).toBe('datum["date"]===time(datetime(0, 0, 1, 0, 0, 0, 0))');
+      expect(expr).toBe('datum["date"]===time(datetime(2012, 0, 1, 0, 0, 0, 0))');
     });
 
     it('should return a correct expression for an EqualFilter with time unit and datetime object', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         equal: {
           month: 'January'
         }
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 
-    it('should return a correct expression for an EqualFilter with datetime object', () => {
+    it('should return a correct expression for an EqualFilter with datetime object with flat value', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         equal: 'January'
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))===time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 
@@ -161,30 +165,30 @@ describe('filter', () => {
           month: 'February'
         }
       });
-      expect(expr).toBe('datum["date"]<time(datetime(0, 1, 1, 0, 0, 0, 0))');
+      expect(expr).toBe('datum["date"]<time(datetime(2012, 1, 1, 0, 0, 0, 0))');
     });
 
     it('should return a correct expression for an greaterThanFilter with time unit and datetime object', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         gt: {
           month: 'January'
         }
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))>time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))>time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 
     it('should return a correct expression for an greaterThanEqualsFilter with datetime object', () => {
       const expr = expression(null, {
-        timeUnit: TimeUnit.MONTH,
+        timeUnit: 'month',
         field: 'date',
         gte: 'January'
       });
       expect(expr).toEqual(
-        'time(datetime(0, month(datum["date"]), 1, 0, 0, 0, 0))>=time(datetime(0, 0, 1, 0, 0, 0, 0))'
+        'time(datetime(2012, month(datum["date"]), 1, 0, 0, 0, 0))>=time(datetime(2012, 0, 1, 0, 0, 0, 0))'
       );
     });
 
@@ -196,6 +200,11 @@ describe('filter', () => {
     it('should return a correct expression for a RangeFilter', () => {
       const expr = expression(null, {field: 'x', range: [0, 5]});
       expect(expr).toBe('inrange(datum["x"], [0, 5])');
+    });
+
+    it('should return a correct expression for a RangeFilter with signal range', () => {
+      const expr = expression(null, {field: 'x', range: {signal: 'r'}});
+      expect(expr).toBe('inrange(datum["x"], [r[0], r[1]])');
     });
 
     it('should return a correct expression for a RangeFilter with no lower bound', () => {
@@ -224,7 +233,10 @@ describe('filter', () => {
     expect(expr).toBe('!(datum["color"]==="red")');
 
     expr = expression(null, {
-      and: [{field: 'color', equal: 'red'}, {field: 'x', range: [0, 5]}]
+      and: [
+        {field: 'color', equal: 'red'},
+        {field: 'x', range: [0, 5]}
+      ]
     });
 
     expect(expr).toBe('(datum["color"]==="red") && (inrange(datum["x"], [0, 5]))');

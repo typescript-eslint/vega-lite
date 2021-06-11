@@ -1,6 +1,8 @@
 /*
  * Constants and utilities for data.
  */
+import {Vector2} from 'vega';
+import {FieldName} from './channeldef';
 import {VgData} from './vega.schema';
 
 export type ParseValue = null | string | 'string' | 'boolean' | 'date' | 'number';
@@ -15,7 +17,7 @@ export interface DataFormatBase {
    * Alternatively, a parsing directive object can be provided for explicit data types. Each property of the object corresponds to a field name, and the value to the desired data type (one of `"number"`, `"boolean"`, `"date"`, or null (do not parse the field)).
    * For example, `"parse": {"modified_on": "date"}` parses the `modified_on` field in each input record a Date value.
    *
-   * For `"date"`, we parse data based using Javascript's [`Date.parse()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/parse).
+   * For `"date"`, we parse data based using JavaScript's [`Date.parse()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/parse).
    * For Specific date formats can be provided (e.g., `{foo: "date:'%m%d%Y'"}`), using the [d3-time-format syntax](https://github.com/d3/d3-time-format#locale_format). UTC date format parsing is supported similarly (e.g., `{foo: "utc:'%m%d%Y'"}`). See more about [UTC time](https://vega.github.io/vega-lite/docs/timeunit.html#utc)
    */
   parse?: Parse | null;
@@ -81,6 +83,7 @@ export type DataSource = UrlData | InlineData | NamedData;
 
 export type Data = DataSource | Generator;
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 export type InlineDataset = number[] | string[] | boolean[] | object[] | string | object;
 
 export interface DataBase {
@@ -118,15 +121,15 @@ export interface NamedData extends DataBase {
 }
 
 export function isUrlData(data: Partial<Data> | Partial<VgData>): data is UrlData {
-  return !!data['url'];
+  return 'url' in data;
 }
 
 export function isInlineData(data: Partial<Data> | Partial<VgData>): data is InlineData {
-  return !!data['values'];
+  return 'values' in data;
 }
 
 export function isNamedData(data: Partial<Data> | Partial<VgData>): data is NamedData {
-  return !!data['name'] && !isUrlData(data) && !isInlineData(data);
+  return 'name' in data && !isUrlData(data) && !isInlineData(data) && !isGenerator(data);
 }
 
 export function isGenerator(data: Partial<Data> | Partial<VgData>): data is Generator {
@@ -134,21 +137,24 @@ export function isGenerator(data: Partial<Data> | Partial<VgData>): data is Gene
 }
 
 export function isSequenceGenerator(data: Partial<Data> | Partial<VgData>): data is SequenceGenerator {
-  return !!data['sequence'];
+  return 'sequence' in data;
 }
 
 export function isSphereGenerator(data: Partial<Data> | Partial<VgData>): data is SphereGenerator {
-  return !!data['sphere'];
+  return 'sphere' in data;
 }
 
 export function isGraticuleGenerator(data: Partial<Data> | Partial<VgData>): data is GraticuleGenerator {
-  return !!data['graticule'];
+  return 'graticule' in data;
 }
 
-export type DataSourceType = 'raw' | 'main' | 'row' | 'column' | 'lookup';
-
-export const MAIN: 'main' = 'main';
-export const RAW: 'raw' = 'raw';
+export enum DataSourceType {
+  Raw,
+  Main,
+  Row,
+  Column,
+  Lookup
+}
 
 export type Generator = SequenceGenerator | SphereGenerator | GraticuleGenerator;
 
@@ -187,13 +193,14 @@ export interface SequenceParams {
    *
    * __Default value:__ `"data"`
    */
-  as?: string;
+  as?: FieldName;
 }
 
 export interface SphereGenerator extends GeneratorBase {
   /**
    * Generate sphere GeoJSON data for the full globe.
    */
+  // eslint-disable-next-line @typescript-eslint/ban-types
   sphere: true | {};
 }
 
@@ -208,17 +215,17 @@ export interface GraticuleParams {
   /**
    * The major extent of the graticule as a two-element array of coordinates.
    */
-  extentMajor?: number[][];
+  extentMajor?: Vector2<Vector2<number>>;
 
   /**
    * The minor extent of the graticule as a two-element array of coordinates.
    */
-  extentMinor?: number[][];
+  extentMinor?: Vector2<Vector2<number>>;
 
   /**
    * Sets both the major and minor extents to the same values.
    */
-  extent?: number[][];
+  extent?: Vector2<Vector2<number>>;
 
   /**
    * The major step angles of the graticule.
@@ -226,19 +233,19 @@ export interface GraticuleParams {
    *
    * __Default value:__ `[90, 360]`
    */
-  stepMajor?: number[];
+  stepMajor?: Vector2<number>;
 
   /**
    * The minor step angles of the graticule.
    *
    * __Default value:__ `[10, 10]`
    */
-  stepMinor?: number[];
+  stepMinor?: Vector2<number>;
 
   /**
    * Sets both the major and minor step angles to the same values.
    */
-  step?: number[];
+  step?: Vector2<number>;
 
   /**
    * The precision of the graticule in degrees.

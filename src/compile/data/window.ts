@@ -1,10 +1,11 @@
-import {AggregateOp} from 'vega';
+import {AggregateOp, WindowTransform as VgWindowTransform} from 'vega';
 import {isAggregateOp} from '../../aggregate';
 import {vgField} from '../../channeldef';
+import {SortOrder} from '../../sort';
 import {WindowFieldDef, WindowOnlyOp, WindowTransform} from '../../transform';
 import {duplicate, hash} from '../../util';
-import {VgComparator, VgComparatorOrder, VgJoinAggregateTransform, VgWindowTransform} from '../../vega.schema';
-import {unique} from './../../util';
+import {VgComparator, VgJoinAggregateTransform} from '../../vega.schema';
+import {unique} from '../../util';
 import {DataFlowNode} from './dataflow';
 
 /**
@@ -26,12 +27,13 @@ export class WindowTransformNode extends DataFlowNode {
   public dependentFields() {
     const out = new Set<string>();
 
-    this.transform.groupby.forEach(f => out.add(f));
-    this.transform.sort.forEach(m => out.add(m.field));
+    (this.transform.groupby ?? []).forEach(out.add, out);
+    (this.transform.sort ?? []).forEach(m => out.add(m.field));
+
     this.transform.window
       .map(w => w.field)
       .filter(f => f !== undefined)
-      .forEach(f => out.add(f));
+      .forEach(out.add, out);
 
     return out;
   }
@@ -41,7 +43,7 @@ export class WindowTransformNode extends DataFlowNode {
   }
 
   private getDefaultName(windowFieldDef: WindowFieldDef): string {
-    return windowFieldDef.as || vgField(windowFieldDef);
+    return windowFieldDef.as ?? vgField(windowFieldDef);
   }
 
   public hash() {
@@ -53,6 +55,7 @@ export class WindowTransformNode extends DataFlowNode {
     const ops: (AggregateOp | WindowOnlyOp)[] = [];
     const as: string[] = [];
     const params = [];
+
     for (const window of this.transform.window) {
       ops.push(window.op);
       as.push(this.getDefaultName(window));
@@ -75,11 +78,11 @@ export class WindowTransformNode extends DataFlowNode {
     }
 
     const sortFields: string[] = [];
-    const sortOrder: VgComparatorOrder[] = [];
+    const sortOrder: SortOrder[] = [];
     if (this.transform.sort !== undefined) {
       for (const sortField of this.transform.sort) {
         sortFields.push(sortField.field);
-        sortOrder.push(sortField.order || 'ascending');
+        sortOrder.push(sortField.order ?? 'ascending');
       }
     }
     const sort: VgComparator = {

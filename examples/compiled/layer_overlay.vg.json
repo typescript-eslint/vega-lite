@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -18,6 +18,26 @@
           "as": ["min_Horsepower", "max_Horsepower"]
         }
       ]
+    },
+    {
+      "name": "data_1",
+      "source": "source_0",
+      "transform": [
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"min_Horsepower\"]) && isFinite(+datum[\"min_Horsepower\"])"
+        }
+      ]
+    },
+    {
+      "name": "data_2",
+      "source": "source_0",
+      "transform": [
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"max_Horsepower\"]) && isFinite(+datum[\"max_Horsepower\"])"
+        }
+      ]
     }
   ],
   "signals": [
@@ -32,18 +52,18 @@
       "name": "layer_0_layer_0_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"Cylinders\"]", "order": "descending"},
+      "sort": {"field": "datum[\"Cylinders\"]"},
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "stroke": {"value": "darkred"},
-          "tooltip": {
-            "signal": "{\"Cylinders\": ''+datum[\"Cylinders\"], \"Max of Horsepower\": format(datum[\"max_Horsepower\"], \"\")}"
+          "description": {
+            "signal": "\"Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"]) + \"; Max of Horsepower: \" + (format(datum[\"max_Horsepower\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Cylinders"},
           "y": {"scale": "y", "field": "max_Horsepower"},
           "defined": {
-            "signal": "datum[\"max_Horsepower\"] !== null && !isNaN(datum[\"max_Horsepower\"])"
+            "signal": "isValid(datum[\"max_Horsepower\"]) && isFinite(+datum[\"max_Horsepower\"])"
           }
         }
       }
@@ -52,13 +72,14 @@
       "name": "layer_0_layer_1_marks",
       "type": "symbol",
       "style": ["point"],
-      "from": {"data": "source_0"},
+      "from": {"data": "data_2"},
       "encode": {
         "update": {
           "opacity": {"value": 1},
           "fill": {"value": "darkred"},
-          "tooltip": {
-            "signal": "{\"Cylinders\": ''+datum[\"Cylinders\"], \"Max of Horsepower\": format(datum[\"max_Horsepower\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"]) + \"; Max of Horsepower: \" + (format(datum[\"max_Horsepower\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Cylinders"},
           "y": {"scale": "y", "field": "max_Horsepower"}
@@ -69,18 +90,18 @@
       "name": "layer_1_layer_0_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"Cylinders\"]", "order": "descending"},
+      "sort": {"field": "datum[\"Cylinders\"]"},
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"Cylinders\": ''+datum[\"Cylinders\"], \"Min of Horsepower\": format(datum[\"min_Horsepower\"], \"\")}"
+          "description": {
+            "signal": "\"Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"]) + \"; Min of Horsepower: \" + (format(datum[\"min_Horsepower\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Cylinders"},
           "y": {"scale": "y", "field": "min_Horsepower"},
           "defined": {
-            "signal": "datum[\"min_Horsepower\"] !== null && !isNaN(datum[\"min_Horsepower\"])"
+            "signal": "isValid(datum[\"min_Horsepower\"]) && isFinite(+datum[\"min_Horsepower\"])"
           }
         }
       }
@@ -89,13 +110,14 @@
       "name": "layer_1_layer_1_marks",
       "type": "symbol",
       "style": ["point"],
-      "from": {"data": "source_0"},
+      "from": {"data": "data_1"},
       "encode": {
         "update": {
           "opacity": {"value": 1},
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"Cylinders\": ''+datum[\"Cylinders\"], \"Min of Horsepower\": format(datum[\"min_Horsepower\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"]) + \"; Min of Horsepower: \" + (format(datum[\"min_Horsepower\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Cylinders"},
           "y": {"scale": "y", "field": "min_Horsepower"}
@@ -107,7 +129,14 @@
     {
       "name": "x",
       "type": "point",
-      "domain": {"data": "source_0", "field": "Cylinders", "sort": true},
+      "domain": {
+        "fields": [
+          {"data": "source_0", "field": "Cylinders"},
+          {"data": "data_2", "field": "Cylinders"},
+          {"data": "data_1", "field": "Cylinders"}
+        ],
+        "sort": true
+      },
       "range": {"step": {"signal": "x_step"}},
       "padding": 0.5
     },
@@ -115,8 +144,12 @@
       "name": "y",
       "type": "linear",
       "domain": {
-        "data": "source_0",
-        "fields": ["max_Horsepower", "min_Horsepower"]
+        "fields": [
+          {"data": "source_0", "field": "max_Horsepower"},
+          {"data": "data_2", "field": "max_Horsepower"},
+          {"data": "source_0", "field": "min_Horsepower"},
+          {"data": "data_1", "field": "min_Horsepower"}
+        ]
       },
       "range": [{"signal": "height"}, 0],
       "nice": true,
@@ -125,6 +158,20 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
@@ -132,8 +179,7 @@
       "labelAlign": "right",
       "labelAngle": 270,
       "labelBaseline": "middle",
-      "labelOverlap": true,
-      "zindex": 1
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -142,19 +188,6 @@
       "title": "Max of Horsepower, Min of Horsepower",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ]

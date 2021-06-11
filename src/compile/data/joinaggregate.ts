@@ -3,8 +3,8 @@ import {vgField} from '../../channeldef';
 import {JoinAggregateTransform} from '../../transform';
 import {duplicate, hash} from '../../util';
 import {VgJoinAggregateTransform} from '../../vega.schema';
-import {JoinAggregateFieldDef} from './../../transform';
-import {unique} from './../../util';
+import {JoinAggregateFieldDef} from '../../transform';
+import {unique} from '../../util';
 import {DataFlowNode} from './dataflow';
 
 /**
@@ -26,11 +26,13 @@ export class JoinAggregateTransformNode extends DataFlowNode {
   public dependentFields() {
     const out = new Set<string>();
 
-    this.transform.groupby.forEach(f => out.add(f));
+    if (this.transform.groupby) {
+      this.transform.groupby.forEach(out.add, out);
+    }
     this.transform.joinaggregate
       .map(w => w.field)
       .filter(f => f !== undefined)
-      .forEach(f => out.add(f));
+      .forEach(out.add, out);
 
     return out;
   }
@@ -40,7 +42,7 @@ export class JoinAggregateTransformNode extends DataFlowNode {
   }
 
   private getDefaultName(joinAggregateFieldDef: JoinAggregateFieldDef): string {
-    return joinAggregateFieldDef.as || vgField(joinAggregateFieldDef);
+    return joinAggregateFieldDef.as ?? vgField(joinAggregateFieldDef);
   }
 
   public hash() {

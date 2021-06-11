@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {"name": "brush_store"},
@@ -314,8 +314,19 @@
       "source": "source_0",
       "transform": [
         {
+          "type": "stack",
+          "groupby": ["Country"],
+          "field": "Population_ages_15_64_of_total",
+          "sort": {"field": [], "order": []},
+          "as": [
+            "Population_ages_15_64_of_total_start",
+            "Population_ages_15_64_of_total_end"
+          ],
+          "offset": "zero"
+        },
+        {
           "type": "filter",
-          "expr": "datum[\"Population_ages_15_64_of_total\"] !== null && !isNaN(datum[\"Population_ages_15_64_of_total\"])"
+          "expr": "isValid(datum[\"Population_ages_15_64_of_total\"]) && isFinite(+datum[\"Population_ages_15_64_of_total\"])"
         }
       ]
     },
@@ -324,8 +335,19 @@
       "source": "source_0",
       "transform": [
         {
+          "type": "stack",
+          "groupby": ["Country"],
+          "field": "Population_ages_65_and_above_of_total",
+          "sort": {"field": [], "order": []},
+          "as": [
+            "Population_ages_65_and_above_of_total_start",
+            "Population_ages_65_and_above_of_total_end"
+          ],
+          "offset": "zero"
+        },
+        {
           "type": "filter",
-          "expr": "datum[\"Population_ages_65_and_above_of_total\"] !== null && !isNaN(datum[\"Population_ages_65_and_above_of_total\"])"
+          "expr": "isValid(datum[\"Population_ages_65_and_above_of_total\"]) && isFinite(+datum[\"Population_ages_65_and_above_of_total\"])"
         }
       ]
     },
@@ -335,7 +357,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"Population_ages_15_64_of_total\"] !== null && !isNaN(datum[\"Population_ages_15_64_of_total\"]) && datum[\"Population_ages_65_and_above_of_total\"] !== null && !isNaN(datum[\"Population_ages_65_and_above_of_total\"])"
+          "expr": "isValid(datum[\"Population_ages_15_64_of_total\"]) && isFinite(+datum[\"Population_ages_15_64_of_total\"]) && isValid(datum[\"Population_ages_65_and_above_of_total\"]) && isFinite(+datum[\"Population_ages_65_and_above_of_total\"])"
         }
       ]
     }
@@ -354,7 +376,10 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "brush", "update": "vlSelectionResolve(\"brush_store\")"}
+    {
+      "name": "brush",
+      "update": "vlSelectionResolve(\"brush_store\", \"union\")"
+    }
   ],
   "layout": {"padding": 20, "bounds": "full", "align": "each"},
   "marks": [
@@ -403,16 +428,16 @@
             },
             {"events": {"signal": "brush_scale_trigger"}, "update": "[0, 0]"},
             {
+              "events": [{"source": "view", "type": "dblclick"}],
+              "update": "[0, 0]"
+            },
+            {
               "events": {"signal": "brush_translate_delta"},
               "update": "clampRange(panLinear(brush_translate_anchor.extent_y, brush_translate_delta.y / span(brush_translate_anchor.extent_y)), 0, concat_0_height)"
             },
             {
               "events": {"signal": "brush_zoom_delta"},
               "update": "clampRange(zoomLinear(brush_y, brush_zoom_anchor.y, brush_zoom_delta), 0, concat_0_height)"
-            },
-            {
-              "events": [{"source": "scope", "type": "dblclick"}],
-              "update": "[0, 0]"
             }
           ]
         },
@@ -523,7 +548,12 @@
         },
         {
           "name": "brush_modify",
-          "update": "modify(\"brush_store\", brush_tuple, true)"
+          "on": [
+            {
+              "events": {"signal": "brush_tuple"},
+              "update": "modify(\"brush_store\", brush_tuple, true)"
+            }
+          ]
         }
       ],
       "marks": [
@@ -572,26 +602,31 @@
           "name": "concat_0_marks",
           "type": "rect",
           "style": ["bar"],
+          "interactive": true,
           "from": {"data": "data_1"},
           "encode": {
             "update": {
               "fill": [
                 {
-                  "test": "!(length(data(\"brush_store\"))) || (!(vlSelectionTest(\"brush_store\", datum)))",
-                  "value": "steelblue"
+                  "test": "length(data(\"brush_store\")) && vlSelectionTest(\"brush_store\", datum)",
+                  "value": "goldenrod"
                 },
-                {"value": "goldenrod"}
+                {"value": "steelblue"}
               ],
-              "tooltip": {
-                "signal": "{\"Country\": ''+datum[\"Country\"], \"Population_ages_15_64_of_total\": format(datum[\"Population_ages_15_64_of_total\"], \"\")}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"Country: \" + (isValid(datum[\"Country\"]) ? datum[\"Country\"] : \"\"+datum[\"Country\"]) + \"; Population_ages_15_64_of_total: \" + (format(datum[\"Population_ages_15_64_of_total\"], \"\"))"
               },
               "x": {
                 "scale": "concat_0_x",
-                "field": "Population_ages_15_64_of_total"
+                "field": "Population_ages_15_64_of_total_end"
               },
-              "x2": {"scale": "concat_0_x", "value": 0},
+              "x2": {
+                "scale": "concat_0_x",
+                "field": "Population_ages_15_64_of_total_start"
+              },
               "y": {"scale": "concat_0_y", "field": "Country"},
-              "height": {"scale": "concat_0_y", "band": true}
+              "height": {"scale": "concat_0_y", "band": 1}
             }
           }
         },
@@ -642,24 +677,25 @@
         {
           "scale": "concat_0_x",
           "orient": "bottom",
-          "grid": false,
-          "title": "Population_ages_15_64_of_total",
-          "labelFlush": true,
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(concat_0_width/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "concat_0_x",
-          "orient": "bottom",
           "gridScale": "concat_0_y",
           "grid": true,
           "tickCount": {"signal": "ceil(concat_0_width/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "concat_0_x",
+          "orient": "bottom",
+          "grid": false,
+          "title": "Population_ages_15_64_of_total",
+          "labelFlush": true,
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(concat_0_width/40)"},
           "zindex": 0
         },
         {
@@ -667,8 +703,7 @@
           "orient": "left",
           "grid": false,
           "title": "Country",
-          "labelOverlap": true,
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -717,16 +752,16 @@
             },
             {"events": {"signal": "brush_scale_trigger"}, "update": "[0, 0]"},
             {
+              "events": [{"source": "view", "type": "dblclick"}],
+              "update": "[0, 0]"
+            },
+            {
               "events": {"signal": "brush_translate_delta"},
               "update": "clampRange(panLinear(brush_translate_anchor.extent_y, brush_translate_delta.y / span(brush_translate_anchor.extent_y)), 0, concat_1_height)"
             },
             {
               "events": {"signal": "brush_zoom_delta"},
               "update": "clampRange(zoomLinear(brush_y, brush_zoom_anchor.y, brush_zoom_delta), 0, concat_1_height)"
-            },
-            {
-              "events": [{"source": "scope", "type": "dblclick"}],
-              "update": "[0, 0]"
             }
           ]
         },
@@ -837,7 +872,12 @@
         },
         {
           "name": "brush_modify",
-          "update": "modify(\"brush_store\", brush_tuple, true)"
+          "on": [
+            {
+              "events": {"signal": "brush_tuple"},
+              "update": "modify(\"brush_store\", brush_tuple, true)"
+            }
+          ]
         }
       ],
       "marks": [
@@ -886,26 +926,31 @@
           "name": "concat_1_marks",
           "type": "rect",
           "style": ["bar"],
+          "interactive": true,
           "from": {"data": "data_2"},
           "encode": {
             "update": {
               "fill": [
                 {
-                  "test": "!(length(data(\"brush_store\"))) || (!(vlSelectionTest(\"brush_store\", datum)))",
-                  "value": "steelblue"
+                  "test": "length(data(\"brush_store\")) && vlSelectionTest(\"brush_store\", datum)",
+                  "value": "goldenrod"
                 },
-                {"value": "goldenrod"}
+                {"value": "steelblue"}
               ],
-              "tooltip": {
-                "signal": "{\"Country\": ''+datum[\"Country\"], \"Population_ages_65_and_above_of_total\": format(datum[\"Population_ages_65_and_above_of_total\"], \"\")}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"Country: \" + (isValid(datum[\"Country\"]) ? datum[\"Country\"] : \"\"+datum[\"Country\"]) + \"; Population_ages_65_and_above_of_total: \" + (format(datum[\"Population_ages_65_and_above_of_total\"], \"\"))"
               },
               "x": {
                 "scale": "concat_1_x",
-                "field": "Population_ages_65_and_above_of_total"
+                "field": "Population_ages_65_and_above_of_total_end"
               },
-              "x2": {"scale": "concat_1_x", "value": 0},
+              "x2": {
+                "scale": "concat_1_x",
+                "field": "Population_ages_65_and_above_of_total_start"
+              },
               "y": {"scale": "concat_1_y", "field": "Country"},
-              "height": {"scale": "concat_1_y", "band": true}
+              "height": {"scale": "concat_1_y", "band": 1}
             }
           }
         },
@@ -956,24 +1001,25 @@
         {
           "scale": "concat_1_x",
           "orient": "bottom",
-          "grid": false,
-          "title": "Population_ages_65_and_above_of_total",
-          "labelFlush": true,
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(concat_1_width/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "concat_1_x",
-          "orient": "bottom",
           "gridScale": "concat_1_y",
           "grid": true,
           "tickCount": {"signal": "ceil(concat_1_width/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "concat_1_x",
+          "orient": "bottom",
+          "grid": false,
+          "title": "Population_ages_65_and_above_of_total",
+          "labelFlush": true,
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(concat_1_width/40)"},
           "zindex": 0
         },
         {
@@ -981,8 +1027,7 @@
           "orient": "left",
           "grid": false,
           "title": "Country",
-          "labelOverlap": true,
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -1034,16 +1079,16 @@
               "update": "[scale(\"concat_2_x\", brush_Population_ages_65_and_above_of_total[0]), scale(\"concat_2_x\", brush_Population_ages_65_and_above_of_total[1])]"
             },
             {
+              "events": [{"source": "view", "type": "dblclick"}],
+              "update": "[0, 0]"
+            },
+            {
               "events": {"signal": "brush_translate_delta"},
               "update": "clampRange(panLinear(brush_translate_anchor.extent_x, brush_translate_delta.x / span(brush_translate_anchor.extent_x)), 0, concat_2_width)"
             },
             {
               "events": {"signal": "brush_zoom_delta"},
               "update": "clampRange(zoomLinear(brush_x, brush_zoom_anchor.x, brush_zoom_delta), 0, concat_2_width)"
-            },
-            {
-              "events": [{"source": "scope", "type": "dblclick"}],
-              "update": "[0, 0]"
             }
           ]
         },
@@ -1093,16 +1138,16 @@
               "update": "[scale(\"concat_2_y\", brush_Population_ages_15_64_of_total[0]), scale(\"concat_2_y\", brush_Population_ages_15_64_of_total[1])]"
             },
             {
+              "events": [{"source": "view", "type": "dblclick"}],
+              "update": "[0, 0]"
+            },
+            {
               "events": {"signal": "brush_translate_delta"},
               "update": "clampRange(panLinear(brush_translate_anchor.extent_y, brush_translate_delta.y / span(brush_translate_anchor.extent_y)), 0, concat_2_height)"
             },
             {
               "events": {"signal": "brush_zoom_delta"},
               "update": "clampRange(zoomLinear(brush_y, brush_zoom_anchor.y, brush_zoom_delta), 0, concat_2_height)"
-            },
-            {
-              "events": [{"source": "scope", "type": "dblclick"}],
-              "update": "[0, 0]"
             }
           ]
         },
@@ -1228,7 +1273,12 @@
         },
         {
           "name": "brush_modify",
-          "update": "modify(\"brush_store\", brush_tuple, true)"
+          "on": [
+            {
+              "events": {"signal": "brush_tuple"},
+              "update": "modify(\"brush_store\", brush_tuple, true)"
+            }
+          ]
         }
       ],
       "marks": [
@@ -1277,6 +1327,7 @@
           "name": "concat_2_marks",
           "type": "symbol",
           "style": ["point"],
+          "interactive": true,
           "from": {"data": "data_3"},
           "encode": {
             "update": {
@@ -1284,17 +1335,18 @@
               "fill": {"value": "transparent"},
               "stroke": [
                 {
-                  "test": "!(length(data(\"brush_store\"))) || (!(vlSelectionTest(\"brush_store\", datum)))",
-                  "value": "steelblue"
+                  "test": "length(data(\"brush_store\")) && vlSelectionTest(\"brush_store\", datum)",
+                  "value": "goldenrod"
                 },
-                {"value": "goldenrod"}
+                {"value": "steelblue"}
               ],
-              "tooltip": {
-                "signal": "{\"Population_ages_15_64_of_total\": format(datum[\"Population_ages_15_64_of_total\"], \"\"), \"Population_ages_65_and_above_of_total\": format(datum[\"Population_ages_65_and_above_of_total\"], \"\")}"
+              "ariaRoleDescription": {"value": "point"},
+              "description": {
+                "signal": "\"Population_ages_15_64_of_total: \" + (format(datum[\"Population_ages_15_64_of_total\"], \"\")) + \"; Population_ages_65_and_above_of_total: \" + (format(datum[\"Population_ages_65_and_above_of_total\"], \"\"))"
               },
               "x": [
                 {
-                  "test": "datum[\"Population_ages_65_and_above_of_total\"] === null || isNaN(datum[\"Population_ages_65_and_above_of_total\"])",
+                  "test": "!isValid(datum[\"Population_ages_65_and_above_of_total\"]) || !isFinite(+datum[\"Population_ages_65_and_above_of_total\"])",
                   "value": 0
                 },
                 {
@@ -1304,7 +1356,7 @@
               ],
               "y": [
                 {
-                  "test": "datum[\"Population_ages_15_64_of_total\"] === null || isNaN(datum[\"Population_ages_15_64_of_total\"])",
+                  "test": "!isValid(datum[\"Population_ages_15_64_of_total\"]) || !isFinite(+datum[\"Population_ages_15_64_of_total\"])",
                   "field": {"group": "height"}
                 },
                 {
@@ -1365,34 +1417,16 @@
         {
           "scale": "concat_2_x",
           "orient": "bottom",
-          "grid": false,
-          "title": "Population_ages_65_and_above_of_total",
-          "labelFlush": true,
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(concat_2_width/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "concat_2_x",
-          "orient": "bottom",
           "gridScale": "concat_2_y",
           "grid": true,
           "tickCount": {"signal": "ceil(concat_2_width/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
           "zindex": 0
-        },
-        {
-          "scale": "concat_2_y",
-          "orient": "left",
-          "grid": false,
-          "title": "Population_ages_15_64_of_total",
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(concat_2_height/40)"},
-          "zindex": 1
         },
         {
           "scale": "concat_2_y",
@@ -1402,9 +1436,29 @@
           "tickCount": {"signal": "ceil(concat_2_height/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "concat_2_x",
+          "orient": "bottom",
+          "grid": false,
+          "title": "Population_ages_65_and_above_of_total",
+          "labelFlush": true,
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(concat_2_width/40)"},
+          "zindex": 0
+        },
+        {
+          "scale": "concat_2_y",
+          "orient": "left",
+          "grid": false,
+          "title": "Population_ages_15_64_of_total",
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(concat_2_height/40)"},
           "zindex": 0
         }
       ]
@@ -1414,7 +1468,13 @@
     {
       "name": "concat_0_x",
       "type": "linear",
-      "domain": {"data": "data_1", "field": "Population_ages_15_64_of_total"},
+      "domain": {
+        "data": "data_1",
+        "fields": [
+          "Population_ages_15_64_of_total_start",
+          "Population_ages_15_64_of_total_end"
+        ]
+      },
       "range": [0, {"signal": "concat_0_width"}],
       "nice": true,
       "zero": true
@@ -1426,7 +1486,7 @@
         "data": "source_0",
         "field": "Country",
         "sort": {
-          "op": "mean",
+          "op": "sum",
           "field": "Population_ages_15_64_of_total",
           "order": "descending"
         }
@@ -1440,7 +1500,10 @@
       "type": "linear",
       "domain": {
         "data": "data_2",
-        "field": "Population_ages_65_and_above_of_total"
+        "fields": [
+          "Population_ages_65_and_above_of_total_start",
+          "Population_ages_65_and_above_of_total_end"
+        ]
       },
       "range": [0, {"signal": "concat_1_width"}],
       "nice": true,
@@ -1453,7 +1516,7 @@
         "data": "source_0",
         "field": "Country",
         "sort": {
-          "op": "mean",
+          "op": "sum",
           "field": "Population_ages_65_and_above_of_total",
           "order": "descending"
         }

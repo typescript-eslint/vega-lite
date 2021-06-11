@@ -1,12 +1,13 @@
-import {isString} from 'vega-util';
+import {LookupTransform as VgLookupTransform} from 'vega';
+import {array, isString} from 'vega-util';
 import * as log from '../../log';
-import {LookupTransform} from '../../transform';
-import {duplicate, hash} from '../../util';
-import {VgLookupTransform} from '../../vega.schema';
+import {isLookupData, isLookupSelection, LookupTransform} from '../../transform';
+import {duplicate, hash, varName} from '../../util';
 import {Model} from '../model';
 import {DataFlowNode, OutputNode} from './dataflow';
 import {findSource} from './parse';
 import {SourceNode} from './source';
+import {DataSourceType} from '../../data';
 
 export class LookupNode extends DataFlowNode {
   public clone() {
@@ -19,31 +20,51 @@ export class LookupNode extends DataFlowNode {
 
   public static make(parent: DataFlowNode, model: Model, transform: LookupTransform, counter: number) {
     const sources = model.component.data.sources;
+    const {from} = transform;
+    let fromOutputNode = null;
 
-    let fromSource = findSource(transform.from.data, sources);
+    if (isLookupData(from)) {
+      let fromSource = findSource(from.data, sources);
 
-    if (!fromSource) {
-      fromSource = new SourceNode(transform.from.data);
-      sources.push(fromSource);
+      if (!fromSource) {
+        fromSource = new SourceNode(from.data);
+        sources.push(fromSource);
+      }
+
+      const fromOutputName = model.getName(`lookup_${counter}`);
+      fromOutputNode = new OutputNode(
+        fromSource,
+        fromOutputName,
+        DataSourceType.Lookup,
+        model.component.data.outputNodeRefCounts
+      );
+      model.component.data.outputNodes[fromOutputName] = fromOutputNode;
+    } else if (isLookupSelection(from)) {
+      const selName = from.param;
+      transform = {as: selName, ...transform};
+      let selCmpt;
+
+      try {
+        selCmpt = model.getSelectionComponent(varName(selName), selName);
+      } catch (e) {
+        throw new Error(log.message.cannotLookupVariableParameter(selName));
+      }
+
+      fromOutputNode = selCmpt.materialized;
+      if (!fromOutputNode) {
+        throw new Error(log.message.noSameUnitLookup(selName));
+      }
     }
-
-    const fromOutputName = model.getName(`lookup_${counter}`);
-    const fromOutputNode = new OutputNode(
-      fromSource,
-      fromOutputName,
-      'lookup',
-      model.component.data.outputNodeRefCounts
-    );
-
-    model.component.data.outputNodes[fromOutputName] = fromOutputNode;
 
     return new LookupNode(parent, transform, fromOutputNode.getSource());
   }
 
+  public dependentFields() {
+    return new Set([this.transform.lookup]);
+  }
+
   public producedFields() {
-    return new Set(
-      this.transform.from.fields || (this.transform.as instanceof Array ? this.transform.as : [this.transform.as])
-    );
+    return new Set(this.transform.as ? array(this.transform.as) : this.transform.from.fields);
   }
 
   public hash() {
@@ -57,7 +78,7 @@ export class LookupNode extends DataFlowNode {
       // lookup a few fields and add create a flat output
       foreign = {
         values: this.transform.from.fields,
-        ...(this.transform.as ? {as: this.transform.as instanceof Array ? this.transform.as : [this.transform.as]} : {})
+        ...(this.transform.as ? {as: array(this.transform.as)} : {})
       };
     } else {
       // lookup full record and nest it

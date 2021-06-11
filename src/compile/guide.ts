@@ -1,8 +1,8 @@
-import {ValueDef} from '../channeldef';
 import {GuideEncodingEntry} from '../guide';
 import {keys} from '../util';
 import {VgEncodeChannel} from '../vega.schema';
-import {wrapCondition} from './mark/mixins';
+import {signalOrValueRef} from './common';
+import {wrapCondition} from './mark/encode';
 import {UnitModel} from './unit';
 
 export function guideEncodeEntry(encoding: GuideEncodingEntry, model: UnitModel) {
@@ -10,7 +10,7 @@ export function guideEncodeEntry(encoding: GuideEncodingEntry, model: UnitModel)
     const valueDef = encoding[channel];
     return {
       ...encode,
-      ...wrapCondition(model, valueDef, channel, (x: ValueDef) => ({value: x.value}))
+      ...wrapCondition(model, valueDef, channel, def => signalOrValueRef(def.value))
     };
   }, {});
 }

@@ -1,8 +1,9 @@
+import 'array-flat-polyfill';
 import {default as clone_} from 'clone';
 import deepEqual_ from 'fast-deep-equal';
 import stableStringify from 'fast-json-stable-stringify';
-import {isArray, isNumber, isString, splitAccessPath, stringValue} from 'vega-util';
-import {isLogicalAnd, isLogicalNot, isLogicalOr, LogicalOperand} from './logical';
+import {hasOwnProperty, isNumber, isString, splitAccessPath, stringValue, writeConfig} from 'vega-util';
+import {isLogicalAnd, isLogicalNot, isLogicalOr, LogicalComposition} from './logical';
 
 export const deepEqual = deepEqual_;
 export const duplicate = clone_;
@@ -13,12 +14,12 @@ export const duplicate = clone_;
  * var object = {'a': 1, 'b': '2', 'c': 3};
  * pick(object, ['a', 'c']);
  * // → {'a': 1, 'c': 3}
- *
  */
-export function pick<T extends object, K extends keyof T>(obj: T, props: K[]): Pick<T, K> {
+// eslint-disable-next-line @typescript-eslint/ban-types
+export function pick<T extends object, K extends keyof T>(obj: T, props: readonly K[]): Pick<T, K> {
   const copy: any = {};
   for (const prop of props) {
-    if (obj.hasOwnProperty(prop)) {
+    if (hasOwnProperty(obj, prop)) {
       copy[prop] = obj[prop];
     }
   }
@@ -29,7 +30,8 @@ export function pick<T extends object, K extends keyof T>(obj: T, props: K[]): P
  * The opposite of _.pick; this method creates an object composed of the own
  * and inherited enumerable string keyed properties of object that are not omitted.
  */
-export function omit<T extends object, K extends keyof T>(obj: T, props: K[]): Omit<T, K> {
+// eslint-disable-next-line @typescript-eslint/ban-types
+export function omit<T extends object, K extends keyof T>(obj: T, props: readonly K[]): Omit<T, K> {
   const copy = {...(obj as any)};
   for (const prop of props) {
     delete copy[prop];
@@ -40,7 +42,7 @@ export function omit<T extends object, K extends keyof T>(obj: T, props: K[]): O
 /**
  * Monkey patch Set so that `stringify` produces a string representation of sets.
  */
-Set.prototype['toJSON'] = function() {
+Set.prototype['toJSON'] = function () {
   return `Set(${[...this].map(x => stableStringify(x)).join(',')})`;
 };
 
@@ -78,26 +80,17 @@ export function isNullOrFalse(x: any): x is false | null {
   return x === false || x === null;
 }
 
-export function contains<T>(array: T[], item: T) {
-  return array.indexOf(item) > -1;
-}
-
-/** Returns the array without the elements in item */
-export function without<T>(array: T[], excludedItems: T[]) {
-  return array.filter(item => !contains(excludedItems, item));
-}
-
-export function union<T>(array: T[], other: T[]) {
-  return array.concat(without(other, array));
+export function contains<T>(array: readonly T[], item: T) {
+  return array.includes(item);
 }
 
 /**
  * Returns true if any item returns true.
  */
-export function some<T>(arr: T[], f: (d: T, k?: any, i?: any) => boolean) {
+export function some<T>(arr: readonly T[], f: (d: T, k?: any, i?: any) => boolean) {
   let i = 0;
-  for (let k = 0; k < arr.length; k++) {
-    if (f(arr[k], k, i++)) {
+  for (const [k, a] of arr.entries()) {
+    if (f(a, k, i++)) {
       return true;
     }
   }
@@ -107,26 +100,14 @@ export function some<T>(arr: T[], f: (d: T, k?: any, i?: any) => boolean) {
 /**
  * Returns true if all items return true.
  */
-export function every<T>(arr: T[], f: (d: T, k?: any, i?: any) => boolean) {
+export function every<T>(arr: readonly T[], f: (d: T, k?: any, i?: any) => boolean) {
   let i = 0;
-  for (let k = 0; k < arr.length; k++) {
-    if (!f(arr[k], k, i++)) {
+  for (const [k, a] of arr.entries()) {
+    if (!f(a, k, i++)) {
       return false;
     }
   }
   return true;
-}
-
-export function flatten<T>(arrays: T[][]): T[] {
-  return ([] as T[]).concat(...arrays);
-}
-
-export function fill<T>(val: T, len: number) {
-  const arr = new Array<T>(len);
-  for (let i = 0; i < len; ++i) {
-    arr[i] = val;
-  }
-  return arr;
 }
 
 /**
@@ -137,38 +118,20 @@ export type DeepPartial<T> = {[P in keyof T]?: DeepPartial<T[P]>};
 /**
  * recursively merges src into dest
  */
-export function mergeDeep<T>(dest: T, ...src: DeepPartial<T>[]): T {
+export function mergeDeep<T>(dest: T, ...src: readonly DeepPartial<T>[]): T {
   for (const s of src) {
-    dest = deepMerge_(dest, s);
+    deepMerge_(dest, s ?? {});
   }
   return dest;
 }
 
-// recursively merges src into dest
 function deepMerge_(dest: any, src: any) {
-  if (typeof src !== 'object' || src === null) {
-    return dest;
+  for (const property of keys(src)) {
+    writeConfig(dest, property, src[property], true);
   }
-
-  for (const p in src) {
-    if (!src.hasOwnProperty(p)) {
-      continue;
-    }
-    if (src[p] === undefined) {
-      continue;
-    }
-    if (typeof src[p] !== 'object' || isArray(src[p]) || src[p] === null) {
-      dest[p] = src[p];
-    } else if (typeof dest[p] !== 'object' || dest[p] === null) {
-      dest[p] = mergeDeep(isArray(src[p].constructor) ? [] : {}, src[p]);
-    } else {
-      mergeDeep(dest[p], src[p]);
-    }
-  }
-  return dest;
 }
 
-export function unique<T>(values: T[], f: (item: T) => string | number): T[] {
+export function unique<T>(values: readonly T[], f: (item: T) => string | number): T[] {
   const results: T[] = [];
   const u = {};
   let v: string | number;
@@ -183,9 +146,7 @@ export function unique<T>(values: T[], f: (item: T) => string | number): T[] {
   return results;
 }
 
-export interface Dict<T> {
-  [key: string]: T;
-}
+export type Dict<T> = Record<string, T>;
 
 /**
  * Returns true if the two dictionaries disagree. Applies only to defined values.
@@ -216,7 +177,7 @@ export function setEqual<T>(a: Set<T>, b: Set<T>) {
   return true;
 }
 
-export function hasIntersection<T>(a: Set<T>, b: Set<T>) {
+export function hasIntersection<T>(a: ReadonlySet<T>, b: ReadonlySet<T>) {
   for (const key of a) {
     if (b.has(key)) {
       return true;
@@ -225,76 +186,46 @@ export function hasIntersection<T>(a: Set<T>, b: Set<T>) {
   return false;
 }
 
-export function prefixGenerator(a: Set<string>): Set<string> {
+export function prefixGenerator(a: ReadonlySet<string>): ReadonlySet<string> {
   const prefixes = new Set<string>();
   for (const x of a) {
     const splitField = splitAccessPath(x);
     // Wrap every element other than the first in `[]`
     const wrappedWithAccessors = splitField.map((y, i) => (i === 0 ? y : `[${y}]`));
     const computedPrefixes = wrappedWithAccessors.map((_, i) => wrappedWithAccessors.slice(0, i + 1).join(''));
-    computedPrefixes.forEach(y => prefixes.add(y));
+    for (const y of computedPrefixes) {
+      prefixes.add(y);
+    }
   }
   return prefixes;
 }
 
-export function fieldIntersection(a: Set<string>, b: Set<string>): boolean {
+/**
+ * Returns true if a and b have an intersection. Also return true if a or b are undefined
+ * since this means we don't know what fields a node produces or depends on.
+ */
+export function fieldIntersection(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  if (a === undefined || b === undefined) {
+    return true;
+  }
   return hasIntersection(prefixGenerator(a), prefixGenerator(b));
 }
 
-export function isNumeric(num: string | number) {
-  return !isNaN(num as any);
-}
-
-export function differArray<T>(array: T[], other: T[]) {
-  if (array.length !== other.length) {
-    return true;
-  }
-
-  array.sort();
-  other.sort();
-
-  for (let i = 0; i < array.length; i++) {
-    if (other[i] !== array[i]) {
-      return true;
-    }
-  }
-
-  return false;
+// eslint-disable-next-line @typescript-eslint/ban-types
+export function isEmpty(obj: object) {
+  return keys(obj).length === 0;
 }
 
 // This is a stricter version of Object.keys but with better types. See https://github.com/Microsoft/TypeScript/pull/12253#issuecomment-263132208
-export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[];
+export const keys = Object.keys as <T>(o: T) => Extract<keyof T, string>[];
 
-export function vals<T>(x: {[key: string]: T}): T[] {
-  const _vals: T[] = [];
-  for (const k in x) {
-    if (x.hasOwnProperty(k)) {
-      _vals.push(x[k]);
-    }
-  }
-  return _vals;
-}
+export const vals = Object.values;
 
-export function entries<T>(x: {[key: string]: T}): {key: string; value: T}[] {
-  const _entries: {key: string; value: T}[] = [];
-  for (const k in x) {
-    if (x.hasOwnProperty(k)) {
-      _entries.push({
-        key: k,
-        value: x[k]
-      });
-    }
-  }
-  return _entries;
-}
+export const entries = Object.entries;
 
 // Using mapped type to declare a collect of flags for a string literal type S
 // https://www.typescriptlang.org/docs/handbook/advanced-types.html#mapped-types
 export type Flag<S extends string> = {[K in S]: 1};
-
-export function flagKeys<S extends string>(f: Flag<S>): S[] {
-  return keys(f) as S[];
-}
 
 export function isBoolean(b: any): b is boolean {
   return b === true || b === false;
@@ -311,19 +242,17 @@ export function varName(s: string): string {
   return (s.match(/^\d+/) ? '_' : '') + alphanumericS;
 }
 
-export function logicalExpr<T>(op: LogicalOperand<T>, cb: (...args: any[]) => string): string {
+export function logicalExpr<T>(op: LogicalComposition<T>, cb: (...args: readonly any[]) => string): string {
   if (isLogicalNot(op)) {
-    return '!(' + logicalExpr(op.not, cb) + ')';
+    return `!(${logicalExpr(op.not, cb)})`;
   } else if (isLogicalAnd(op)) {
-    return '(' + op.and.map((and: LogicalOperand<T>) => logicalExpr(and, cb)).join(') && (') + ')';
+    return `(${op.and.map((and: LogicalComposition<T>) => logicalExpr(and, cb)).join(') && (')})`;
   } else if (isLogicalOr(op)) {
-    return '(' + op.or.map((or: LogicalOperand<T>) => logicalExpr(or, cb)).join(') || (') + ')';
+    return `(${op.or.map((or: LogicalComposition<T>) => logicalExpr(or, cb)).join(') || (')})`;
   } else {
     return cb(op);
   }
 }
-
-export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
 /**
  * Delete nested property of an object, and delete the ancestors of the property if they become empty.
@@ -332,14 +261,14 @@ export function deleteNestedProperty(obj: any, orderedProps: string[]) {
   if (orderedProps.length === 0) {
     return true;
   }
-  const prop = orderedProps.shift();
-  if (deleteNestedProperty(obj[prop], orderedProps)) {
+  const prop = orderedProps.shift()!; // eslint-disable-line @typescript-eslint/no-non-null-assertion
+  if (prop in obj && deleteNestedProperty(obj[prop], orderedProps)) {
     delete obj[prop];
   }
-  return keys(obj).length === 0;
+  return isEmpty(obj);
 }
 
-export function titlecase(s: string) {
+export function titleCase(s: string) {
   return s.charAt(0).toUpperCase() + s.substr(1);
 }
 
@@ -352,10 +281,7 @@ export function accessPathWithDatum(path: string, datum = 'datum') {
   const pieces = splitAccessPath(path);
   const prefixes = [];
   for (let i = 1; i <= pieces.length; i++) {
-    const prefix = `[${pieces
-      .slice(0, i)
-      .map(stringValue)
-      .join('][')}]`;
+    const prefix = `[${pieces.slice(0, i).map(stringValue).join('][')}]`;
     prefixes.push(`${datum}${prefix}`);
   }
   return prefixes.join(' && ');
@@ -371,14 +297,27 @@ export function flatAccessWithDatum(path: string, datum: 'datum' | 'parent' | 'd
   return `${datum}[${stringValue(splitAccessPath(path).join('.'))}]`;
 }
 
+function escapePathAccess(string: string) {
+  return string.replace(/(\[|\]|\.|'|")/g, '\\$1');
+}
+
 /**
  * Replaces path accesses with access to non-nested field.
  * For example, `foo["bar"].baz` becomes `foo\\.bar\\.baz`.
  */
 export function replacePathInField(path: string) {
-  return `${splitAccessPath(path)
-    .map(p => p.replace('.', '\\.'))
-    .join('\\.')}`;
+  return `${splitAccessPath(path).map(escapePathAccess).join('\\.')}`;
+}
+
+/**
+ * Replace all occurrences of a string with another string.
+ *
+ * @param string the string to replace in
+ * @param find the string to replace
+ * @param replacement the replacement
+ */
+export function replaceAll(string: string, find: string, replacement: string) {
+  return string.replace(new RegExp(find.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g'), replacement);
 }
 
 /**
@@ -402,7 +341,7 @@ export function accessPathDepth(path: string) {
 /**
  * This is a replacement for chained || for numeric properties or properties that respect null so that 0 will be included.
  */
-export function getFirstDefined<T>(...args: T[]): T {
+export function getFirstDefined<T>(...args: readonly T[]): T | undefined {
   for (const arg of args) {
     if (arg !== undefined) {
       return arg;
@@ -436,12 +375,25 @@ export function internalField(name: string) {
 }
 
 export function isInternalField(name: string) {
-  return name.indexOf('__') === 0;
+  return name.startsWith('__');
 }
 
 /**
  * Normalize angle to be within [0,360).
  */
 export function normalizeAngle(angle: number) {
+  if (angle === undefined) {
+    return undefined;
+  }
   return ((angle % 360) + 360) % 360;
+}
+
+/**
+ * Returns whether the passed in value is a valid number.
+ */
+export function isNumeric(value: number | string): boolean {
+  if (isNumber(value)) {
+    return true;
+  }
+  return !isNaN(value as any) && !isNaN(parseFloat(value));
 }

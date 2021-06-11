@@ -1,8 +1,8 @@
-import {Legend as VgLegend, NewSignal, Title as VgTitle} from 'vega';
+import {Legend as VgLegend, NewSignal, SignalRef, Title as VgTitle} from 'vega';
 import {Config} from '../config';
 import * as log from '../log';
 import {isLayerSpec, isUnitSpec, LayoutSizeMixins, NormalizedLayerSpec} from '../spec';
-import {flatten, keys} from '../util';
+import {keys} from '../util';
 import {VgData, VgLayout} from '../vega.schema';
 import {assembleAxisSignals} from './axis/assemble';
 import {parseLayerAxes} from './axis/parse';
@@ -11,7 +11,6 @@ import {assembleLayoutSignals} from './layoutsize/assemble';
 import {parseLayerLayoutSize} from './layoutsize/parse';
 import {assembleLegends} from './legend/assemble';
 import {Model} from './model';
-import {RepeaterValue} from './repeater';
 import {assembleLayerSelectionMarks} from './selection/assemble';
 import {UnitModel} from './unit';
 
@@ -25,11 +24,9 @@ export class LayerModel extends Model {
     parent: Model,
     parentGivenName: string,
     parentGivenSize: LayoutSizeMixins,
-    repeater: RepeaterValue,
-    config: Config,
-    fit: boolean
+    config: Config<SignalRef>
   ) {
-    super(spec, 'layer', parent, parentGivenName, config, repeater, spec.resolve, spec.view);
+    super(spec, 'layer', parent, parentGivenName, config, spec.resolve, spec.view);
 
     const layoutSize = {
       ...parentGivenSize,
@@ -37,18 +34,14 @@ export class LayerModel extends Model {
       ...(spec.height ? {height: spec.height} : {})
     };
 
-    this.initSize(layoutSize);
-
     this.children = spec.layer.map((layer, i) => {
       if (isLayerSpec(layer)) {
-        return new LayerModel(layer, this, this.getName('layer_' + i), layoutSize, repeater, config, fit);
+        return new LayerModel(layer, this, this.getName(`layer_${i}`), layoutSize, config);
+      } else if (isUnitSpec(layer)) {
+        return new UnitModel(layer, this, this.getName(`layer_${i}`), layoutSize, config);
       }
 
-      if (isUnitSpec(layer)) {
-        return new UnitModel(layer, this, this.getName('layer_' + i), layoutSize, repeater, config, fit);
-      }
-
-      throw new Error(log.message.INVALID_SPEC);
+      throw new Error(log.message.invalidSpec(layer));
     });
   }
 
@@ -70,9 +63,9 @@ export class LayerModel extends Model {
     this.component.selection = {};
     for (const child of this.children) {
       child.parseSelections();
-      keys(child.component.selection).forEach(key => {
+      for (const key of keys(child.component.selection)) {
         this.component.selection[key] = child.component.selection[key];
-      });
+      }
     }
   }
 
@@ -103,7 +96,7 @@ export class LayerModel extends Model {
     }, assembleLayoutSignals(this));
   }
 
-  public assembleSelectionData(data: VgData[]): VgData[] {
+  public assembleSelectionData(data: readonly VgData[]): readonly VgData[] {
     return this.children.reduce((db, child) => child.assembleSelectionData(db), data);
   }
 
@@ -129,11 +122,9 @@ export class LayerModel extends Model {
   public assembleMarks(): any[] {
     return assembleLayerSelectionMarks(
       this,
-      flatten(
-        this.children.map(child => {
-          return child.assembleMarks();
-        })
-      )
+      this.children.flatMap(child => {
+        return child.assembleMarks();
+      })
     );
   }
 

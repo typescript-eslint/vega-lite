@@ -1,27 +1,31 @@
+import {BinTransform as VgBinTransform, Transforms as VgTransform} from 'vega';
 import {isString} from 'vega-util';
-import {BinParams, binToString, isBinning} from '../../bin';
+import {BinParams, binToString, isBinning, isParameterExtent} from '../../bin';
 import {Channel} from '../../channel';
-import {binRequiresRange, isTypedFieldDef, normalizeBin, TypedFieldDef, vgField} from '../../channeldef';
+import {binRequiresRange, FieldName, isTypedFieldDef, normalizeBin, TypedFieldDef, vgField} from '../../channeldef';
 import {Config} from '../../config';
 import {BinTransform} from '../../transform';
-import {Dict, duplicate, flatten, hash, keys, unique, vals} from '../../util';
-import {VgBinTransform, VgTransform} from '../../vega.schema';
-import {binFormatExpression} from '../common';
+import {Dict, duplicate, hash, isEmpty, keys, replacePathInField, unique, vals} from '../../util';
+import {binFormatExpression} from '../format';
 import {isUnitModel, Model, ModelWithField} from '../model';
+import {parseSelectionExtent} from '../selection/parse';
+import {NonPositionScaleChannel, PositionChannel} from './../../channel';
 import {DataFlowNode} from './dataflow';
 
 function rangeFormula(model: ModelWithField, fieldDef: TypedFieldDef<string>, channel: Channel, config: Config) {
   if (binRequiresRange(fieldDef, channel)) {
     // read format from axis or legend, if there is no format then use config.numberFormat
 
-    const guide = isUnitModel(model) ? model.axis(channel) || model.legend(channel) || {} : {};
+    const guide = isUnitModel(model)
+      ? model.axis(channel as PositionChannel) ?? model.legend(channel as NonPositionScaleChannel) ?? {}
+      : {};
 
     const startField = vgField(fieldDef, {expr: 'datum'});
     const endField = vgField(fieldDef, {expr: 'datum', binSuffix: 'end'});
 
     return {
       formulaAs: vgField(fieldDef, {binSuffix: 'range', forAs: true}),
-      formula: binFormatExpression(startField, endField, guide.format, config)
+      formula: binFormatExpression(startField, endField, guide.format, guide.formatType, config)
     };
   }
   return {};
@@ -38,12 +42,19 @@ function getSignalsFromModel(model: Model, key: string) {
   };
 }
 
+export function getBinSignalName(model: Model, field: string, bin: boolean | BinParams) {
+  const normalizedBin = normalizeBin(bin, undefined) ?? {};
+  const key = binKey(normalizedBin, field);
+  return model.getName(`${key}_bins`);
+}
+
 function isBinTransform(t: TypedFieldDef<string> | BinTransform): t is BinTransform {
   return 'as' in t;
 }
 
 function createBinComponent(t: TypedFieldDef<string> | BinTransform, bin: boolean | BinParams, model: Model) {
   let as: [string, string];
+  let span: string;
 
   if (isBinTransform(t)) {
     as = isString(t.as) ? [t.as, `${t.as}_end`] : [t.as[0], t.as[1]];
@@ -51,16 +62,23 @@ function createBinComponent(t: TypedFieldDef<string> | BinTransform, bin: boolea
     as = [vgField(t, {forAs: true}), vgField(t, {binSuffix: 'end', forAs: true})];
   }
 
-  const normalizedBin = normalizeBin(bin, undefined) || {};
+  const normalizedBin = {...normalizeBin(bin, undefined)};
   const key = binKey(normalizedBin, t.field);
   const {signal, extentSignal} = getSignalsFromModel(model, key);
+
+  if (isParameterExtent(normalizedBin.extent)) {
+    const ext = normalizedBin.extent;
+    span = parseSelectionExtent(model, ext.param, ext);
+    delete normalizedBin.extent; // Vega-Lite selection extent map to Vega's span property.
+  }
 
   const binComponent: BinComponent = {
     bin: normalizedBin,
     field: t.field,
     as: [as],
     ...(signal ? {signal} : {}),
-    ...(extentSignal ? {extentSignal} : {})
+    ...(extentSignal ? {extentSignal} : {}),
+    ...(span ? {span} : {})
   };
 
   return {key, binComponent};
@@ -68,9 +86,10 @@ function createBinComponent(t: TypedFieldDef<string> | BinTransform, bin: boolea
 
 export interface BinComponent {
   bin: BinParams;
-  field: string;
+  field: FieldName;
   extentSignal?: string;
   signal?: string;
+  span?: string;
 
   /** Pairs of strings of the names of start and end signals */
   as: [string, string][];
@@ -101,9 +120,9 @@ export class BinNode extends DataFlowNode {
         };
       }
       return binComponentIndex;
-    }, {});
+    }, {} as Dict<BinComponent>);
 
-    if (keys(bins).length === 0) {
+    if (isEmpty(bins)) {
       return null;
     }
 
@@ -144,7 +163,11 @@ export class BinNode extends DataFlowNode {
   }
 
   public producedFields() {
-    return new Set(flatten(flatten(vals(this.bins).map(c => c.as))));
+    return new Set(
+      vals(this.bins)
+        .map(c => c.as)
+        .flat(2)
+    );
   }
 
   public dependentFields() {
@@ -156,49 +179,50 @@ export class BinNode extends DataFlowNode {
   }
 
   public assemble(): VgTransform[] {
-    return flatten(
-      vals(this.bins).map(bin => {
-        const transform: VgTransform[] = [];
+    return vals(this.bins).flatMap(bin => {
+      const transform: VgTransform[] = [];
 
-        const [binAs, ...remainingAs] = bin.as;
-        const binTrans: VgBinTransform = {
-          type: 'bin',
-          field: bin.field,
-          as: binAs,
-          signal: bin.signal,
-          ...bin.bin
-        };
+      const [binAs, ...remainingAs] = bin.as;
+      const {extent, ...params} = bin.bin;
+      const binTrans: VgBinTransform = {
+        type: 'bin',
+        field: replacePathInField(bin.field),
+        as: binAs,
+        signal: bin.signal,
+        ...(!isParameterExtent(extent) ? {extent} : {extent: null}),
+        ...(bin.span ? {span: {signal: `span(${bin.span})`}} : {}),
+        ...params
+      };
 
-        if (!bin.bin.extent && bin.extentSignal) {
-          transform.push({
-            type: 'extent',
-            field: bin.field,
-            signal: bin.extentSignal
-          });
-          binTrans.extent = {signal: bin.extentSignal};
-        }
+      if (!extent && bin.extentSignal) {
+        transform.push({
+          type: 'extent',
+          field: replacePathInField(bin.field),
+          signal: bin.extentSignal
+        });
+        binTrans.extent = {signal: bin.extentSignal};
+      }
 
-        transform.push(binTrans);
+      transform.push(binTrans);
 
-        for (const as of remainingAs) {
-          for (let i = 0; i < 2; i++) {
-            transform.push({
-              type: 'formula',
-              expr: vgField({field: binAs[i]}, {expr: 'datum'}),
-              as: as[i]
-            });
-          }
-        }
-
-        if (bin.formula) {
+      for (const as of remainingAs) {
+        for (let i = 0; i < 2; i++) {
           transform.push({
             type: 'formula',
-            expr: bin.formula,
-            as: bin.formulaAs
+            expr: vgField({field: binAs[i]}, {expr: 'datum'}),
+            as: as[i]
           });
         }
-        return transform;
-      })
-    );
+      }
+
+      if (bin.formula) {
+        transform.push({
+          type: 'formula',
+          expr: bin.formula,
+          as: bin.formulaAs
+        });
+      }
+      return transform;
+    });
   }
 }

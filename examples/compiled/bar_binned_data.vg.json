@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -25,7 +25,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"bin_start\"] !== null && !isNaN(datum[\"bin_start\"]) && datum[\"count\"] !== null && !isNaN(datum[\"count\"])"
+          "expr": "isValid(datum[\"bin_start\"]) && isFinite(+datum[\"bin_start\"]) && isValid(datum[\"count\"]) && isFinite(+datum[\"count\"])"
         }
       ]
     }
@@ -39,8 +39,9 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"bin_start\": format(datum[\"bin_start\"], \"\"), \"bin_end\": format(datum[\"bin_end\"], \"\"), \"count\": format(datum[\"count\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"bin_start: \" + (!isValid(datum[\"bin_start\"]) || !isFinite(+datum[\"bin_start\"]) ? \"null\" : format(datum[\"bin_start\"], \"\") + \" – \" + format(datum[\"bin_end\"], \"\")) + \"; count: \" + (format(datum[\"count\"], \"\"))"
           },
           "x2": {"scale": "x", "field": "bin_start", "offset": 1},
           "x": {"scale": "x", "field": "bin_end"},
@@ -70,6 +71,20 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
@@ -77,7 +92,7 @@
       "labelFlush": true,
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -86,19 +101,6 @@
       "title": "count",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ]

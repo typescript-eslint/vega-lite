@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "description": "Google's stock price over time.",
-  "autosize": "pad",
+  "description": "Using utc scale with local time input.",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -23,9 +23,13 @@
       "transform": [
         {"type": "formula", "expr": "toDate(datum[\"date\"])", "as": "date"},
         {
-          "type": "formula",
-          "as": "yearmonthdatehoursminutes_date",
-          "expr": "datetime(year(datum[\"date\"]), month(datum[\"date\"]), date(datum[\"date\"]), hours(datum[\"date\"]), minutes(datum[\"date\"]), 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["year", "month", "date", "hours", "minutes"],
+          "as": [
+            "yearmonthdatehoursminutes_date",
+            "yearmonthdatehoursminutes_date_end"
+          ]
         }
       ]
     }
@@ -35,21 +39,18 @@
       "name": "marks",
       "type": "line",
       "style": ["line"],
-      "sort": {
-        "field": "datum[\"yearmonthdatehoursminutes_date\"]",
-        "order": "descending"
-      },
+      "sort": {"field": "datum[\"yearmonthdatehoursminutes_date\"]"},
       "from": {"data": "data_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"date (year-month-date-hours-minutes)\": utcFormat(datum[\"yearmonthdatehoursminutes_date\"], '%b %d, %Y %H:%M'), \"price\": format(datum[\"price\"], \"\")}"
+          "description": {
+            "signal": "\"date (year-month-date-hours-minutes): \" + (utcFormat(datum[\"yearmonthdatehoursminutes_date\"], timeUnitSpecifier([\"year\",\"month\",\"date\",\"hours\",\"minutes\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; price: \" + (format(datum[\"price\"], \"\"))"
           },
           "x": {"scale": "x", "field": "yearmonthdatehoursminutes_date"},
           "y": {"scale": "y", "field": "price"},
           "defined": {
-            "signal": "datum[\"yearmonthdatehoursminutes_date\"] !== null && !isNaN(datum[\"yearmonthdatehoursminutes_date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+            "signal": "isValid(datum[\"yearmonthdatehoursminutes_date\"]) && isFinite(+datum[\"yearmonthdatehoursminutes_date\"]) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
           }
         }
       }
@@ -75,41 +76,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date (year-month-date-hours-minutes)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {
-            "text": {"signal": "utcFormat(datum.value, '%b %d, %Y %H:%M')"}
-          }
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "price",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -119,9 +95,35 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date (year-month-date-hours-minutes)",
+      "labelAngle": 15,
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\",\"month\",\"date\",\"hours\",\"minutes\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelAlign": "left",
+      "labelBaseline": "top",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "price",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

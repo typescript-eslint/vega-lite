@@ -4,17 +4,18 @@ title: Binning
 permalink: /docs/bin.html
 ---
 
-Binning discretizes numeric values into a set of bins. A common use case is to [create a histogram](#example).
+Binning discretizes numeric values into a set of bins. A common use case is to [create a histogram](#histogram).
 
 There are two ways to define binning in Vega-Lite: [the `bin` property in encoding field definitions](#encoding) and [the `bin` transform](#transform).
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#encoding}
 
@@ -27,7 +28,7 @@ There are two ways to define binning in Vega-Lite: [the `bin` property in encodi
   "mark/layer": ...,
   "encoding": {
     "x": {
-      "bin": ...,               // bin
+      "bin": ..., // bin
       "field": ...,
       "type": "quantitative",
       ...
@@ -55,7 +56,7 @@ Mapping binned values and its count to a `bar` mark produces a histogram.
 
 ### Example: Histogram with Ordinal Scale
 
-Setting the binned field's `type` to `"ordinal"` produces a histogram with an ordinal scale.
+While binned field has `"quantitative"` type by default, setting the binned field's `type` to `"ordinal"` produces a histogram with an ordinal scale.
 
 <div class="vl-example" data-name="histogram_ordinal"></div>
 
@@ -103,13 +104,13 @@ While binning in `transform` is more verbose than in `encoding`, it can be usefu
 
 ## Bin Parameters
 
-If `bin` is `true`, default binning parameters are used. To customize binning parameters, you can set `bin` to a bin definition object, which can have the following properties:
+If `bin` is `true`, default binning properties are used. To customize binning properties, you can set `bin` to a bin definition object, which can have the following properties:
 
 {% include table.html props="anchor,base,divide,extent,maxbins,minstep,nice,step,steps" source="BinParams" %}
 
 ### Example: Customizing Max Bins
 
-Setting the `maxbins` parameter changes the number of output bins.
+Setting the `maxbins` parameter changes the maximum number of output bins. There will often be fewer bins since the domain get sliced at "nicely-rounded" values.
 
 <div class="vl-example" data-name="histogram_bin_change"></div>
 

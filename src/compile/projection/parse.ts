@@ -1,9 +1,12 @@
 import {SignalRef} from 'vega';
+import {hasOwnProperty} from 'vega-util';
 import {LATITUDE, LATITUDE2, LONGITUDE, LONGITUDE2, SHAPE} from '../../channel';
-import {MAIN} from '../../data';
+import {getFieldOrDatumDef} from '../../channeldef';
+import {DataSourceType} from '../../data';
+import {replaceExprRef} from '../../expr';
 import {PROJECTION_PROPERTIES} from '../../projection';
 import {GEOJSON} from '../../type';
-import {duplicate, every, stringify} from '../../util';
+import {deepEqual, duplicate, every} from '../../util';
 import {isUnitModel, Model} from '../model';
 import {UnitModel} from '../unit';
 import {ProjectionComponent} from './component';
@@ -14,20 +17,26 @@ export function parseProjection(model: Model) {
 
 function parseUnitProjection(model: UnitModel): ProjectionComponent {
   if (model.hasProjection) {
-    const proj = model.specifiedProjection;
+    const proj = replaceExprRef(model.specifiedProjection);
     const fit = !(proj && (proj.scale != null || proj.translate != null));
     const size = fit ? [model.getSizeSignalRef('width'), model.getSizeSignalRef('height')] : undefined;
     const data = fit ? gatherFitData(model) : undefined;
 
-    return new ProjectionComponent(
+    const projComp = new ProjectionComponent(
       model.projectionName(true),
       {
-        ...(model.config.projection || {}),
-        ...(proj || {})
+        ...(replaceExprRef(model.config.projection) ?? {}),
+        ...(proj ?? {})
       },
       size,
       data
     );
+
+    if (!projComp.get('type')) {
+      projComp.set('type', 'equalEarth', false);
+    }
+
+    return projComp;
   }
 
   return undefined;
@@ -36,15 +45,20 @@ function parseUnitProjection(model: UnitModel): ProjectionComponent {
 function gatherFitData(model: UnitModel) {
   const data: (SignalRef | string)[] = [];
 
-  [[LONGITUDE, LATITUDE], [LONGITUDE2, LATITUDE2]].forEach(posssiblePair => {
-    if (model.channelHasField(posssiblePair[0]) || model.channelHasField(posssiblePair[1])) {
+  const {encoding} = model;
+
+  for (const posssiblePair of [
+    [LONGITUDE, LATITUDE],
+    [LONGITUDE2, LATITUDE2]
+  ]) {
+    if (getFieldOrDatumDef(encoding[posssiblePair[0]]) || getFieldOrDatumDef(encoding[posssiblePair[1]])) {
       data.push({
         signal: model.getName(`geojson_${data.length}`)
       });
     }
-  });
+  }
 
-  if (model.channelHasField(SHAPE) && model.fieldDef(SHAPE).type === GEOJSON) {
+  if (model.channelHasField(SHAPE) && model.typedFieldDef(SHAPE).type === GEOJSON) {
     data.push({
       signal: model.getName(`geojson_${data.length}`)
     });
@@ -52,7 +66,7 @@ function gatherFitData(model: UnitModel) {
 
   if (data.length === 0) {
     // main source is geojson, so we can just use that
-    data.push(model.requestDataName(MAIN));
+    data.push(model.requestDataName(DataSourceType.Main));
   }
 
   return data;
@@ -61,28 +75,28 @@ function gatherFitData(model: UnitModel) {
 function mergeIfNoConflict(first: ProjectionComponent, second: ProjectionComponent): ProjectionComponent {
   const allPropertiesShared = every(PROJECTION_PROPERTIES, prop => {
     // neither has the property
-    if (!first.explicit.hasOwnProperty(prop) && !second.explicit.hasOwnProperty(prop)) {
+    if (!hasOwnProperty(first.explicit, prop) && !hasOwnProperty(second.explicit, prop)) {
       return true;
     }
     // both have property and an equal value for property
     if (
-      first.explicit.hasOwnProperty(prop) &&
-      second.explicit.hasOwnProperty(prop) &&
+      hasOwnProperty(first.explicit, prop) &&
+      hasOwnProperty(second.explicit, prop) &&
       // some properties might be signals or objects and require hashing for comparison
-      stringify(first.get(prop)) === stringify(second.get(prop))
+      deepEqual(first.get(prop), second.get(prop))
     ) {
       return true;
     }
     return false;
   });
 
-  const size = stringify(first.size) === stringify(second.size);
+  const size = deepEqual(first.size, second.size);
   if (size) {
     if (allPropertiesShared) {
       return first;
-    } else if (stringify(first.explicit) === stringify({})) {
+    } else if (deepEqual(first.explicit, {})) {
       return second;
-    } else if (stringify(second.explicit) === stringify({})) {
+    } else if (deepEqual(second.explicit, {})) {
       return first;
     }
   }
@@ -99,7 +113,9 @@ function parseNonUnitProjections(model: Model): ProjectionComponent {
   let nonUnitProjection: ProjectionComponent;
 
   // parse all children first
-  model.children.forEach(child => parseProjection(child));
+  for (const child of model.children) {
+    parseProjection(child);
+  }
 
   // analyze parsed projections, attempt to merge
   const mergable = every(model.children, child => {
@@ -132,7 +148,7 @@ function parseNonUnitProjections(model: Model): ProjectionComponent {
     );
 
     // rename and assign all others as merged
-    model.children.forEach(child => {
+    for (const child of model.children) {
       const projection = child.component.projection;
       if (projection) {
         if (projection.isFit) {
@@ -141,7 +157,7 @@ function parseNonUnitProjections(model: Model): ProjectionComponent {
         child.renameProjection(projection.get('name'), name);
         projection.merged = true;
       }
-    });
+    }
 
     return modelProjection;
   }

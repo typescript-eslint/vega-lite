@@ -1,7 +1,9 @@
+import {GeoPointTransform as VgGeoPointTransform, Vector2} from 'vega';
+import {isString} from 'vega-util';
 import {GeoPositionChannel, LATITUDE, LATITUDE2, LONGITUDE, LONGITUDE2} from '../../channel';
-import {isValueDef, ValueDef} from '../../channeldef';
-import {duplicate} from '../../util';
-import {VgExprRef, VgGeoPointTransform} from '../../vega.schema';
+import {getFieldOrDatumDef, isDatumDef, isFieldDef, isValueDef} from '../../channeldef';
+import {duplicate, hash} from '../../util';
+import {VgExprRef} from '../../vega.schema';
 import {UnitModel} from '../unit';
 import {DataFlowNode} from './dataflow';
 
@@ -13,8 +15,8 @@ export class GeoPointNode extends DataFlowNode {
   constructor(
     parent: DataFlowNode,
     private projection: string,
-    private fields: (string | VgExprRef)[],
-    private as: string[]
+    private fields: [string | VgExprRef, string | VgExprRef],
+    private as: [string, string]
   ) {
     super(parent);
   }
@@ -24,26 +26,44 @@ export class GeoPointNode extends DataFlowNode {
       return parent;
     }
 
-    [[LONGITUDE, LATITUDE], [LONGITUDE2, LATITUDE2]].forEach((coordinates: GeoPositionChannel[]) => {
-      const pair = coordinates.map(channel =>
-        model.channelHasField(channel)
-          ? model.fieldDef(channel).field
-          : isValueDef(model.encoding[channel])
-          ? {expr: (model.encoding[channel] as ValueDef<number>).value + ''}
-          : undefined
-      );
+    for (const coordinates of [
+      [LONGITUDE, LATITUDE],
+      [LONGITUDE2, LATITUDE2]
+    ] as Vector2<GeoPositionChannel>[]) {
+      const pair = coordinates.map(channel => {
+        const def = getFieldOrDatumDef(model.encoding[channel]);
+        return isFieldDef(def)
+          ? def.field
+          : isDatumDef(def)
+          ? {expr: `${def.datum}`}
+          : isValueDef(def)
+          ? {expr: `${def['value']}`}
+          : undefined;
+      }) as [GeoPositionChannel, GeoPositionChannel];
 
       const suffix = coordinates[0] === LONGITUDE2 ? '2' : '';
 
       if (pair[0] || pair[1]) {
         parent = new GeoPointNode(parent, model.projectionName(), pair, [
-          model.getName('x' + suffix),
-          model.getName('y' + suffix)
+          model.getName(`x${suffix}`),
+          model.getName(`y${suffix}`)
         ]);
       }
-    });
+    }
 
     return parent;
+  }
+
+  public dependentFields() {
+    return new Set(this.fields.filter(isString));
+  }
+
+  public producedFields() {
+    return new Set(this.as);
+  }
+
+  public hash() {
+    return `Geopoint ${this.projection} ${hash(this.fields)} ${hash(this.as)}`;
   }
 
   public assemble(): VgGeoPointTransform {

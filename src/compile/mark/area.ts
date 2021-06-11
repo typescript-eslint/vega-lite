@@ -1,16 +1,30 @@
 import {UnitModel} from '../unit';
 import {MarkCompiler} from './base';
-import * as mixins from './mixins';
+import * as encode from './encode';
 
 export const area: MarkCompiler = {
   vgMark: 'area',
   encodeEntry: (model: UnitModel) => {
     return {
-      ...mixins.baseEncodeEntry(model, {size: 'ignore', orient: 'include'}),
-      ...mixins.pointPosition('x', model, 'zeroOrMin'),
-      ...mixins.pointPosition('y', model, 'zeroOrMin'),
-      ...mixins.pointPosition2(model, 'zeroOrMin', model.markDef.orient === 'horizontal' ? 'x2' : 'y2'),
-      ...mixins.defined(model)
+      ...encode.baseEncodeEntry(model, {
+        align: 'ignore',
+        baseline: 'ignore',
+        color: 'include',
+        orient: 'include',
+        size: 'ignore',
+        theta: 'ignore'
+      }),
+      ...encode.pointOrRangePosition('x', model, {
+        defaultPos: 'zeroOrMin',
+        defaultPos2: 'zeroOrMin',
+        range: model.markDef.orient === 'horizontal'
+      }),
+      ...encode.pointOrRangePosition('y', model, {
+        defaultPos: 'zeroOrMin',
+        defaultPos2: 'zeroOrMin',
+        range: model.markDef.orient === 'vertical'
+      }),
+      ...encode.defined(model)
     };
   }
 };

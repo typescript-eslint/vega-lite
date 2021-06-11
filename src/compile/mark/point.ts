@@ -2,17 +2,24 @@ import {Config} from '../../config';
 import {VgEncodeEntry} from '../../vega.schema';
 import {UnitModel} from '../unit';
 import {MarkCompiler} from './base';
-import * as mixins from './mixins';
-import * as ref from './valueref';
+import * as encode from './encode';
 
 function encodeEntry(model: UnitModel, fixedShape?: 'circle' | 'square') {
-  const {config, width, height} = model;
+  const {config} = model;
 
   return {
-    ...mixins.baseEncodeEntry(model, {size: 'include', orient: 'ignore'}),
-    ...mixins.pointPosition('x', model, ref.mid(width)),
-    ...mixins.pointPosition('y', model, ref.mid(height)),
-    ...mixins.nonPosition('size', model),
+    ...encode.baseEncodeEntry(model, {
+      align: 'ignore',
+      baseline: 'ignore',
+      color: 'include',
+      size: 'include',
+      orient: 'ignore',
+      theta: 'ignore'
+    }),
+    ...encode.pointPosition('x', model, {defaultPos: 'mid'}),
+    ...encode.pointPosition('y', model, {defaultPos: 'mid'}),
+    ...encode.nonPosition('size', model),
+    ...encode.nonPosition('angle', model),
     ...shapeMixins(model, config, fixedShape)
   };
 }
@@ -21,7 +28,7 @@ export function shapeMixins(model: UnitModel, config: Config, fixedShape?: 'circ
   if (fixedShape) {
     return {shape: {value: fixedShape}};
   }
-  return mixins.nonPosition('shape', model);
+  return encode.nonPosition('shape', model);
 }
 
 export const point: MarkCompiler = {

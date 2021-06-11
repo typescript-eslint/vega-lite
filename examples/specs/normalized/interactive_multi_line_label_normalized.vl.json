@@ -1,11 +1,8 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "data": {
-    "url": "data/stocks.csv",
-    "format": {"type": "csv", "parse": {"date": "date"}}
-  },
-  "width": 800,
-  "height": 400,
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {"url": "data/stocks.csv"},
+  "width": 400,
+  "height": 300,
   "layer": [
     {
       "layer": [
@@ -18,22 +15,24 @@
           }
         },
         {
-          "selection": {
-            "label": {
-              "type": "single",
-              "nearest": true,
-              "on": "mouseover",
-              "encodings": ["x"],
-              "empty": "none"
+          "params": [
+            {
+              "name": "label",
+              "select": {
+                "type": "point",
+                "encodings": ["x"],
+                "nearest": true,
+                "on": "mouseover"
+              }
             }
-          },
+          ],
           "mark": "point",
           "encoding": {
             "x": {"field": "date", "type": "temporal"},
             "y": {"field": "price", "type": "quantitative"},
             "color": {"field": "symbol", "type": "nominal"},
             "opacity": {
-              "condition": {"selection": "label", "value": 1},
+              "condition": {"param": "label", "empty": false, "value": 1},
               "value": 0
             }
           }
@@ -41,11 +40,12 @@
       ]
     },
     {
-      "transform": [{"filter": {"selection": "label"}}],
       "layer": [
         {
           "mark": {"type": "rule", "color": "gray"},
-          "encoding": {"x": {"type": "temporal", "field": "date"}}
+          "encoding": {
+            "x": {"type": "temporal", "field": "date", "aggregate": "min"}
+          }
         },
         {
           "layer": [
@@ -70,12 +70,13 @@
                 "text": {"type": "quantitative", "field": "price"},
                 "x": {"type": "temporal", "field": "date"},
                 "y": {"type": "quantitative", "field": "price"},
-                "fill": {"type": "nominal", "field": "symbol"}
+                "color": {"type": "nominal", "field": "symbol"}
               }
             }
           ]
         }
-      ]
+      ],
+      "transform": [{"filter": {"param": "label", "empty": false}}]
     }
   ]
 }

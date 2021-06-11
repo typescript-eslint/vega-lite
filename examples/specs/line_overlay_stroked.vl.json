@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "Stock prices of 5 Tech Companies over Time.",
   "data": {"url": "data/stocks.csv"},
   "mark": {
@@ -10,7 +10,7 @@
     }
   },
   "encoding": {
-    "x": {"timeUnit": "year", "field": "date", "type": "temporal"},
+    "x": {"timeUnit": "year", "field": "date"},
     "y": {"aggregate":"mean", "field": "price", "type": "quantitative"},
     "color": {"field": "symbol", "type": "nominal"}
   }

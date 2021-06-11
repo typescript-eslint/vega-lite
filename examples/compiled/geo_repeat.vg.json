@@ -1,10 +1,9 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "the population per state, engineers per state, and hurricanes per state",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 500,
-  "height": 300,
   "data": [
     {
       "name": "source_0",
@@ -27,14 +26,15 @@
           "fields": ["id"],
           "as": ["geo"]
         },
+        {"type": "filter", "expr": "isValid(datum[\"geo\"])"},
         {
           "type": "geojson",
           "geojson": "geo",
-          "signal": "child__repeat_row_population_geojson_0"
+          "signal": "child__row_population_geojson_0"
         },
         {
           "type": "filter",
-          "expr": "datum[\"population\"] !== null && !isNaN(datum[\"population\"])"
+          "expr": "isValid(datum[\"population\"]) && isFinite(+datum[\"population\"])"
         }
       ]
     },
@@ -49,14 +49,15 @@
           "fields": ["id"],
           "as": ["geo"]
         },
+        {"type": "filter", "expr": "isValid(datum[\"geo\"])"},
         {
           "type": "geojson",
           "geojson": "geo",
-          "signal": "child__repeat_row_engineers_geojson_0"
+          "signal": "child__row_engineers_geojson_0"
         },
         {
           "type": "filter",
-          "expr": "datum[\"engineers\"] !== null && !isNaN(datum[\"engineers\"])"
+          "expr": "isValid(datum[\"engineers\"]) && isFinite(+datum[\"engineers\"])"
         }
       ]
     },
@@ -71,14 +72,15 @@
           "fields": ["id"],
           "as": ["geo"]
         },
+        {"type": "filter", "expr": "isValid(datum[\"geo\"])"},
         {
           "type": "geojson",
           "geojson": "geo",
-          "signal": "child__repeat_row_hurricanes_geojson_0"
+          "signal": "child__row_hurricanes_geojson_0"
         },
         {
           "type": "filter",
-          "expr": "datum[\"hurricanes\"] !== null && !isNaN(datum[\"hurricanes\"])"
+          "expr": "isValid(datum[\"hurricanes\"]) && isFinite(+datum[\"hurricanes\"])"
         }
       ]
     }
@@ -86,36 +88,41 @@
   "projections": [
     {
       "name": "projection",
-      "size": {"signal": "[width, height]"},
+      "size": {"signal": "[width, childHeight]"},
       "fit": {
-        "signal": "[child__repeat_row_population_geojson_0, child__repeat_row_engineers_geojson_0, child__repeat_row_hurricanes_geojson_0]"
+        "signal": "[child__row_population_geojson_0, child__row_engineers_geojson_0, child__row_hurricanes_geojson_0]"
       },
       "type": "albersUsa"
     }
   ],
+  "signals": [{"name": "childHeight", "value": 300}],
   "layout": {"padding": 20, "columns": 1, "bounds": "full", "align": "all"},
   "marks": [
     {
       "type": "group",
-      "name": "child__repeat_row_population_group",
+      "name": "child__row_population_group",
       "style": "cell",
       "encode": {
-        "update": {"width": {"signal": "width"}, "height": {"signal": "height"}}
+        "update": {
+          "width": {"signal": "width"},
+          "height": {"signal": "childHeight"}
+        }
       },
       "marks": [
         {
-          "name": "child__repeat_row_population_marks",
+          "name": "child__row_population_marks",
           "type": "shape",
           "style": ["geoshape"],
           "from": {"data": "data_0"},
           "encode": {
             "update": {
               "fill": {
-                "scale": "child__repeat_row_population_color",
+                "scale": "child__row_population_color",
                 "field": "population"
               },
-              "tooltip": {
-                "signal": "{\"geo\": ''+datum[\"geo\"], \"population\": format(datum[\"population\"], \"\")}"
+              "ariaRoleDescription": {"value": "geoshape"},
+              "description": {
+                "signal": "\"geo: \" + (isValid(datum[\"geo\"]) ? datum[\"geo\"] : \"\"+datum[\"geo\"]) + \"; population: \" + (format(datum[\"population\"], \"\"))"
               }
             }
           },
@@ -130,34 +137,37 @@
       ],
       "legends": [
         {
-          "fill": "child__repeat_row_population_color",
-          "gradientLength": {"signal": "clamp(height, 64, 200)"},
-          "symbolType": "circle",
+          "fill": "child__row_population_color",
+          "gradientLength": {"signal": "clamp(childHeight, 64, 200)"},
           "title": "population"
         }
       ]
     },
     {
       "type": "group",
-      "name": "child__repeat_row_engineers_group",
+      "name": "child__row_engineers_group",
       "style": "cell",
       "encode": {
-        "update": {"width": {"signal": "width"}, "height": {"signal": "height"}}
+        "update": {
+          "width": {"signal": "width"},
+          "height": {"signal": "childHeight"}
+        }
       },
       "marks": [
         {
-          "name": "child__repeat_row_engineers_marks",
+          "name": "child__row_engineers_marks",
           "type": "shape",
           "style": ["geoshape"],
           "from": {"data": "data_1"},
           "encode": {
             "update": {
               "fill": {
-                "scale": "child__repeat_row_engineers_color",
+                "scale": "child__row_engineers_color",
                 "field": "engineers"
               },
-              "tooltip": {
-                "signal": "{\"geo\": ''+datum[\"geo\"], \"engineers\": format(datum[\"engineers\"], \"\")}"
+              "ariaRoleDescription": {"value": "geoshape"},
+              "description": {
+                "signal": "\"geo: \" + (isValid(datum[\"geo\"]) ? datum[\"geo\"] : \"\"+datum[\"geo\"]) + \"; engineers: \" + (format(datum[\"engineers\"], \"\"))"
               }
             }
           },
@@ -172,34 +182,37 @@
       ],
       "legends": [
         {
-          "fill": "child__repeat_row_engineers_color",
-          "gradientLength": {"signal": "clamp(height, 64, 200)"},
-          "symbolType": "circle",
+          "fill": "child__row_engineers_color",
+          "gradientLength": {"signal": "clamp(childHeight, 64, 200)"},
           "title": "engineers"
         }
       ]
     },
     {
       "type": "group",
-      "name": "child__repeat_row_hurricanes_group",
+      "name": "child__row_hurricanes_group",
       "style": "cell",
       "encode": {
-        "update": {"width": {"signal": "width"}, "height": {"signal": "height"}}
+        "update": {
+          "width": {"signal": "width"},
+          "height": {"signal": "childHeight"}
+        }
       },
       "marks": [
         {
-          "name": "child__repeat_row_hurricanes_marks",
+          "name": "child__row_hurricanes_marks",
           "type": "shape",
           "style": ["geoshape"],
           "from": {"data": "data_2"},
           "encode": {
             "update": {
               "fill": {
-                "scale": "child__repeat_row_hurricanes_color",
+                "scale": "child__row_hurricanes_color",
                 "field": "hurricanes"
               },
-              "tooltip": {
-                "signal": "{\"geo\": ''+datum[\"geo\"], \"hurricanes\": format(datum[\"hurricanes\"], \"\")}"
+              "ariaRoleDescription": {"value": "geoshape"},
+              "description": {
+                "signal": "\"geo: \" + (isValid(datum[\"geo\"]) ? datum[\"geo\"] : \"\"+datum[\"geo\"]) + \"; hurricanes: \" + (format(datum[\"hurricanes\"], \"\"))"
               }
             }
           },
@@ -214,9 +227,8 @@
       ],
       "legends": [
         {
-          "fill": "child__repeat_row_hurricanes_color",
-          "gradientLength": {"signal": "clamp(height, 64, 200)"},
-          "symbolType": "circle",
+          "fill": "child__row_hurricanes_color",
+          "gradientLength": {"signal": "clamp(childHeight, 64, 200)"},
           "title": "hurricanes"
         }
       ]
@@ -224,7 +236,7 @@
   ],
   "scales": [
     {
-      "name": "child__repeat_row_population_color",
+      "name": "child__row_population_color",
       "type": "linear",
       "domain": {"data": "data_0", "field": "population"},
       "range": "heatmap",
@@ -232,7 +244,7 @@
       "zero": false
     },
     {
-      "name": "child__repeat_row_engineers_color",
+      "name": "child__row_engineers_color",
       "type": "linear",
       "domain": {"data": "data_1", "field": "engineers"},
       "range": "heatmap",
@@ -240,7 +252,7 @@
       "zero": false
     },
     {
-      "name": "child__repeat_row_hurricanes_color",
+      "name": "child__row_hurricanes_color",
       "type": "linear",
       "domain": {"data": "data_2", "field": "hurricanes"},
       "range": "heatmap",

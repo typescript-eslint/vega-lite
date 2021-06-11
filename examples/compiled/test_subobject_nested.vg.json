@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -42,7 +42,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"source.reco\"] !== null && !isNaN(datum[\"source.reco\"]) && datum[\"source.yes\"] !== null && !isNaN(datum[\"source.yes\"])"
+          "expr": "isValid(datum[\"source.reco\"]) && isFinite(+datum[\"source.reco\"]) && isValid(datum[\"source.yes\"]) && isFinite(+datum[\"source.yes\"])"
         }
       ]
     }
@@ -58,8 +58,9 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"source.reco\": format(datum[\"source.reco\"], \"\"), \"source.yes\": format(datum[\"source.yes\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"source.reco: \" + (format(datum[\"source.reco\"], \"\")) + \"; source.yes: \" + (format(datum[\"source.yes\"], \"\"))"
           },
           "x": {"scale": "x", "field": "source\\.reco"},
           "y": {"scale": "y", "field": "source\\.yes"}
@@ -89,34 +90,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "source.reco",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "source.yes",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -126,9 +109,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "source.reco",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "source.yes",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

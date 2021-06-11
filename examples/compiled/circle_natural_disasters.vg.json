@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 600,
   "height": 400,
@@ -9,12 +9,12 @@
     {
       "name": "source_0",
       "url": "data/disasters.csv",
-      "format": {"type": "csv"},
+      "format": {"type": "csv", "parse": {"Year": "date"}},
       "transform": [
         {"type": "filter", "expr": "datum.Entity !== 'All natural disasters'"},
         {
           "type": "filter",
-          "expr": "datum[\"Deaths\"] !== null && !isNaN(datum[\"Deaths\"])"
+          "expr": "(isDate(datum[\"Year\"]) || (isValid(datum[\"Year\"]) && isFinite(+datum[\"Year\"]))) && isValid(datum[\"Deaths\"]) && isFinite(+datum[\"Deaths\"])"
         }
       ]
     }
@@ -31,8 +31,9 @@
           "stroke": {"value": "black"},
           "strokeWidth": {"value": 1},
           "fill": {"scale": "color", "field": "Entity"},
-          "tooltip": {
-            "signal": "{\"Year\": ''+datum[\"Year\"], \"Entity\": ''+datum[\"Entity\"], \"Annual Global Deaths\": format(datum[\"Deaths\"], \"\")}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"Year: \" + (timeFormat(datum[\"Year\"], '%b %d, %Y')) + \"; Entity: \" + (isValid(datum[\"Entity\"]) ? datum[\"Entity\"] : \"\"+datum[\"Entity\"]) + \"; Annual Global Deaths: \" + (format(datum[\"Deaths\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Year"},
           "y": {"scale": "y", "field": "Entity"},
@@ -45,10 +46,9 @@
   "scales": [
     {
       "name": "x",
-      "type": "point",
-      "domain": {"data": "source_0", "field": "Year", "sort": true},
-      "range": [0, {"signal": "width"}],
-      "padding": 0.5
+      "type": "time",
+      "domain": {"data": "source_0", "field": "Year"},
+      "range": [0, {"signal": "width"}]
     },
     {
       "name": "y",
@@ -77,27 +77,24 @@
       "orient": "bottom",
       "grid": false,
       "title": "Year",
-      "labelAngle": 0,
-      "labelAlign": "center",
-      "labelBaseline": "top",
+      "labelFlush": true,
       "labelOverlap": true,
-      "zindex": 1
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
     },
-    {"scale": "y", "orient": "left", "grid": false, "zindex": 1}
+    {"scale": "y", "orient": "left", "grid": false, "zindex": 0}
   ],
   "legends": [
     {
       "clipHeight": 30,
       "title": "Annual Global Deaths",
       "size": "size",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "encode": {
         "symbols": {
           "update": {
             "fill": {"value": "black"},
             "stroke": {"value": "black"},
-            "shape": {"value": "circle"},
             "fillOpacity": {"value": 0.8},
             "opacity": {"value": 0.8}
           }

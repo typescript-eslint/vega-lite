@@ -1,7 +1,7 @@
 import {ImputeNode} from '../../../src/compile/data/impute';
 import {Transform} from '../../../src/transform';
 import {parseUnitModelWithScale} from '../../util';
-import {DataFlowNode} from './../../../src/compile/data/dataflow';
+import {PlaceholderDataFlowNode} from './util';
 
 describe('compile/data/impute', () => {
   describe('Impute Transform', () => {
@@ -20,12 +20,7 @@ describe('compile/data/impute', () => {
           field: 'y',
           key: 'x',
           method: 'value',
-          value: null
-        },
-        {
-          type: 'formula',
-          expr: 'datum.y === null ? 200 : datum.y',
-          as: 'y'
+          value: 200
         }
       ]);
     });
@@ -135,6 +130,42 @@ describe('compile/data/impute', () => {
       ]);
     });
 
+    it('should handle sequence keyvals without start', () => {
+      const transform: Transform = {
+        impute: 'y',
+        key: 'x',
+        keyvals: {stop: 5},
+        method: 'max',
+        groupby: ['a', 'b']
+      };
+      const impute = new ImputeNode(null, transform);
+      expect(impute.assemble()).toEqual([
+        {
+          type: 'impute',
+          field: 'y',
+          key: 'x',
+          keyvals: {signal: 'sequence(0,5)'},
+          method: 'value',
+          groupby: ['a', 'b'],
+          value: null
+        },
+        {
+          type: 'window',
+          as: ['imputed_y_value'],
+          ops: ['max'],
+          fields: ['y'],
+          frame: [null, null],
+          ignorePeers: false,
+          groupby: ['a', 'b']
+        },
+        {
+          type: 'formula',
+          expr: 'datum.y === null ? datum.imputed_y_value : datum.y',
+          as: 'y'
+        }
+      ]);
+    });
+
     it('should handle window correctly', () => {
       const transform: Transform = {
         impute: 'y',
@@ -201,12 +232,7 @@ describe('compile/data/impute', () => {
           key: 'yield',
           method: 'value',
           groupby: ['site'],
-          value: null
-        },
-        {
-          type: 'formula',
-          expr: 'datum.variety === null ? 500 : datum.variety',
-          as: 'variety'
+          value: 500
         }
       ]);
     });
@@ -228,12 +254,7 @@ describe('compile/data/impute', () => {
           key: 'yield',
           method: 'value',
           groupby: ['site'],
-          value: null
-        },
-        {
-          type: 'formula',
-          expr: 'datum.variety === null ? 0 : datum.variety',
-          as: 'variety'
+          value: 0
         }
       ]);
     });
@@ -365,29 +386,47 @@ describe('compile/data/impute', () => {
           key: 'yield',
           method: 'value',
           groupby: ['site'],
-          value: null
-        },
-        {
-          type: 'formula',
-          expr: 'datum.variety === null ? 20 : datum.variety',
-          as: 'variety'
+          value: 20
         }
       ]);
     });
   });
 
-  describe('clone', () => {
-    it('should never clone parent', () => {
-      const parent = new DataFlowNode(null);
-      const transform: Transform = {
-        impute: 'y',
-        key: 'x',
-        method: 'max',
-        groupby: ['a', 'b'],
-        frame: [-2, 2]
-      };
-      const impute = new ImputeNode(parent, transform);
-      expect(impute.clone().parent).toBeNull();
+  describe('ImputeNode', () => {
+    describe('dependentFields', () => {
+      it('should return proper dependent fields with groupby', () => {
+        const transform: Transform = {
+          impute: 'y',
+          key: 'x',
+          groupby: ['f', 'g']
+        };
+        const impute = new ImputeNode(null, transform);
+        expect(impute.dependentFields()).toEqual(new Set(['x', 'y', 'f', 'g']));
+      });
+
+      it('should return proper dependent fields without groupby', () => {
+        const transform: Transform = {
+          impute: 'y',
+          key: 'x'
+        };
+        const impute = new ImputeNode(null, transform);
+        expect(impute.dependentFields()).toEqual(new Set(['x', 'y']));
+      });
+    });
+
+    describe('clone', () => {
+      it('should never clone parent', () => {
+        const parent = new PlaceholderDataFlowNode(null);
+        const transform: Transform = {
+          impute: 'y',
+          key: 'x',
+          method: 'max',
+          groupby: ['a', 'b'],
+          frame: [-2, 2]
+        };
+        const impute = new ImputeNode(parent, transform);
+        expect(impute.clone().parent).toBeNull();
+      });
     });
   });
 });

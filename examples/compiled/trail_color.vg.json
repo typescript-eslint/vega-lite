@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Stock prices of 5 Tech Companies over Time.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -35,19 +35,19 @@
           "name": "marks",
           "type": "trail",
           "style": ["trail"],
-          "sort": {"field": "datum[\"date\"]", "order": "descending"},
+          "sort": {"field": "datum[\"date\"]"},
           "from": {"data": "faceted_path_main"},
           "encode": {
             "update": {
               "fill": {"scale": "color", "field": "symbol"},
-              "tooltip": {
-                "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y'), \"price\": format(datum[\"price\"], \"\"), \"symbol\": ''+datum[\"symbol\"]}"
+              "description": {
+                "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y')) + \"; price: \" + (format(datum[\"price\"], \"\")) + \"; symbol: \" + (isValid(datum[\"symbol\"]) ? datum[\"symbol\"] : \"\"+datum[\"symbol\"])"
               },
               "x": {"scale": "x", "field": "date"},
               "y": {"scale": "y", "field": "price"},
               "size": {"scale": "size", "field": "price"},
               "defined": {
-                "signal": "datum[\"date\"] !== null && !isNaN(datum[\"date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+                "signal": "isValid(datum[\"date\"]) && isFinite(+datum[\"date\"]) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
               }
             }
           }
@@ -88,34 +88,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "price",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -125,33 +107,34 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "price",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "zindex": 0
     }
   ],
   "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "symbol"
-    },
-    {
-      "size": "size",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "price",
-      "encode": {
-        "symbols": {
-          "update": {
-            "fill": {"value": "black"},
-            "fillOpacity": {"value": 1},
-            "stroke": {"value": "transparent"}
-          }
-        }
-      }
-    }
+    {"stroke": "color", "symbolType": "stroke", "title": "symbol"},
+    {"strokeWidth": "size", "symbolType": "stroke", "title": "price"}
   ]
 }

@@ -1,23 +1,13 @@
-/* tslint:disable:quotemark */
-
-import {
-  COLOR,
-  DETAIL,
-  FILLOPACITY,
-  OPACITY,
-  SIZE,
-  STROKEOPACITY,
-  STROKEWIDTH,
-  UNIT_CHANNELS
-} from '../../../src/channel';
-import {getSort, parseMarkGroups, pathGroupingFields} from '../../../src/compile/mark/mark';
+import {getSort, parseMarkGroups} from '../../../src/compile/mark/mark';
 import {UnitModel} from '../../../src/compile/unit';
 import {GEOSHAPE} from '../../../src/mark';
 import {
   parseFacetModel,
   parseUnitModel,
   parseUnitModelWithScale,
-  parseUnitModelWithScaleAndLayoutSize
+  parseUnitModelWithScaleAndLayoutSize,
+  parseConcatModel,
+  parseUnitModelWithScaleAndSelection
 } from '../../util';
 
 describe('Mark', () => {
@@ -98,7 +88,7 @@ describe('Mark', () => {
       it('should have mark group with proper data and key', () => {
         const markGroup = parseMarkGroups(model)[0];
         expect(markGroup.type).toBe('symbol');
-        expect(markGroup.key.field).toBe('k');
+        expect(markGroup.key).toBe('k');
         expect(markGroup.from.data).toBe('main');
       });
 
@@ -198,6 +188,140 @@ describe('Mark', () => {
         expect(markGroup[0].transform).not.toBeDefined();
       });
     });
+
+    it('should set aria to false for bar mark', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        mark: {
+          type: 'bar',
+          aria: false
+        },
+        encoding: {
+          x: {type: 'quantitative', field: 'foo'}
+        }
+      });
+
+      const markGroup = parseMarkGroups(model);
+      expect(markGroup[0].aria).toBe(false);
+    });
+
+    it('should set aria to false for rounded bar mark', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        mark: {
+          type: 'bar',
+          aria: false,
+          cornerRadius: 2
+        },
+        encoding: {
+          x: {type: 'quantitative', field: 'foo'}
+        }
+      });
+
+      const markGroup = parseMarkGroups(model);
+      expect(markGroup[0].marks[0].marks[0].aria).toBe(false);
+    });
+
+    it('should set aria to false for line mark', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        mark: {
+          type: 'line',
+          aria: false
+        },
+        encoding: {
+          x: {type: 'quantitative', field: 'foo'}
+        }
+      });
+
+      const markGroup = parseMarkGroups(model);
+      expect(markGroup[0].aria).toBe(false);
+    });
+
+    it('should group mark with corder radius by nominal field', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        mark: {
+          type: 'bar',
+          cornerRadius: 2
+        },
+        encoding: {
+          x: {type: 'quantitative', field: 'foo'},
+          y: {type: 'nominal', field: 'bar'}
+        }
+      });
+
+      const markGroup = parseMarkGroups(model);
+      expect(markGroup[0].from.facet.groupby).toEqual(['bar']);
+    });
+
+    describe('interactiveFlag', () => {
+      it('should not contain flag if no selections', () => {
+        const model = parseUnitModelWithScaleAndSelection({
+          mark: 'point',
+          encoding: {
+            x: {type: 'quantitative', field: 'foo'},
+            y: {type: 'nominal', field: 'bar'}
+          }
+        });
+
+        const markGroup = parseMarkGroups(model);
+        expect(markGroup[0].interactive).toBeUndefined();
+      });
+
+      it('should be true for units with a selection', () => {
+        const model = parseConcatModel({
+          vconcat: [
+            {
+              params: [{name: 'brush', select: 'interval'}],
+              mark: 'point',
+              encoding: {
+                x: {type: 'quantitative', field: 'foo'},
+                y: {type: 'nominal', field: 'bar'}
+              }
+            },
+            {
+              mark: 'point',
+              encoding: {
+                x: {type: 'ordinal', field: 'baz'},
+                y: {type: 'quantitative', field: 'world'}
+              }
+            }
+          ]
+        });
+
+        model.parseScale();
+        model.parseSelections();
+        model.parseMarkGroup();
+        expect(model.children[0].component.mark[0].interactive).toBeTruthy();
+        expect(model.children[1].component.mark[0].interactive).toBeFalsy();
+      });
+
+      it('should be true for units with a selection or tooltip', () => {
+        const model = parseConcatModel({
+          vconcat: [
+            {
+              params: [{name: 'brush', select: {type: 'interval'}}],
+              mark: 'point',
+              encoding: {
+                x: {type: 'quantitative', field: 'foo'},
+                y: {type: 'nominal', field: 'bar'}
+              }
+            },
+            {
+              mark: 'point',
+              encoding: {
+                x: {type: 'ordinal', field: 'baz'},
+                y: {type: 'quantitative', field: 'world'},
+                tooltip: {type: 'nominal', field: 'hello'}
+              }
+            }
+          ]
+        });
+
+        model.parseScale();
+        model.parseSelections();
+        model.parseMarkGroup();
+        expect(model.children[0].component.mark[0].interactive).toBeTruthy();
+        expect(model.children[1].component.mark[0].interactive).toBeTruthy();
+      });
+    });
   });
 
   describe('getSort', () => {
@@ -227,7 +351,7 @@ describe('Mark', () => {
           order: {value: null}
         }
       });
-      expect(getSort(model)).toEqual(undefined);
+      expect(getSort(model)).toBeUndefined();
     });
 
     it('should order by x by default if x is the dimension', () => {
@@ -251,8 +375,66 @@ describe('Mark', () => {
         }
       });
       expect(getSort(model)).toEqual({
-        field: 'datum["bin_maxbins_10_IMDB_Rating"]',
-        order: 'descending'
+        field: 'datum["bin_maxbins_10_IMDB_Rating"]'
+      });
+    });
+
+    it('have no sort if the dimension field has sort:null', () => {
+      const model = parseUnitModelWithScale({
+        data: {url: 'data/movies.json'},
+        mark: 'line',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'nominal',
+            sort: null
+          },
+          color: {
+            field: 'Source',
+            type: 'nominal'
+          },
+          y: {
+            aggregate: 'count',
+            type: 'quantitative'
+          }
+        }
+      });
+      expect(getSort(model)).toBeUndefined();
+    });
+
+    it("should order by x's custom sort order by default if x is the dimension", () => {
+      const model = parseUnitModelWithScale({
+        data: {url: 'data/movies.json'},
+        mark: 'line',
+        encoding: {
+          x: {
+            type: 'nominal',
+            field: 'Name',
+            sort: ['Peter', 'Mary', 'Paul']
+          },
+          y: {type: 'quantitative', field: 'Score'}
+        }
+      });
+      expect(getSort(model)).toEqual({
+        field: 'datum["x_Name_sort_index"]'
+      });
+    });
+
+    it('should order by the right channel when sort by encoding', () => {
+      const model = parseUnitModelWithScale({
+        data: {url: 'data/movies.json'},
+        mark: 'line',
+        encoding: {
+          x: {
+            type: 'nominal',
+            field: 'Name',
+            sort: 'y'
+          },
+          y: {type: 'quantitative', field: 'Score'}
+        }
+      });
+      expect(getSort(model)).toEqual({
+        field: 'datum["Score"]'
       });
     });
 
@@ -272,50 +454,6 @@ describe('Mark', () => {
         }
       });
       expect(getSort(model)).toBeUndefined();
-    });
-  });
-
-  describe('pathGroupingFields()', () => {
-    it('should return fields for unaggregate detail, color, size, opacity fieldDefs.', () => {
-      for (const channel of [DETAIL, COLOR, SIZE, OPACITY, FILLOPACITY, STROKEOPACITY, STROKEWIDTH]) {
-        expect(pathGroupingFields('line', {[channel]: {field: 'a', type: 'nominal'}})).toEqual(['a']);
-      }
-    });
-
-    it('should not return a field for size of a trail mark.', () => {
-      expect(pathGroupingFields('trail', {size: {field: 'a', type: 'nominal'}})).toEqual([]);
-    });
-
-    it('should not return fields for aggregate detail, color, size, opacity fieldDefs.', () => {
-      for (const channel of [DETAIL, COLOR, SIZE, OPACITY, FILLOPACITY, STROKEOPACITY, STROKEWIDTH]) {
-        expect(pathGroupingFields('line', {[channel]: {aggregate: 'mean', field: 'a', type: 'nominal'}})).toEqual([]);
-      }
-    });
-
-    it('should return condition detail fields for color, size, shape', () => {
-      for (const channel of [COLOR, SIZE, OPACITY, FILLOPACITY, STROKEOPACITY, STROKEWIDTH]) {
-        expect(
-          pathGroupingFields('line', {
-            [channel]: {
-              condition: {selection: 'sel', field: 'a', type: 'nominal'}
-            }
-          })
-        ).toEqual(['a']);
-      }
-    });
-
-    it('should not return errors for all channels', () => {
-      for (const channel of UNIT_CHANNELS) {
-        expect(() => {
-          pathGroupingFields('line', {
-            [channel]: {field: 'a', type: 'nominal'}
-          });
-        }).not.toThrow();
-      }
-    });
-
-    it('should not include fields from tooltip', () => {
-      expect(pathGroupingFields('line', {tooltip: {field: 'a', type: 'nominal'}})).toEqual([]);
     });
   });
 

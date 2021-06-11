@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "The population of the German city of Falkensee over time",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 500,
   "height": 200,
@@ -67,9 +67,10 @@
           "as": "year"
         },
         {
-          "type": "formula",
-          "as": "year_year",
-          "expr": "datetime(year(datum[\"year\"]), 0, 1, 0, 0, 0, 0)"
+          "field": "year",
+          "type": "timeunit",
+          "units": ["year"],
+          "as": ["year_year", "year_year_end"]
         }
       ]
     },
@@ -79,7 +80,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"year_year\"] !== null && !isNaN(datum[\"year_year\"]) && datum[\"population\"] !== null && !isNaN(datum[\"population\"])"
+          "expr": "(isDate(datum[\"year_year\"]) || (isValid(datum[\"year_year\"]) && isFinite(+datum[\"year_year\"]))) && isValid(datum[\"population\"]) && isFinite(+datum[\"population\"])"
         }
       ]
     },
@@ -98,18 +99,20 @@
           "as": "end"
         },
         {
-          "type": "formula",
-          "as": "year_start",
-          "expr": "datetime(year(datum[\"start\"]), 0, 1, 0, 0, 0, 0)"
+          "field": "start",
+          "type": "timeunit",
+          "units": ["year"],
+          "as": ["year_start", "year_start_end"]
         },
         {
-          "type": "formula",
-          "as": "year_end",
-          "expr": "datetime(year(datum[\"end\"]), 0, 1, 0, 0, 0, 0)"
+          "field": "end",
+          "type": "timeunit",
+          "units": ["year"],
+          "as": ["year_end", "year_end_end"]
         },
         {
           "type": "filter",
-          "expr": "datum[\"year_start\"] !== null && !isNaN(datum[\"year_start\"])"
+          "expr": "(isDate(datum[\"year_start\"]) || (isValid(datum[\"year_start\"]) && isFinite(+datum[\"year_start\"])))"
         }
       ]
     }
@@ -123,8 +126,8 @@
       "encode": {
         "update": {
           "fill": {"scale": "color", "field": "event"},
-          "tooltip": {
-            "signal": "{\"start (year)\": timeFormat(datum[\"year_start\"], '%Y'), \"end (year)\": timeFormat(datum[\"year_end\"], '%Y'), \"event\": ''+datum[\"event\"]}"
+          "description": {
+            "signal": "\"start (year): \" + (timeFormat(datum[\"year_start\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; end (year): \" + (timeFormat(datum[\"year_end\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; event: \" + (isValid(datum[\"event\"]) ? datum[\"event\"] : \"\"+datum[\"event\"])"
           },
           "x": {"scale": "x", "field": "year_start"},
           "x2": {"scale": "x", "field": "year_end"},
@@ -137,18 +140,18 @@
       "name": "layer_1_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"year_year\"]", "order": "descending"},
+      "sort": {"field": "datum[\"year_year\"]"},
       "from": {"data": "data_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#333"},
-          "tooltip": {
-            "signal": "{\"year (year)\": timeFormat(datum[\"year_year\"], '%Y'), \"population\": format(datum[\"population\"], \"\")}"
+          "description": {
+            "signal": "\"year (year): \" + (timeFormat(datum[\"year_year\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; population: \" + (format(datum[\"population\"], \"\"))"
           },
           "x": {"scale": "x", "field": "year_year"},
           "y": {"scale": "y", "field": "population"},
           "defined": {
-            "signal": "datum[\"year_year\"] !== null && !isNaN(datum[\"year_year\"]) && datum[\"population\"] !== null && !isNaN(datum[\"population\"])"
+            "signal": "isValid(datum[\"year_year\"]) && isFinite(+datum[\"year_year\"]) && isValid(datum[\"population\"]) && isFinite(+datum[\"population\"])"
           }
         }
       }
@@ -163,8 +166,9 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#333"},
-          "tooltip": {
-            "signal": "{\"year (year)\": timeFormat(datum[\"year_year\"], '%Y'), \"population\": format(datum[\"population\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"year (year): \" + (timeFormat(datum[\"year_year\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; population: \" + (format(datum[\"population\"], \"\"))"
           },
           "x": {"scale": "x", "field": "year_year"},
           "y": {"scale": "y", "field": "population"}
@@ -210,39 +214,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "year (year)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%Y')"}}
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "population",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -252,18 +233,34 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "year (year)",
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "population",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "zindex": 0
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "event"
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "square", "title": "event"}]
 }

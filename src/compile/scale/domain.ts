@@ -1,35 +1,57 @@
-import {AggregateOp} from 'vega';
+import {SignalRef} from 'vega';
 import {isObject, isString} from 'vega-util';
-import {SHARED_DOMAIN_OP_INDEX} from '../../aggregate';
-import {isBinning} from '../../bin';
-import {isScaleChannel, ScaleChannel} from '../../channel';
-import {binRequiresRange, ScaleFieldDef, TypedFieldDef, valueExpr, vgField} from '../../channeldef';
-import {MAIN, RAW} from '../../data';
+import {
+  isAggregateOp,
+  isArgmaxDef,
+  isArgminDef,
+  MULTIDOMAIN_SORT_OP_INDEX as UNIONDOMAIN_SORT_OP_INDEX,
+  NonArgAggregateOp,
+  SHARED_DOMAIN_OP_INDEX
+} from '../../aggregate';
+import {isBinning, isBinParams, isParameterExtent} from '../../bin';
+import {getSecondaryRangeChannel, isScaleChannel, ScaleChannel} from '../../channel';
+import {
+  binRequiresRange,
+  getFieldOrDatumDef,
+  hasBandEnd,
+  isDatumDef,
+  isFieldDef,
+  ScaleDatumDef,
+  ScaleFieldDef,
+  TypedFieldDef,
+  valueExpr,
+  vgField
+} from '../../channeldef';
+import {DataSourceType} from '../../data';
 import {DateTime} from '../../datetime';
+import {ExprRef} from '../../expr';
 import * as log from '../../log';
-import {Domain, hasDiscreteDomain, isSelectionDomain, ScaleConfig, ScaleType} from '../../scale';
+import {Domain, hasDiscreteDomain, isDomainUnionWith, isParameterDomain, ScaleConfig, ScaleType} from '../../scale';
+import {ParameterExtent} from '../../selection';
 import {DEFAULT_SORT_OP, EncodingSortField, isSortArray, isSortByEncoding, isSortField} from '../../sort';
-import {TimeUnit} from '../../timeunit';
+import {normalizeTimeUnit, TimeUnit, TimeUnitParams} from '../../timeunit';
 import {Type} from '../../type';
 import * as util from '../../util';
 import {
   isDataRefDomain,
   isDataRefUnionedDomain,
   isFieldRefUnionDomain,
-  VgDataRef,
+  isSignalRef,
   VgDomain,
-  VgFieldRefUnionDomain,
+  VgMultiFieldsRefWithSort,
   VgNonUnionDomain,
+  VgScaleDataRefWithSort,
   VgSortField,
   VgUnionSortField
 } from '../../vega.schema';
+import {getBinSignalName} from '../data/bin';
 import {sortArrayIndexField} from '../data/calculate';
 import {FACET_SCALE_PREFIX} from '../data/optimize';
 import {isFacetModel, isUnitModel, Model} from '../model';
-import {SELECTION_DOMAIN} from '../selection';
 import {SignalRefWrapper} from '../signal';
+import {Explicit, makeExplicit, makeImplicit, mergeValuesWithExplicit} from '../split';
 import {UnitModel} from '../unit';
-import {ScaleComponentIndex} from './component';
+import {ScaleComponent, ScaleComponentIndex} from './component';
 
 export function parseScaleDomain(model: Model) {
   if (isUnitModel(model)) {
@@ -40,32 +62,13 @@ export function parseScaleDomain(model: Model) {
 }
 
 function parseUnitScaleDomain(model: UnitModel) {
-  const scales = model.specifiedScales;
   const localScaleComponents: ScaleComponentIndex = model.component.scales;
 
-  util.keys(localScaleComponents).forEach((channel: ScaleChannel) => {
-    const specifiedScale = scales[channel];
-    const specifiedDomain = specifiedScale ? specifiedScale.domain : undefined;
-
+  for (const channel of util.keys(localScaleComponents)) {
     const domains = parseDomainForChannel(model, channel);
     const localScaleCmpt = localScaleComponents[channel];
-    localScaleCmpt.domains = domains;
-
-    if (isSelectionDomain(specifiedDomain)) {
-      // As scale parsing occurs before selection parsing, we use a temporary
-      // signal here and append the scale.domain definition. This is replaced
-      // with the correct domainRaw signal during scale assembly.
-      // For more information, see isRawSelectionDomain in selection.ts.
-
-      // FIXME: replace this with a special property in the scaleComponent
-      localScaleCmpt.set(
-        'domainRaw',
-        {
-          signal: SELECTION_DOMAIN + util.hash(specifiedDomain)
-        },
-        true
-      );
-    }
+    localScaleCmpt.setWithExplicit('domains', domains);
+    parseSelectionDomain(model, channel);
 
     if (model.component.data.isFaceted) {
       // get resolve from closest facet parent as this decides whether we need to refer to cloned subtree or not
@@ -77,7 +80,7 @@ function parseUnitScaleDomain(model: UnitModel) {
       const resolve = facetParent.component.resolve.scale[channel];
 
       if (resolve === 'shared') {
-        for (const domain of domains) {
+        for (const domain of domains.value) {
           // Replace the scale domain with data output from a cloned subtree after the facet.
           if (isDataRefDomain(domain)) {
             // use data from cloned subtree (which is the same as data but with a prefix added once)
@@ -86,7 +89,7 @@ function parseUnitScaleDomain(model: UnitModel) {
         }
       }
     }
-  });
+  }
 }
 
 function parseNonUnitScaleDomain(model: Model) {
@@ -96,33 +99,39 @@ function parseNonUnitScaleDomain(model: Model) {
 
   const localScaleComponents: ScaleComponentIndex = model.component.scales;
 
-  util.keys(localScaleComponents).forEach((channel: ScaleChannel) => {
-    let domains: VgNonUnionDomain[];
-    let domainRaw = null;
+  for (const channel of util.keys(localScaleComponents)) {
+    let domains: Explicit<VgNonUnionDomain[]>;
+    let selectionExtent: ParameterExtent = null;
 
     for (const child of model.children) {
       const childComponent = child.component.scales[channel];
       if (childComponent) {
         if (domains === undefined) {
-          domains = childComponent.domains;
+          domains = childComponent.getWithExplicit('domains');
         } else {
-          domains = domains.concat(childComponent.domains);
+          domains = mergeValuesWithExplicit(
+            domains,
+            childComponent.getWithExplicit('domains'),
+            'domains',
+            'scale',
+            domainsTieBreaker
+          );
         }
 
-        const dr = childComponent.get('domainRaw');
-        if (domainRaw && dr && domainRaw.signal !== dr.signal) {
-          log.warn('The same selection must be used to override scale domains in a layered view.');
+        const se = childComponent.get('selectionExtent');
+        if (selectionExtent && se && selectionExtent.param !== se.param) {
+          log.warn(log.message.NEEDS_SAME_SELECTION);
         }
-        domainRaw = dr;
+        selectionExtent = se;
       }
     }
 
-    localScaleComponents[channel].domains = domains;
+    localScaleComponents[channel].setWithExplicit('domains', domains);
 
-    if (domainRaw) {
-      localScaleComponents[channel].set('domainRaw', domainRaw, true);
+    if (selectionExtent) {
+      localScaleComponents[channel].set('selectionExtent', selectionExtent, true);
     }
-  });
+  }
 }
 
 /**
@@ -133,7 +142,7 @@ function normalizeUnaggregatedDomain(
   domain: Domain,
   fieldDef: TypedFieldDef<string>,
   scaleType: ScaleType,
-  scaleConfig: ScaleConfig
+  scaleConfig: ScaleConfig<SignalRef>
 ) {
   if (domain === 'unaggregated') {
     const {valid, reason} = canUseUnaggregatedDomain(fieldDef, scaleType);
@@ -152,12 +161,13 @@ function normalizeUnaggregatedDomain(
   return domain;
 }
 
-export function parseDomainForChannel(model: UnitModel, channel: ScaleChannel): VgNonUnionDomain[] {
+export function parseDomainForChannel(model: UnitModel, channel: ScaleChannel): Explicit<VgNonUnionDomain[]> {
   const scaleType = model.getScaleComponent(channel).get('type');
+  const {encoding} = model;
 
   const domain = normalizeUnaggregatedDomain(
     model.scaleDomain(channel),
-    model.fieldDef(channel),
+    model.typedFieldDef(channel),
     scaleType,
     model.config.scale
   );
@@ -169,18 +179,26 @@ export function parseDomainForChannel(model: UnitModel, channel: ScaleChannel): 
   }
 
   // If channel is either X or Y then union them with X2 & Y2 if they exist
-  if (channel === 'x' && model.channelHasField('x2')) {
-    if (model.channelHasField('x')) {
-      return parseSingleChannelDomain(scaleType, domain, model, 'x').concat(
-        parseSingleChannelDomain(scaleType, domain, model, 'x2')
+  if (channel === 'x' && getFieldOrDatumDef(encoding.x2)) {
+    if (getFieldOrDatumDef(encoding.x)) {
+      return mergeValuesWithExplicit(
+        parseSingleChannelDomain(scaleType, domain, model, 'x'),
+        parseSingleChannelDomain(scaleType, domain, model, 'x2'),
+        'domain',
+        'scale',
+        domainsTieBreaker
       );
     } else {
       return parseSingleChannelDomain(scaleType, domain, model, 'x2');
     }
-  } else if (channel === 'y' && model.channelHasField('y2')) {
-    if (model.channelHasField('y')) {
-      return parseSingleChannelDomain(scaleType, domain, model, 'y').concat(
-        parseSingleChannelDomain(scaleType, domain, model, 'y2')
+  } else if (channel === 'y' && getFieldOrDatumDef(encoding.y2)) {
+    if (getFieldOrDatumDef(encoding.y)) {
+      return mergeValuesWithExplicit(
+        parseSingleChannelDomain(scaleType, domain, model, 'y'),
+        parseSingleChannelDomain(scaleType, domain, model, 'y2'),
+        'domain',
+        'scale',
+        domainsTieBreaker
       );
     } else {
       return parseSingleChannelDomain(scaleType, domain, model, 'y2');
@@ -189,11 +207,29 @@ export function parseDomainForChannel(model: UnitModel, channel: ScaleChannel): 
   return parseSingleChannelDomain(scaleType, domain, model, channel);
 }
 
-function mapDomainToDataSignal<T>(domain: T[], type: Type, timeUnit: TimeUnit) {
+function mapDomainToDataSignal(
+  domain: (number | string | boolean | DateTime | ExprRef | SignalRef | number[])[],
+  type: Type,
+  timeUnit: TimeUnit
+) {
   return domain.map(v => {
     const data = valueExpr(v, {timeUnit, type});
     return {signal: `{data: ${data}}`};
   });
+}
+
+function convertDomainIfItIsDateTime(
+  domain: (number | string | boolean | DateTime | ExprRef | SignalRef | number[])[],
+  type: Type,
+  timeUnit: TimeUnit | TimeUnitParams
+): [number[]] | [string[]] | [boolean[]] | SignalRef[] {
+  // explicit value
+  const normalizedTimeUnit = normalizeTimeUnit(timeUnit)?.unit;
+  if (type === 'temporal' || normalizedTimeUnit) {
+    return mapDomainToDataSignal(domain, type, normalizedTimeUnit);
+  }
+
+  return [domain] as [number[]] | [string[]] | [boolean[]]; // Date time won't make sense
 }
 
 function parseSingleChannelDomain(
@@ -201,27 +237,33 @@ function parseSingleChannelDomain(
   domain: Domain,
   model: UnitModel,
   channel: ScaleChannel | 'x2' | 'y2'
-): VgNonUnionDomain[] {
-  const fieldDef = model.fieldDef(channel);
+): Explicit<VgNonUnionDomain[]> {
+  const {encoding} = model;
+  const fieldOrDatumDef = getFieldOrDatumDef(encoding[channel]) as ScaleDatumDef<string> | ScaleFieldDef<string>;
 
-  if (domain && domain !== 'unaggregated' && !isSelectionDomain(domain)) {
-    // explicit value
-    const {type, timeUnit} = fieldDef;
-    if (type === 'temporal' || timeUnit) {
-      return mapDomainToDataSignal<number | string | boolean | DateTime>(domain, type, timeUnit);
-    }
+  const {type} = fieldOrDatumDef;
+  const timeUnit = fieldOrDatumDef['timeUnit'];
 
-    return [domain];
+  if (isDomainUnionWith(domain)) {
+    const defaultDomain = parseSingleChannelDomain(scaleType, undefined, model, channel);
+
+    const unionWith = convertDomainIfItIsDateTime(domain.unionWith, type, timeUnit);
+
+    return makeExplicit([...defaultDomain.value, ...unionWith]);
+  } else if (isSignalRef(domain)) {
+    return makeExplicit([domain]);
+  } else if (domain && domain !== 'unaggregated' && !isParameterDomain(domain)) {
+    return makeExplicit(convertDomainIfItIsDateTime(domain, type, timeUnit));
   }
 
   const stack = model.stack;
   if (stack && channel === stack.fieldChannel) {
     if (stack.offset === 'normalize') {
-      return [[0, 1]];
+      return makeImplicit([[0, 1]]);
     }
 
-    const data = model.requestDataName(MAIN);
-    return [
+    const data = model.requestDataName(DataSourceType.Main);
+    return makeImplicit([
       {
         data,
         field: model.vgField(channel, {suffix: 'start'})
@@ -230,17 +272,22 @@ function parseSingleChannelDomain(
         data,
         field: model.vgField(channel, {suffix: 'end'})
       }
-    ];
+    ]);
   }
 
-  const sort: undefined | true | VgSortField = isScaleChannel(channel)
-    ? domainSort(model, channel, scaleType)
-    : undefined;
+  const sort: undefined | true | VgSortField =
+    isScaleChannel(channel) && isFieldDef(fieldOrDatumDef) ? domainSort(model, channel, scaleType) : undefined;
 
+  if (isDatumDef(fieldOrDatumDef)) {
+    const d = convertDomainIfItIsDateTime([fieldOrDatumDef.datum], type, timeUnit);
+    return makeImplicit(d);
+  }
+
+  const fieldDef = fieldOrDatumDef; // now we can be sure it's a fieldDef
   if (domain === 'unaggregated') {
-    const data = model.requestDataName(MAIN);
-    const {field} = fieldDef;
-    return [
+    const data = model.requestDataName(DataSourceType.Main);
+    const {field} = fieldOrDatumDef;
+    return makeImplicit([
       {
         data,
         field: vgField({field, aggregate: 'min'})
@@ -249,21 +296,23 @@ function parseSingleChannelDomain(
         data,
         field: vgField({field, aggregate: 'max'})
       }
-    ];
+    ]);
   } else if (isBinning(fieldDef.bin)) {
     if (hasDiscreteDomain(scaleType)) {
       if (scaleType === 'bin-ordinal') {
         // we can omit the domain as it is inferred from the `bins` property
-        return [];
+        return makeImplicit([]);
       }
 
       // ordinal bin scale takes domain from bin_range, ordered by bin start
       // This is useful for both axis-based scale (x/y) and legend-based scale (other channels).
-      return [
+      return makeImplicit([
         {
           // If sort by aggregation of a specified sort field, we need to use RAW table,
           // so we can aggregate values for the scale independently from the main aggregation.
-          data: util.isBoolean(sort) ? model.requestDataName(MAIN) : model.requestDataName(RAW),
+          data: util.isBoolean(sort)
+            ? model.requestDataName(DataSourceType.Main)
+            : model.requestDataName(DataSourceType.Raw),
           // Use range if we added it and the scale does not support computing a range as a signal.
           field: model.vgField(channel, binRequiresRange(fieldDef, channel) ? {binSuffix: 'range'} : {}),
           // we have to use a sort object if sort = true to make the sort correct by bin start
@@ -275,56 +324,95 @@ function parseSingleChannelDomain(
                 }
               : sort
         }
-      ];
+      ]);
     } else {
       // continuous scales
-      if (isBinning(fieldDef.bin)) {
-        const signalName = model.getName(vgField(fieldDef, {suffix: 'bins'}));
-        return [
+      const {bin} = fieldDef;
+      if (isBinning(bin)) {
+        const binSignal = getBinSignalName(model, fieldDef.field, bin);
+        return makeImplicit([
           new SignalRefWrapper(() => {
-            const signal = model.getSignalName(signalName);
+            const signal = model.getSignalName(binSignal);
             return `[${signal}.start, ${signal}.stop]`;
           })
-        ];
+        ]);
       } else {
-        return [
+        return makeImplicit([
           {
-            data: model.requestDataName(MAIN),
+            data: model.requestDataName(DataSourceType.Main),
             field: model.vgField(channel, {})
           }
-        ];
+        ]);
       }
     }
+  } else if (
+    fieldDef.timeUnit &&
+    util.contains(['time', 'utc'], scaleType) &&
+    hasBandEnd(
+      fieldDef,
+      isUnitModel(model) ? model.encoding[getSecondaryRangeChannel(channel)] : undefined,
+      model.markDef,
+      model.config
+    )
+  ) {
+    const data = model.requestDataName(DataSourceType.Main);
+    return makeImplicit([
+      {
+        data,
+        field: model.vgField(channel)
+      },
+      {
+        data,
+        field: model.vgField(channel, {suffix: 'end'})
+      }
+    ]);
   } else if (sort) {
-    return [
+    return makeImplicit([
       {
         // If sort by aggregation of a specified sort field, we need to use RAW table,
         // so we can aggregate values for the scale independently from the main aggregation.
-        data: util.isBoolean(sort) ? model.requestDataName(MAIN) : model.requestDataName(RAW),
+        data: util.isBoolean(sort)
+          ? model.requestDataName(DataSourceType.Main)
+          : model.requestDataName(DataSourceType.Raw),
         field: model.vgField(channel),
         sort: sort
       }
-    ];
+    ]);
   } else {
-    return [
+    return makeImplicit([
       {
-        data: model.requestDataName(MAIN),
+        data: model.requestDataName(DataSourceType.Main),
         field: model.vgField(channel)
       }
-    ];
+    ]);
   }
 }
 
-function normalizeSortField(sort: EncodingSortField<string>, isStacked: boolean) {
+function normalizeSortField(sort: EncodingSortField<string>, isStackedMeasure: boolean): VgSortField {
   const {op, field, order} = sort;
   return {
     // Apply default op
-    op: op || (isStacked ? 'sum' : DEFAULT_SORT_OP),
+    op: op ?? (isStackedMeasure ? 'sum' : DEFAULT_SORT_OP),
     // flatten nested fields
     ...(field ? {field: util.replacePathInField(field)} : {}),
 
     ...(order ? {order} : {})
   };
+}
+
+function parseSelectionDomain(model: UnitModel, channel: ScaleChannel) {
+  const scale = model.component.scales[channel];
+  const spec = model.specifiedScales[channel].domain;
+  const bin = model.fieldDef(channel)?.bin;
+  const domain = isParameterDomain(spec) && spec;
+  const extent = isBinParams(bin) && isParameterExtent(bin.extent) && bin.extent;
+
+  if (domain || extent) {
+    // As scale parsing occurs before selection parsing, we cannot set
+    // domainRaw directly. So instead, we store the selectionExtent on
+    // the scale component, and then add domainRaw during scale assembly.
+    scale.set('selectionExtent', domain ?? extent, true);
+  }
 }
 
 export function domainSort(
@@ -349,19 +437,40 @@ export function domainSort(
     };
   }
 
-  const isStacked = model.stack !== null;
+  const {stack} = model;
+  const stackDimensions = stack
+    ? [...(stack.groupbyField ? [stack.groupbyField] : []), ...stack.stackBy.map(s => s.fieldDef.field)]
+    : undefined;
+
   // Sorted based on an aggregate calculation over a specified sort field (only for ordinal scale)
   if (isSortField(sort)) {
-    return normalizeSortField(sort, isStacked);
+    const isStackedMeasure = stack && !util.contains(stackDimensions, sort.field);
+    return normalizeSortField(sort, isStackedMeasure);
   } else if (isSortByEncoding(sort)) {
     const {encoding, order} = sort;
-    const {aggregate, field} = model.fieldDef(encoding);
-    const sortField: EncodingSortField<string> = {
-      op: aggregate as AggregateOp, // Once we decouple aggregate from aggregate op we won't have to cast here
-      field,
-      order
-    };
-    return normalizeSortField(sortField, isStacked);
+    const fieldDefToSortBy = model.fieldDef(encoding);
+    const {aggregate, field} = fieldDefToSortBy;
+
+    const isStackedMeasure = stack && !util.contains(stackDimensions, field);
+
+    if (isArgminDef(aggregate) || isArgmaxDef(aggregate)) {
+      return normalizeSortField(
+        {
+          field: vgField(fieldDefToSortBy),
+          order
+        },
+        isStackedMeasure
+      );
+    } else if (isAggregateOp(aggregate) || !aggregate) {
+      return normalizeSortField(
+        {
+          op: aggregate as NonArgAggregateOp, // can't be argmin/argmax since we don't support them in encoding field def
+          field,
+          order
+        },
+        isStackedMeasure
+      );
+    }
   } else if (sort === 'descending') {
     return {
       op: 'min',
@@ -416,6 +525,22 @@ export function canUseUnaggregatedDomain(
 }
 
 /**
+ * Tie breaker for mergeValuesWithExplicit for domains. We concat the specified values.
+ */
+function domainsTieBreaker(
+  v1: Explicit<VgNonUnionDomain[]>,
+  v2: Explicit<VgNonUnionDomain[]>,
+  property: 'domains',
+  propertyOf: 'scale'
+) {
+  if (v1.explicit && v2.explicit) {
+    log.warn(log.message.mergeConflictingDomainProperty(property, propertyOf, v1.value, v2.value));
+  }
+  // If equal score, concat the domains so that we union them later.
+  return {explicit: v1.explicit, value: [...v1.value, ...v2.value]};
+}
+
+/**
  * Converts an array of domains to a single Vega scale domain.
  */
 export function mergeDomains(domains: VgNonUnionDomain[]): VgDomain {
@@ -437,7 +562,7 @@ export function mergeDomains(domains: VgNonUnionDomain[]): VgDomain {
         if (isDataRefDomain(d)) {
           const s = d.sort;
           if (s !== undefined && !util.isBoolean(s)) {
-            if (s.op === 'count') {
+            if ('op' in s && s.op === 'count') {
               // let's make sure that if op is count, we don't use a field
               delete s.field;
             }
@@ -463,6 +588,14 @@ export function mergeDomains(domains: VgNonUnionDomain[]): VgDomain {
       if (sorts.length > 1) {
         log.warn(log.message.MORE_THAN_ONE_SORT);
         sort = true;
+      } else {
+        // Simplify domain sort by removing field and op when the field is the same as the domain field.
+        if (isObject(sort) && 'field' in sort) {
+          const sortField = sort.field;
+          if (domain.field === sortField) {
+            sort = sort.order ? {order: sort.order} : true;
+          }
+        }
       }
       return {
         ...domain,
@@ -472,14 +605,11 @@ export function mergeDomains(domains: VgNonUnionDomain[]): VgDomain {
     return domain;
   }
 
-  // only keep simple sort properties that work with unioned domains
-  const simpleSorts = util.unique(
+  // only keep sort properties that work with unioned domains
+  const unionDomainSorts = util.unique<VgUnionSortField>(
     sorts.map(s => {
-      if (util.isBoolean(s)) {
-        return s;
-      }
-      if (s.op === 'count') {
-        return s;
+      if (util.isBoolean(s) || !('op' in s) || (isString(s.op) && s.op in UNIONDOMAIN_SORT_OP_INDEX)) {
+        return s as VgUnionSortField;
       }
       log.warn(log.message.domainSortDropped(s));
       return true;
@@ -489,9 +619,9 @@ export function mergeDomains(domains: VgNonUnionDomain[]): VgDomain {
 
   let sort: VgUnionSortField;
 
-  if (simpleSorts.length === 1) {
-    sort = simpleSorts[0];
-  } else if (simpleSorts.length > 1) {
+  if (unionDomainSorts.length === 1) {
+    sort = unionDomainSorts[0];
+  } else if (unionDomainSorts.length > 1) {
     log.warn(log.message.MORE_THAN_ONE_SORT);
     sort = true;
   }
@@ -508,9 +638,9 @@ export function mergeDomains(domains: VgNonUnionDomain[]): VgDomain {
 
   if (allData.length === 1 && allData[0] !== null) {
     // create a union domain of different fields with a single data source
-    const domain: VgFieldRefUnionDomain = {
+    const domain: VgMultiFieldsRefWithSort = {
       data: allData[0],
-      fields: uniqueDomains.map(d => (d as VgDataRef).field),
+      fields: uniqueDomains.map(d => (d as VgScaleDataRefWithSort).field),
       ...(sort ? {sort} : {})
     };
 
@@ -521,9 +651,8 @@ export function mergeDomains(domains: VgNonUnionDomain[]): VgDomain {
 }
 
 /**
- * Return a field if a scale single field.
+ * Return a field if a scale uses a single field.
  * Return `undefined` otherwise.
- *
  */
 export function getFieldFromDomain(domain: VgDomain): string {
   if (isDataRefDomain(domain) && isString(domain.field)) {
@@ -535,21 +664,15 @@ export function getFieldFromDomain(domain: VgDomain): string {
         if (!field) {
           field = nonUnionDomain.field;
         } else if (field !== nonUnionDomain.field) {
-          log.warn(
-            'Detected faceted independent scales that union domain of multiple fields from different data sources.  We will use the first field.  The result view size may be incorrect.'
-          );
+          log.warn(log.message.FACETED_INDEPENDENT_DIFFERENT_SOURCES);
           return field;
         }
       }
     }
-    log.warn(
-      'Detected faceted independent scales that union domain of identical fields from different source detected.  We will assume that this is the same field from a different fork of the same data source.  However, if this is not case, the result view size maybe incorrect.'
-    );
+    log.warn(log.message.FACETED_INDEPENDENT_SAME_FIELDS_DIFFERENT_SOURCES);
     return field;
   } else if (isFieldRefUnionDomain(domain)) {
-    log.warn(
-      'Detected faceted independent scales that union domain of multiple fields from the same data source.  We will use the first field.  The result view size may be incorrect.'
-    );
+    log.warn(log.message.FACETED_INDEPENDENT_SAME_SOURCE);
     const field = domain.fields[0];
     return isString(field) ? field : undefined;
   }
@@ -558,16 +681,16 @@ export function getFieldFromDomain(domain: VgDomain): string {
 }
 
 export function assembleDomain(model: Model, channel: ScaleChannel) {
-  const scaleComponent = model.component.scales[channel];
+  const scaleComponent: ScaleComponent = model.component.scales[channel];
 
-  const domains = scaleComponent.domains.map(domain => {
+  const domains = scaleComponent.get('domains').map((domain: VgNonUnionDomain) => {
     // Correct references to data as the original domain's data was determined
     // in parseScale, which happens before parseData. Thus the original data
     // reference can be incorrect.
-
     if (isDataRefDomain(domain)) {
       domain.data = model.lookupDataSource(domain.data);
     }
+
     return domain;
   });
 

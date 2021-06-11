@@ -1,7 +1,7 @@
 import {AggregateOp} from 'vega';
 import {isArray} from 'vega-util';
 import {isBinning} from '../../bin';
-import {COLUMN, FACET_CHANNELS, ROW, ScaleChannel} from '../../channel';
+import {COLUMN, FACET_CHANNELS, POSITION_SCALE_CHANNELS, ROW} from '../../channel';
 import {vgField} from '../../channeldef';
 import * as log from '../../log';
 import {hasDiscreteDomain} from '../../scale';
@@ -87,11 +87,32 @@ export class FacetNode extends DataFlowNode {
     const f: string[] = [];
 
     for (const channel of FACET_CHANNELS) {
-      if (this[channel] && this[channel].fields) {
+      if (this[channel]?.fields) {
         f.push(...this[channel].fields);
       }
     }
     return f;
+  }
+
+  public dependentFields() {
+    const depFields = new Set<string>(this.fields);
+
+    for (const channel of FACET_CHANNELS) {
+      if (this[channel]) {
+        if (this[channel].sortField) {
+          depFields.add(this[channel].sortField.field);
+        }
+        if (this[channel].sortIndexField) {
+          depFields.add(this[channel].sortIndexField);
+        }
+      }
+    }
+
+    return depFields;
+  }
+
+  public producedFields() {
+    return new Set<string>(); // facet does not produce any new fields
   }
 
   /**
@@ -104,7 +125,7 @@ export class FacetNode extends DataFlowNode {
   private getChildIndependentFieldsWithStep() {
     const childIndependentFieldsWithStep: ChildIndependentFieldsWithStep = {};
 
-    for (const channel of ['x', 'y'] as ScaleChannel[]) {
+    for (const channel of POSITION_SCALE_CHANNELS) {
       const childScaleComponent = this.childModel.component.scales[channel];
       if (childScaleComponent && !childScaleComponent.merged) {
         // independent scale
@@ -117,7 +138,7 @@ export class FacetNode extends DataFlowNode {
           if (field) {
             childIndependentFieldsWithStep[channel] = field;
           } else {
-            log.warn('Unknown field for ${channel}.  Cannot calculate view size.');
+            log.warn(log.message.unknownField(channel));
           }
         }
       }
@@ -131,13 +152,13 @@ export class FacetNode extends DataFlowNode {
     crossedDataName: string,
     childIndependentFieldsWithStep: ChildIndependentFieldsWithStep
   ): VgData {
-    const childChannel = {row: 'y', column: 'x'}[channel];
+    const childChannel = {row: 'y', column: 'x', facet: undefined}[channel];
 
     const fields: string[] = [];
     const ops: AggregateOp[] = [];
     const as: string[] = [];
 
-    if (childIndependentFieldsWithStep && childIndependentFieldsWithStep[childChannel]) {
+    if (childChannel && childIndependentFieldsWithStep && childIndependentFieldsWithStep[childChannel]) {
       if (crossedDataName) {
         // If there is a crossed data, calculate max
         fields.push(`distinct_${childIndependentFieldsWithStep[childChannel]}`);
@@ -167,7 +188,7 @@ export class FacetNode extends DataFlowNode {
     return {
       name: this[channel].name,
       // Use data from the crossed one if it exist
-      source: crossedDataName || this.data,
+      source: crossedDataName ?? this.data,
       transform: [
         {
           type: 'aggregate',
@@ -192,9 +213,9 @@ export class FacetNode extends DataFlowNode {
     const hasSharedAxis: {row?: true; column?: true} = {};
     for (const headerChannel of HEADER_CHANNELS) {
       for (const headerType of HEADER_TYPES) {
-        const headers = (layoutHeaders[headerChannel] && layoutHeaders[headerChannel][headerType]) || [];
+        const headers = (layoutHeaders[headerChannel] && layoutHeaders[headerChannel][headerType]) ?? [];
         for (const header of headers) {
-          if (header.axes && header.axes.length > 0) {
+          if (header.axes?.length > 0) {
             hasSharedAxis[headerChannel] = true;
             break;
           }
@@ -247,8 +268,8 @@ export class FacetNode extends DataFlowNode {
       crossedDataName = `cross_${this.column.name}_${this.row.name}`;
 
       const fields: string[] = [].concat(
-        childIndependentFieldsWithStep.x || [],
-        childIndependentFieldsWithStep.y || []
+        childIndependentFieldsWithStep.x ?? [],
+        childIndependentFieldsWithStep.y ?? []
       );
       const ops = fields.map((): AggregateOp => 'distinct');
 

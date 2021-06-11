@@ -1,12 +1,9 @@
-/* tslint:disable:quotemark */
-
 import {SignalRef} from 'vega';
 import {ScaleChannel} from '../../../src/channel';
 import {PositionFieldDef} from '../../../src/channeldef';
 import {domainSort, mergeDomains, parseDomainForChannel} from '../../../src/compile/scale/domain';
 import {parseScaleCore} from '../../../src/compile/scale/parse';
 import {UnitModel} from '../../../src/compile/unit';
-import {MAIN} from '../../../src/data';
 import * as log from '../../../src/log';
 import {ScaleType} from '../../../src/scale';
 import {EncodingSortField} from '../../../src/sort';
@@ -17,7 +14,7 @@ describe('compile/scale', () => {
     function testParseDomainForChannel(model: UnitModel, channel: ScaleChannel) {
       // Cannot parseDomain before parseScaleCore
       parseScaleCore(model);
-      return parseDomainForChannel(model, channel);
+      return parseDomainForChannel(model, channel).value;
     }
 
     it('should have correct domain with x and x2 channel', () => {
@@ -25,17 +22,59 @@ describe('compile/scale', () => {
         mark: 'bar',
         encoding: {
           x: {field: 'a', type: 'quantitative'},
-          x2: {field: 'b', type: 'quantitative'},
+          x2: {field: 'b'},
           y: {field: 'c', type: 'quantitative'},
-          y2: {field: 'd', type: 'quantitative'}
+          y2: {field: 'd'}
         }
       });
 
       const xDomain = testParseDomainForChannel(model, 'x');
-      expect(xDomain).toEqual([{data: 'main', field: 'a'}, {data: 'main', field: 'b'}]);
+      expect(xDomain).toEqual([
+        {data: 'main', field: 'a'},
+        {data: 'main', field: 'b'}
+      ]);
 
       const yDomain = testParseDomainForChannel(model, 'y');
-      expect(yDomain).toEqual([{data: 'main', field: 'c'}, {data: 'main', field: 'd'}]);
+      expect(yDomain).toEqual([
+        {data: 'main', field: 'c'},
+        {data: 'main', field: 'd'}
+      ]);
+    });
+
+    it('should have correct domain unionWith', () => {
+      const model = parseUnitModel({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'quantitative', scale: {domain: {unionWith: [0, 100]}}}
+        }
+      });
+
+      const xDomain = testParseDomainForChannel(model, 'x');
+      expect(xDomain).toEqual([{data: 'main', field: 'a'}, [0, 100]]);
+    });
+
+    it('correctly parse signal domain', () => {
+      const model = parseUnitModel({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'quantitative', scale: {domain: {signal: 'a'}}}
+        }
+      });
+
+      const xDomain = testParseDomainForChannel(model, 'x');
+      expect(xDomain).toEqual([{signal: 'a'}]);
+    });
+
+    it('correctly parse signal domain array', () => {
+      const model = parseUnitModel({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'quantitative', scale: {domain: [{signal: 'a'}, {signal: 'b'}]}}
+        }
+      });
+
+      const xDomain = testParseDomainForChannel(model, 'x');
+      expect(xDomain).toEqual([[{signal: 'a'}, {signal: 'b'}]]);
     });
 
     it('should have correct domain for color', () => {
@@ -55,7 +94,7 @@ describe('compile/scale', () => {
         mark: 'bar',
         encoding: {
           color: {
-            condition: {selection: 'sel', field: 'a', type: 'quantitative'}
+            condition: {param: 'sel', field: 'a', type: 'quantitative'}
           }
         }
       });
@@ -97,13 +136,11 @@ describe('compile/scale', () => {
           y: {
             aggregate: 'sum',
             field: 'origin',
-            type: 'quantitative'
+            type: 'quantitative',
+            stack: 'normalize'
           },
           x: {field: 'x', type: 'ordinal'},
           color: {field: 'color', type: 'ordinal'}
-        },
-        config: {
-          stack: 'normalize'
         }
       });
 
@@ -148,11 +185,11 @@ describe('compile/scale', () => {
 
         expect(testParseDomainForChannel(model, 'y')).toEqual([
           {
-            data: MAIN,
+            data: 'main',
             field: 'min_acceleration'
           },
           {
-            data: MAIN,
+            data: 'main',
             field: 'max_acceleration'
           }
         ]);
@@ -193,25 +230,22 @@ describe('compile/scale', () => {
         expect(_domain).toEqual([[0, 200]]);
       });
 
-      it(
-        'should follow the custom domain despite bin',
-        log.wrap(localLogger => {
-          const model = parseUnitModel({
-            mark: 'point',
-            encoding: {
-              y: {
-                field: 'origin',
-                type: 'quantitative',
-                scale: {domain: [0, 200]},
-                bin: {maxbins: 15}
-              }
+      it('should follow the custom domain despite bin', () => {
+        const model = parseUnitModel({
+          mark: 'point',
+          encoding: {
+            y: {
+              field: 'origin',
+              type: 'quantitative',
+              scale: {domain: [0, 200]},
+              bin: {maxbins: 15}
             }
-          });
-          const _domain = testParseDomainForChannel(model, 'y');
+          }
+        });
+        const _domain = testParseDomainForChannel(model, 'y');
 
-          expect(_domain).toEqual([[0, 200]]);
-        })
-      );
+        expect(_domain).toEqual([[0, 200]]);
+      });
 
       it('should return the aggregated domain if we do not override it', () => {
         const model = parseUnitModel({
@@ -252,11 +286,11 @@ describe('compile/scale', () => {
 
         expect(testParseDomainForChannel(model, 'y')).toEqual([
           {
-            data: MAIN,
+            data: 'main',
             field: 'min_acceleration'
           },
           {
-            data: MAIN,
+            data: 'main',
             field: 'max_acceleration'
           }
         ]);
@@ -294,7 +328,7 @@ describe('compile/scale', () => {
         expect(_domain).toEqual([{data: 'main', field: 'month_origin', sort: true}]);
       });
 
-      it('should return the correct domain for yearmonth T', () => {
+      it('should return the correct domain for yearmonth T with point marks', () => {
         const model = parseUnitModel({
           mark: 'point',
           encoding: {
@@ -308,6 +342,25 @@ describe('compile/scale', () => {
         const _domain = testParseDomainForChannel(model, 'y');
 
         expect(_domain).toEqual([{data: 'main', field: 'yearmonth_origin'}]);
+      });
+
+      it('should return the correct domain for yearmonth T with bar marks', () => {
+        const model = parseUnitModel({
+          mark: 'bar',
+          encoding: {
+            y: {
+              field: 'origin',
+              type: 'temporal',
+              timeUnit: 'yearmonth'
+            }
+          }
+        });
+        const _domain = testParseDomainForChannel(model, 'y');
+
+        expect(_domain).toEqual([
+          {data: 'main', field: 'yearmonth_origin'},
+          {data: 'main', field: 'yearmonth_origin_end'}
+        ]);
       });
 
       it('should return the correct domain for month O when specify sort', () => {
@@ -351,7 +404,7 @@ describe('compile/scale', () => {
               sort: sortDef
             },
             y: {
-              aggregate: 'mean',
+              aggregate: 'min',
               field: 'precipitation',
               type: 'quantitative'
             }
@@ -363,12 +416,12 @@ describe('compile/scale', () => {
           {
             data: 'raw',
             field: 'month_date',
-            sort: {...sortDef, op: 'mean'}
+            sort: {...sortDef, op: 'min'}
           }
         ]);
       });
 
-      it('should return the correct domain for month O when the field is sorted by another encoding', () => {
+      it('should return the correct domain for month O when the field is sorted by another encoding (long form)', () => {
         const model = parseUnitModel({
           mark: 'bar',
           encoding: {
@@ -392,6 +445,62 @@ describe('compile/scale', () => {
             data: 'raw',
             field: 'month_date',
             sort: {op: 'median', field: 'precipitation'}
+          }
+        ]);
+      });
+
+      it('should return the correct domain for month O when the field is sorted by another encoding (short form)', () => {
+        const model = parseUnitModel({
+          mark: 'bar',
+          encoding: {
+            x: {
+              timeUnit: 'month',
+              field: 'date',
+              type: 'ordinal',
+              sort: 'y'
+            },
+            y: {
+              aggregate: 'median',
+              field: 'precipitation',
+              type: 'quantitative'
+            }
+          }
+        });
+        const _domain = testParseDomainForChannel(model, 'x');
+
+        expect(_domain).toEqual([
+          {
+            data: 'raw',
+            field: 'month_date',
+            sort: {op: 'median', field: 'precipitation'}
+          }
+        ]);
+      });
+
+      it('should return the correct domain for month O when the field is sorted by another encoding (desc)', () => {
+        const model = parseUnitModel({
+          mark: 'bar',
+          encoding: {
+            x: {
+              timeUnit: 'month',
+              field: 'date',
+              type: 'ordinal',
+              sort: '-y'
+            },
+            y: {
+              aggregate: 'median',
+              field: 'precipitation',
+              type: 'quantitative'
+            }
+          }
+        });
+        const _domain = testParseDomainForChannel(model, 'x');
+
+        expect(_domain).toEqual([
+          {
+            data: 'raw',
+            field: 'month_date',
+            sort: {op: 'median', field: 'precipitation', order: 'descending'}
           }
         ]);
       });
@@ -448,6 +557,62 @@ describe('compile/scale', () => {
         ]);
       });
 
+      it('should return the right custom domain with single time unit', () => {
+        const model = parseUnitModel({
+          mark: 'point',
+          encoding: {
+            y: {
+              timeUnit: 'year',
+              field: 'date',
+              type: 'temporal',
+              scale: {domain: [1970, {year: 1980}]}
+            }
+          }
+        });
+        const _domain = testParseDomainForChannel(model, 'y');
+
+        expect(_domain).toEqual([
+          {signal: '{data: datetime(1970, 0, 1, 0, 0, 0, 0)}'},
+          {signal: '{data: datetime(1980, 0, 1, 0, 0, 0, 0)}'}
+        ]);
+      });
+
+      it('should return the right custom domain with month', () => {
+        const model = parseUnitModel({
+          mark: 'point',
+          encoding: {
+            y: {
+              timeUnit: 'month',
+              field: 'date',
+              type: 'temporal',
+              scale: {domain: [2134512352, 'February']}
+            }
+          }
+        });
+        const _domain = testParseDomainForChannel(model, 'y');
+
+        expect(_domain).toEqual([
+          {signal: '{data: datetime(2134512352)}'},
+          {signal: '{data: datetime(2012, 1, 1, 0, 0, 0, 0)}'}
+        ]);
+      });
+
+      it('should return the right custom domain with DateTime object and signal', () => {
+        const model = parseUnitModel({
+          mark: 'point',
+          encoding: {
+            y: {
+              field: 'year',
+              type: 'temporal',
+              scale: {domain: [{year: 1970}, {signal: 'a'}]}
+            }
+          }
+        });
+        const _domain = testParseDomainForChannel(model, 'y');
+
+        expect(_domain).toEqual([{signal: '{data: datetime(1970, 0, 1, 0, 0, 0, 0)}'}, {signal: '{data: a}'}]);
+      });
+
       it('should return the right custom domain with date strings', () => {
         const model = parseUnitModel({
           mark: 'point',
@@ -466,75 +631,95 @@ describe('compile/scale', () => {
           {signal: `{data: datetime("Jan 1, 2009")}`}
         ]);
       });
-    });
 
-    describe('for ordinal', () => {
-      it('should have correct domain for binned ordinal color', () => {
-        const model = parseUnitModel({
-          mark: 'bar',
-          encoding: {
-            color: {field: 'a', bin: true, type: 'ordinal'}
-          }
-        });
-
-        const xDomain = testParseDomainForChannel(model, 'color');
-        expect(xDomain).toEqual([
-          {data: 'main', field: 'bin_maxbins_6_a_range', sort: {field: 'bin_maxbins_6_a', op: 'min'}}
-        ]);
-      });
-    });
-
-    describe('for nominal', () => {
-      it('should return correct domain with the provided sort property', () => {
-        const sortDef: EncodingSortField<string> = {op: 'min' as 'min', field: 'Acceleration'};
+      it('should return the right custom domain when timeUnit is used', () => {
         const model = parseUnitModel({
           mark: 'point',
           encoding: {
-            y: {field: 'origin', type: 'nominal', sort: sortDef}
+            y: {
+              field: 'year',
+              type: 'temporal',
+              scale: {domain: ['Jan 1, 2007', 'Jan 1, 2009']},
+              timeUnit: 'yearmonthdate'
+            }
           }
         });
-        expect(testParseDomainForChannel(model, 'y')).toEqual([
-          {
-            data: 'raw',
-            field: 'origin',
-            sort: sortDef
-          }
+        const _domain = testParseDomainForChannel(model, 'y');
+
+        expect(_domain).toEqual([
+          {signal: `{data: datetime("Jan 1, 2007")}`},
+          {signal: `{data: datetime("Jan 1, 2009")}`}
         ]);
       });
 
-      it('should return correct domain with the provided sort property with order property', () => {
-        const sortDef: EncodingSortField<string> = {op: 'min', field: 'Acceleration', order: 'descending'};
-        const model = parseUnitModel({
-          mark: 'point',
-          encoding: {
-            y: {field: 'origin', type: 'nominal', sort: sortDef}
-          }
-        });
+      describe('for ordinal', () => {
+        it('should have correct domain for binned ordinal color', () => {
+          const model = parseUnitModel({
+            mark: 'bar',
+            encoding: {
+              color: {field: 'a', bin: true, type: 'ordinal'}
+            }
+          });
 
-        expect(testParseDomainForChannel(model, 'y')).toEqual([
-          {
-            data: 'raw',
-            field: 'origin',
-            sort: sortDef
-          }
-        ]);
+          const xDomain = testParseDomainForChannel(model, 'color');
+          expect(xDomain).toEqual([
+            {data: 'main', field: 'bin_maxbins_6_a_range', sort: {field: 'bin_maxbins_6_a', op: 'min'}}
+          ]);
+        });
       });
 
-      it('should return correct domain without sort if sort is not provided', () => {
-        const model = parseUnitModel({
-          mark: 'point',
-          encoding: {
-            y: {field: 'origin', type: 'nominal'}
-          }
+      describe('for nominal', () => {
+        it('should return correct domain with the provided sort property', () => {
+          const sortDef: EncodingSortField<string> = {op: 'min', field: 'Acceleration'};
+          const model = parseUnitModel({
+            mark: 'point',
+            encoding: {
+              y: {field: 'origin', type: 'nominal', sort: sortDef}
+            }
+          });
+          expect(testParseDomainForChannel(model, 'y')).toEqual([
+            {
+              data: 'raw',
+              field: 'origin',
+              sort: sortDef
+            }
+          ]);
         });
 
-        expect(testParseDomainForChannel(model, 'y')).toEqual([
-          {
-            data: 'main',
-            field: 'origin',
-            sort: true
-          }
-        ]);
+        it('should return correct domain with the provided sort property with order property', () => {
+          const sortDef: EncodingSortField<string> = {op: 'min', field: 'Acceleration', order: 'descending'};
+          const model = parseUnitModel({
+            mark: 'point',
+            encoding: {
+              y: {field: 'origin', type: 'nominal', sort: sortDef}
+            }
+          });
+
+          expect(testParseDomainForChannel(model, 'y')).toEqual([
+            {
+              data: 'raw',
+              field: 'origin',
+              sort: sortDef
+            }
+          ]);
+        });
+
+        it('should return correct domain without sort if sort is not provided', () => {
+          const model = parseUnitModel({
+            mark: 'point',
+            encoding: {
+              y: {field: 'origin', type: 'nominal'}
+            }
+          });
+
+          expect(testParseDomainForChannel(model, 'y')).toEqual([
+            {
+              data: 'main',
+              field: 'origin',
+              sort: true
+            }
+          ]);
+        });
       });
     });
   });
@@ -721,7 +906,7 @@ describe('compile/scale', () => {
       });
     });
 
-    it('should merge domains with different data and sort', () => {
+    it('should merge domains with different data and sort by count', () => {
       const domain = mergeDomains([
         {
           data: 'foo',
@@ -749,6 +934,66 @@ describe('compile/scale', () => {
         ],
         sort: {
           op: 'count'
+        }
+      });
+    });
+
+    it('should merge domains with different data and no sort op', () => {
+      const domain = mergeDomains([
+        {
+          data: 'foo',
+          field: 'a'
+        },
+        {
+          data: 'bar',
+          field: 'a'
+        }
+      ]);
+
+      expect(domain).toEqual({
+        fields: [
+          {
+            data: 'foo',
+            field: 'a'
+          },
+          {
+            data: 'bar',
+            field: 'a'
+          }
+        ]
+      });
+    });
+
+    it('should merge domains with different data and sort by min or max', () => {
+      const domain = mergeDomains([
+        {
+          data: 'foo',
+          field: 'a',
+          sort: {
+            op: 'min',
+            field: 'b'
+          }
+        },
+        {
+          data: 'bar',
+          field: 'a'
+        }
+      ]);
+
+      expect(domain).toEqual({
+        fields: [
+          {
+            data: 'foo',
+            field: 'a'
+          },
+          {
+            data: 'bar',
+            field: 'a'
+          }
+        ],
+        sort: {
+          op: 'min',
+          field: 'b'
         }
       });
     });
@@ -901,10 +1146,44 @@ describe('compile/scale', () => {
     );
 
     it('should not sort explicit domains', () => {
-      const domain = mergeDomains([[1, 2, 3, 4], [3, 4, 5, 6]]);
+      const domain = mergeDomains([
+        [1, 2, 3, 4],
+        [3, 4, 5, 6]
+      ]);
 
       expect(domain).toEqual({
-        fields: [[1, 2, 3, 4], [3, 4, 5, 6]]
+        fields: [
+          [1, 2, 3, 4],
+          [3, 4, 5, 6]
+        ]
+      });
+    });
+
+    it('should return single explicit domain', () => {
+      const domain = mergeDomains([[1, 2, 3, 4]]);
+
+      expect(domain).toEqual([1, 2, 3, 4]);
+    });
+
+    it('should simplify sort', () => {
+      const domain = mergeDomains([
+        {
+          data: 'foo',
+          field: 'a',
+          sort: {
+            field: 'a',
+            op: 'min',
+            order: 'descending'
+          }
+        }
+      ]);
+
+      expect(domain).toEqual({
+        data: 'foo',
+        field: 'a',
+        sort: {
+          order: 'descending'
+        }
       });
     });
   });
@@ -918,7 +1197,46 @@ describe('compile/scale', () => {
         }
       });
       const sort = domainSort(model, 'x', ScaleType.LINEAR);
-      expect(sort).toEqual(undefined);
+      expect(sort).toBeUndefined();
+    });
+
+    it('should sort stacked groupby dimension', () => {
+      const model = parseUnitModel({
+        mark: 'bar',
+        encoding: {
+          x: {field: 'a', type: 'quantitative'},
+          y: {field: 'b', type: 'nominal'},
+          color: {field: 'c', type: 'quantitative'}
+        }
+      });
+      const sort = domainSort(model, 'y', ScaleType.BAND);
+      expect(sort).toBe(true);
+    });
+
+    it('should use sum aggregation for stacked measure', () => {
+      const model = parseUnitModel({
+        mark: 'bar',
+        encoding: {
+          x: {field: 'a', type: 'quantitative'},
+          y: {field: 'b', type: 'nominal', sort: 'x'},
+          color: {field: 'c', type: 'quantitative'}
+        }
+      });
+      const sort = domainSort(model, 'y', ScaleType.BAND);
+      expect(sort).toEqual({field: 'a', op: 'sum'});
+    });
+
+    it('should use min aggregation for stacked dimension', () => {
+      const model = parseUnitModel({
+        mark: 'bar',
+        encoding: {
+          x: {field: 'a', type: 'quantitative'},
+          y: {field: 'b', type: 'nominal', sort: 'color'},
+          color: {field: 'c', type: 'quantitative'}
+        }
+      });
+      const sort = domainSort(model, 'y', ScaleType.BAND);
+      expect(sort).toEqual({field: 'c', op: 'min'});
     });
 
     it('should return true by default for discrete domain', () => {
@@ -929,7 +1247,7 @@ describe('compile/scale', () => {
         }
       });
       const sort = domainSort(model, 'x', ScaleType.ORDINAL);
-      expect(sort).toEqual(true);
+      expect(sort).toBe(true);
     });
 
     it('should return true for ascending', () => {
@@ -951,7 +1269,7 @@ describe('compile/scale', () => {
         }
       });
       const sort = domainSort(model, 'x', ScaleType.ORDINAL);
-      expect(sort).toEqual(undefined);
+      expect(sort).toBeUndefined();
     });
 
     it('should return normal sort spec if specified and aggregration is not count', () => {
@@ -990,7 +1308,7 @@ describe('compile/scale', () => {
       expect(sort).toEqual(true);
     });
 
-    it('should return undefined if sort is specified', () => {
+    it('should return sort if it is specified', () => {
       const model = parseUnitModel({
         mark: 'bar',
         encoding: {

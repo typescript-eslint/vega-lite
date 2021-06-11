@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Area chart showing weight of cars over time (vertical).",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -13,9 +13,10 @@
       "format": {"type": "json", "parse": {"Year": "date"}},
       "transform": [
         {
-          "type": "formula",
-          "as": "year_Year",
-          "expr": "datetime(year(datum[\"Year\"]), 0, 1, 0, 0, 0, 0)"
+          "field": "Year",
+          "type": "timeunit",
+          "units": ["year"],
+          "as": ["year_Year", "year_Year_end"]
         },
         {
           "type": "aggregate",
@@ -32,21 +33,21 @@
       "name": "marks",
       "type": "area",
       "style": ["area"],
-      "sort": {"field": "datum[\"year_Year\"]", "order": "descending"},
+      "sort": {"field": "datum[\"year_Year\"]"},
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "interpolate": {"value": "monotone"},
           "orient": {"value": "horizontal"},
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"Sum of Weight_in_lbs\": format(datum[\"sum_Weight_in_lbs\"], \"\"), \"Year (year)\": timeFormat(datum[\"year_Year\"], '%Y')}"
+          "description": {
+            "signal": "\"Sum of Weight_in_lbs: \" + (format(datum[\"sum_Weight_in_lbs\"], \"\")) + \"; Year (year): \" + (timeFormat(datum[\"year_Year\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})))"
           },
           "x": {"scale": "x", "field": "sum_Weight_in_lbs"},
-          "y": {"scale": "y", "field": "year_Year"},
           "x2": {"scale": "x", "value": 0},
+          "y": {"scale": "y", "field": "year_Year"},
           "defined": {
-            "signal": "datum[\"sum_Weight_in_lbs\"] !== null && !isNaN(datum[\"sum_Weight_in_lbs\"]) && datum[\"year_Year\"] !== null && !isNaN(datum[\"year_Year\"])"
+            "signal": "isValid(datum[\"sum_Weight_in_lbs\"]) && isFinite(+datum[\"sum_Weight_in_lbs\"]) && isValid(datum[\"year_Year\"]) && isFinite(+datum[\"year_Year\"])"
           }
         }
       }
@@ -72,39 +73,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Sum of Weight_in_lbs",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Year (year)",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%Y')"}}
-        }
-      },
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -114,9 +92,32 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Sum of Weight_in_lbs",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Year (year)",
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

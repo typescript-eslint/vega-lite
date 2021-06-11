@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A simple bar chart with embedded data with tooltip.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -25,8 +25,16 @@
       "source": "source_0",
       "transform": [
         {
+          "type": "stack",
+          "groupby": ["a"],
+          "field": "b",
+          "sort": {"field": [], "order": []},
+          "as": ["b_start", "b_end"],
+          "offset": "zero"
+        },
+        {
           "type": "filter",
-          "expr": "datum[\"b\"] !== null && !isNaN(datum[\"b\"])"
+          "expr": "isValid(datum[\"b\"]) && isFinite(+datum[\"b\"])"
         }
       ]
     }
@@ -48,10 +56,14 @@
         "update": {
           "fill": {"value": "#4c78a8"},
           "tooltip": {"signal": "format(datum[\"b\"], \"\")"},
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"a: \" + (isValid(datum[\"a\"]) ? datum[\"a\"] : \"\"+datum[\"a\"]) + \"; b: \" + (format(datum[\"b\"], \"\"))"
+          },
           "x": {"scale": "x", "field": "a"},
-          "width": {"scale": "x", "band": true},
-          "y": {"scale": "y", "field": "b"},
-          "y2": {"scale": "y", "value": 0}
+          "width": {"scale": "x", "band": 1},
+          "y": {"scale": "y", "field": "b_end"},
+          "y2": {"scale": "y", "field": "b_start"}
         }
       }
     }
@@ -68,33 +80,13 @@
     {
       "name": "y",
       "type": "linear",
-      "domain": {"data": "data_0", "field": "b"},
+      "domain": {"data": "data_0", "fields": ["b_start", "b_end"]},
       "range": [{"signal": "height"}, 0],
       "nice": true,
       "zero": true
     }
   ],
   "axes": [
-    {
-      "scale": "x",
-      "orient": "bottom",
-      "grid": false,
-      "title": "a",
-      "labelAlign": "right",
-      "labelAngle": 270,
-      "labelBaseline": "middle",
-      "labelOverlap": true,
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "b",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
     {
       "scale": "y",
       "orient": "left",
@@ -103,9 +95,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "a",
+      "labelAlign": "right",
+      "labelAngle": 270,
+      "labelBaseline": "middle",
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "b",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

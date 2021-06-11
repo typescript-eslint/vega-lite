@@ -1,19 +1,39 @@
-import commonjs from 'rollup-plugin-commonjs';
-import json from 'rollup-plugin-json';
-import nodeResolve from 'rollup-plugin-node-resolve';
+import babel from '@rollup/plugin-babel';
+import commonjs from '@rollup/plugin-commonjs';
+import json from '@rollup/plugin-json';
+import nodeResolve from '@rollup/plugin-node-resolve';
+import bundleSize from 'rollup-plugin-bundle-size';
 import {terser} from 'rollup-plugin-terser';
 
-// `npm run build` -> `production` is true
-// `npm run dev` -> `production` is false
-const production = !process.env.ROLLUP_WATCH;
+const watch = process.env.ROLLUP_WATCH;
+
+const extensions = ['.js', '.ts'];
 
 export default {
-  input: 'build/site/static/index.js',
+  input: 'site/static/index.ts',
   output: {
-    file: 'build/site/bundle.js',
+    file: 'site/static/bundle.js',
     format: 'iife',
-    name: 'app',
     sourcemap: true
   },
-  plugins: [nodeResolve({browser: true}), commonjs(), json(), production && terser()]
+  plugins: [
+    json(),
+    nodeResolve({browser: true, extensions}),
+    commonjs(),
+    babel({
+      extensions,
+      babelHelpers: 'bundled',
+      presets: [
+        [
+          '@babel/env',
+          {
+            targets: 'defaults and not IE 11'
+          }
+        ],
+        '@babel/typescript'
+      ]
+    }),
+    watch && terser(),
+    bundleSize()
+  ]
 };

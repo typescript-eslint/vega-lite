@@ -1,4 +1,4 @@
-import {parseUnitModelWithScaleAndLayoutSize} from '../../util';
+import {parseModelWithScaleAndLayoutSize, parseUnitModelWithScaleAndLayoutSize} from '../../util';
 
 describe('compile/layout', () => {
   describe('parseUnitLayoutSize', () => {
@@ -7,86 +7,149 @@ describe('compile/layout', () => {
         width: 123,
         height: 456,
         mark: 'text',
-        encoding: {},
-        config: {scale: {textXRangeStep: 91}}
+        encoding: {}
       });
 
       expect(model.component.layoutSize.explicit.width).toBe(123);
       expect(model.component.layoutSize.explicit.height).toBe(456);
     });
 
-    it('should have width = default textXRangeStep for text mark without x', () => {
-      const model = parseUnitModelWithScaleAndLayoutSize({
-        mark: 'text',
-        encoding: {},
-        config: {scale: {textXRangeStep: 91}}
-      });
-
-      expect(model.component.layoutSize.implicit.width).toBe(91);
-    });
-
-    it('should have width/height = config.scale.rangeStep  for non-text mark without x,y', () => {
+    it('should have width/height = config.view.discreteWidth/height for non-geoshape marks without x,y', () => {
       const model = parseUnitModelWithScaleAndLayoutSize({
         mark: 'point',
         encoding: {},
-        config: {scale: {rangeStep: 23}}
+        config: {view: {discreteWidth: {step: 23}, discreteHeight: {step: 24}}}
       });
 
       expect(model.component.layoutSize.implicit.width).toBe(23);
-      expect(model.component.layoutSize.implicit.height).toBe(23);
+      expect(model.component.layoutSize.implicit.height).toBe(24);
     });
 
-    it('should have width/height = config.view.width/height for non-ordinal x,y', () => {
+    it('should have width/height = config.view.continuousWidth/Height for geoshape', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        mark: 'geoshape',
+        encoding: {},
+        config: {view: {continuousWidth: 123, continuousHeight: 456}}
+      });
+
+      expect(model.component.layoutSize.implicit.width).toBe(123);
+      expect(model.component.layoutSize.implicit.height).toBe(456);
+    });
+
+    it('should have width/height = config.view.continuousWidth/Height for continuous x,y', () => {
       const model = parseUnitModelWithScaleAndLayoutSize({
         mark: 'point',
         encoding: {
           x: {field: 'a', type: 'quantitative'},
           y: {field: 'b', type: 'quantitative'}
         },
-        config: {view: {width: 123, height: 456}}
+        config: {view: {continuousWidth: 123, continuousHeight: 456}}
       });
 
       expect(model.component.layoutSize.implicit.width).toBe(123);
       expect(model.component.layoutSize.implicit.height).toBe(456);
     });
 
-    it('should have width/height = config.view.width/height for geoshape', () => {
-      const model = parseUnitModelWithScaleAndLayoutSize({
-        mark: 'geoshape',
-        encoding: {},
-        config: {view: {width: 123, height: 456}}
-      });
-
-      expect(model.component.layoutSize.implicit.width).toBe(123);
-      expect(model.component.layoutSize.implicit.height).toBe(456);
-    });
-
-    it('should have width/height = config.view.width/height for non-ordinal x,y', () => {
-      const model = parseUnitModelWithScaleAndLayoutSize({
-        mark: 'point',
-        encoding: {
-          x: {field: 'a', type: 'ordinal', scale: {rangeStep: null}},
-          y: {field: 'b', type: 'ordinal', scale: {rangeStep: null}}
-        },
-        config: {view: {width: 123, height: 456}}
-      });
-
-      expect(model.component.layoutSize.implicit.width).toBe(123);
-      expect(model.component.layoutSize.implicit.height).toBe(456);
-    });
-
-    it('should have width/height = undefined for non-ordinal x,y', () => {
+    it('should have width/height = config.view.discreteWidth/Height for ordinal x,y', () => {
       const model = parseUnitModelWithScaleAndLayoutSize({
         mark: 'point',
         encoding: {
           x: {field: 'a', type: 'ordinal'},
           y: {field: 'b', type: 'ordinal'}
         },
-        config: {view: {width: 123, height: 456}}
+        config: {view: {discreteWidth: 123, discreteHeight: 456}}
       });
 
-      expect(model.component.layoutSize.get('width')).toBe('range-step');
-      expect(model.component.layoutSize.get('height')).toBe('range-step');
+      expect(model.component.layoutSize.implicit.width).toBe(123);
+      expect(model.component.layoutSize.implicit.height).toBe(456);
+    });
+
+    it('should have step-based width/height for ordinal x,y', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'ordinal'},
+          y: {field: 'b', type: 'ordinal'}
+        }
+      });
+
+      expect(model.component.layoutSize.get('width')).toBe('step');
+      expect(model.component.layoutSize.get('height')).toBe('step');
+    });
+
+    it('should have step-based width/height for ordinal x,y with explicit sizes', () => {
+      const model = parseUnitModelWithScaleAndLayoutSize({
+        width: {step: 15},
+        height: {step: 20},
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'ordinal'},
+          y: {field: 'b', type: 'ordinal'}
+        }
+      });
+
+      expect(model.component.layoutSize.get('width')).toBe('step');
+      expect(model.component.layoutSize.get('height')).toBe('step');
+    });
+  });
+
+  describe('parseConcatLayoutSize', () => {
+    it('should have independent layout sizes for concatenated charts of different heights', () => {
+      const model = parseModelWithScaleAndLayoutSize({
+        data: {values: []},
+        vconcat: [
+          {
+            height: 100,
+            encoding: {
+              x: {field: 'a', type: 'nominal'},
+              y: {field: 'b', type: 'quantitative'}
+            },
+            layer: [{mark: 'point'}],
+            resolve: {scale: {y: 'independent'}}
+          },
+          {
+            height: 200,
+            encoding: {
+              x: {field: 'a', type: 'nominal'},
+              y: {field: 'b', type: 'quantitative'}
+            },
+            layer: [{mark: 'point'}],
+            resolve: {scale: {y: 'independent'}}
+          }
+        ]
+      });
+
+      expect(model.component.layoutSize.get('height')).toBeUndefined();
+      expect(model.component.layoutSize.get('childHeight')).toBeUndefined();
+    });
+
+    it('should have the same layout sizes for concatenated charts of the same height', () => {
+      const model = parseModelWithScaleAndLayoutSize({
+        data: {values: []},
+        vconcat: [
+          {
+            height: 100,
+            encoding: {
+              x: {field: 'a', type: 'nominal'},
+              y: {field: 'b', type: 'quantitative'}
+            },
+            layer: [{mark: 'point'}],
+            resolve: {scale: {y: 'independent'}}
+          },
+          {
+            height: 100,
+            encoding: {
+              x: {field: 'a', type: 'nominal'},
+              y: {field: 'b', type: 'quantitative'}
+            },
+            layer: [{mark: 'point'}],
+            resolve: {scale: {y: 'independent'}}
+          }
+        ]
+      });
+
+      expect(model.component.layoutSize.get('height')).toBeUndefined();
+      expect(model.component.layoutSize.get('childHeight')).toBe(100);
     });
   });
 });

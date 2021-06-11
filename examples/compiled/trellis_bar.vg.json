@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A trellis bar chart showing the US population distribution of age groups and gender in 2000.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {
@@ -29,6 +29,10 @@
           "sort": {"field": ["gender"], "order": ["descending"]},
           "as": ["sum_people_start", "sum_people_end"],
           "offset": "zero"
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"sum_people\"]) && isFinite(+datum[\"sum_people\"])"
         }
       ]
     },
@@ -72,7 +76,9 @@
       "from": {"data": "row_domain"},
       "sort": {"field": "datum[\"gender\"]", "order": "ascending"},
       "title": {
-        "text": {"signal": "''+parent[\"gender\"]"},
+        "text": {
+          "signal": "isValid(parent[\"gender\"]) ? parent[\"gender\"] : \"\"+parent[\"gender\"]"
+        },
         "orient": "left",
         "style": "guide-label",
         "frame": "group",
@@ -87,7 +93,7 @@
           "title": "population",
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_height/40)"},
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -105,8 +111,7 @@
           "labelAlign": "right",
           "labelAngle": 270,
           "labelBaseline": "middle",
-          "labelOverlap": true,
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -133,11 +138,12 @@
           "encode": {
             "update": {
               "fill": {"scale": "color", "field": "gender"},
-              "tooltip": {
-                "signal": "{\"population\": format(datum[\"sum_people\"], \"\"), \"age\": ''+datum[\"age\"], \"gender\": ''+datum[\"gender\"]}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"population: \" + (format(datum[\"sum_people\"], \"\")) + \"; age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; gender: \" + (isValid(datum[\"gender\"]) ? datum[\"gender\"] : \"\"+datum[\"gender\"])"
               },
               "x": {"scale": "x", "field": "age"},
-              "width": {"scale": "x", "band": true},
+              "width": {"scale": "x", "band": 1},
               "y": {"scale": "y", "field": "sum_people_end"},
               "y2": {"scale": "y", "field": "sum_people_start"}
             }
@@ -153,6 +159,7 @@
           "tickCount": {"signal": "ceil(child_height/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
@@ -185,16 +192,8 @@
       "name": "color",
       "type": "ordinal",
       "domain": {"data": "source_0", "field": "gender", "sort": true},
-      "range": ["#EA98D2", "#659CCA"]
+      "range": ["#675193", "#ca8861"]
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(child_height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "gender",
-      "encode": {"symbols": {"update": {"shape": {"value": "square"}}}}
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "square", "title": "gender"}]
 }

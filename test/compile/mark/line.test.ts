@@ -1,5 +1,3 @@
-/* tslint:disable quotemark */
-
 import {COLOR, X, Y} from '../../../src/channel';
 import {line} from '../../../src/compile/mark/line';
 import * as log from '../../../src/log';
@@ -51,7 +49,7 @@ describe('Mark: Line', () => {
         encoding: {
           x: {field: 'year', type: 'ordinal'},
           y: {field: 'yield', type: 'quantitative', aggregate: 'mean'},
-          size: {field: 'variety', type: 'nominal'}
+          size: {field: 'variety', type: 'quantitative'}
         }
       });
       const props = line.encodeEntry(model);
@@ -86,10 +84,9 @@ describe('Mark: Line', () => {
       mark: 'line',
       encoding: {
         x: {field: 'year', type: 'ordinal'},
-        y: {field: 'yield', type: 'quantitative', aggregate: 'sum'},
+        y: {field: 'yield', type: 'quantitative', aggregate: 'sum', stack: 'zero'},
         color: {field: 'a', type: 'nominal'}
-      },
-      config: {stack: 'zero'}
+      }
     });
     const props = line.encodeEntry(model);
 
@@ -104,10 +101,9 @@ describe('Mark: Line', () => {
       mark: 'line',
       encoding: {
         y: {field: 'year', type: 'ordinal'},
-        x: {field: 'yield', type: 'quantitative', aggregate: 'sum'},
+        x: {field: 'yield', type: 'quantitative', aggregate: 'sum', stack: 'zero'},
         color: {field: 'a', type: 'nominal'}
-      },
-      config: {stack: 'zero'}
+      }
     });
     const props = line.encodeEntry(model);
 

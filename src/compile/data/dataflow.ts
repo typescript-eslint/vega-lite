@@ -1,10 +1,11 @@
 import {DataSourceType} from '../../data';
+import * as log from '../../log';
 import {Dict, uniqueId} from '../../util';
 
 /**
  * A node in the dataflow tree.
  */
-export class DataFlowNode {
+export abstract class DataFlowNode {
   private _children: DataFlowNode[] = [];
 
   private _parent: DataFlowNode = null;
@@ -27,24 +28,17 @@ export class DataFlowNode {
   /**
    * Return a hash of the node.
    */
-  public hash(): string | number {
-    if (this._hash === undefined) {
-      this._hash = uniqueId();
-    }
+  public abstract hash(): string | number;
 
-    return this._hash;
-  }
+  /**
+   * Set of fields that this node depends on.
+   */
+  public abstract dependentFields(): Set<string>;
 
   /**
    * Set of fields that are being created by this node.
    */
-  public producedFields(): Set<string> {
-    return new Set();
-  }
-
-  public dependentFields(): Set<string> {
-    return new Set();
-  }
+  public abstract producedFields(): Set<string>;
 
   get parent() {
     return this._parent;
@@ -70,8 +64,8 @@ export class DataFlowNode {
 
   public addChild(child: DataFlowNode, loc?: number) {
     // do not add the same child twice
-    if (this._children.indexOf(child) > -1) {
-      console.warn('Attempt to add the same child twice.');
+    if (this._children.includes(child)) {
+      log.warn(log.message.ADD_SAME_CHILD_TWICE);
       return;
     }
 
@@ -137,9 +131,9 @@ export class OutputNode extends DataFlowNode {
 
   public clone(): this {
     const cloneObj = new (this.constructor as any)();
-    cloneObj.debugName = 'clone_' + this.debugName;
+    cloneObj.debugName = `clone_${this.debugName}`;
     cloneObj._source = this._source;
-    cloneObj._name = 'clone_' + this._name;
+    cloneObj._name = `clone_${this._name}`;
     cloneObj.type = this.type;
     cloneObj.refCounts = this.refCounts;
     cloneObj.refCounts[cloneObj._name] = 0;
@@ -164,6 +158,21 @@ export class OutputNode extends DataFlowNode {
     if (this.refCounts && !(this._name in this.refCounts)) {
       this.refCounts[this._name] = 0;
     }
+  }
+
+  public dependentFields() {
+    return new Set<string>();
+  }
+
+  public producedFields() {
+    return new Set<string>();
+  }
+
+  public hash() {
+    if (this._hash === undefined) {
+      this._hash = `Output ${uniqueId()}`;
+    }
+    return this._hash;
   }
 
   /**

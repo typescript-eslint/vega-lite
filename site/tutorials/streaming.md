@@ -29,7 +29,7 @@ Putting it together, we have:
 var changeSet = vega
   .changeset()
   .insert(valueGenerator())
-  .remove(function(t) {
+  .remove(function (t) {
     return t.x < minimumX;
   });
 view.change('table', changeSet).run();
@@ -43,7 +43,7 @@ Below is the JavaScript code to run this example. Make sure your html contains a
 
 ```js
 var vlSpec = {
-  $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
+  $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
   data: {name: 'table'},
   width: 400,
   mark: 'line',
@@ -53,23 +53,23 @@ var vlSpec = {
     color: {field: 'category', type: 'nominal'}
   }
 };
-vegaEmbed('#chart', vlSpec).then(function(res) {
+vegaEmbed('#chart', vlSpec).then(function (res) {
   /**
    * Generates a new tuple with random walk.
    */
   function newGenerator() {
     var counter = -1;
     var previousY = [5, 5, 5, 5];
-    return function() {
+    return function () {
       counter++;
-      var newVals = previousY.map(function(v, c) {
+      var newVals = previousY.map(function (v, c) {
         return {
           x: counter,
           y: v + Math.round(Math.random() * 10 - c * 3),
           category: c
         };
       });
-      previousY = newVals.map(function(v) {
+      previousY = newVals.map(function (v) {
         return v.y;
       });
       return newVals;
@@ -78,18 +78,20 @@ vegaEmbed('#chart', vlSpec).then(function(res) {
 
   var valueGenerator = newGenerator();
   var minimumX = -100;
-  window.setInterval(function() {
+  window.setInterval(function () {
     minimumX++;
     var changeSet = vega
       .changeset()
       .insert(valueGenerator())
-      .remove(function(t) {
+      .remove(function (t) {
         return t.x < minimumX;
       });
     res.view.change('table', changeSet).run();
   }, 1000);
 });
 ```
+
+New data may change the layout but Vega does not always resize the chart. Because of this optimization, your axes may be clipped off for example. To resolve this issue, you need to configure [autosize](https://vega.github.io/vega-lite/docs/size.html#autosize) or explicitly use [view.resize](https://vega.github.io/vega/docs/api/view/#view_resize) to resize when the data updates.
 
 This is the end of this tutorial where you learned how to stream new data into your chart. If you want to use Vega-Lite with websockets, check out the [Vega-Lite with websockets](https://bl.ocks.org/domoritz/8e1e4da185e1a32c7e54934732a8d3d5) demo. You can find more visualizations in the [gallery]({{site.baseurl}}/examples/). If you want to further customize your charts, please read the [documentation]({{site.baseurl}}/docs/).
 

@@ -1,5 +1,4 @@
 import {parseLayerModel, parseUnitModelWithScaleAndLayoutSize} from '../../util';
-/* tslint:disable:quotemark */
 
 describe('src/compile/projection/parse', () => {
   describe('parseUnitProjection', () => {
@@ -39,6 +38,7 @@ describe('src/compile/projection/parse', () => {
       });
       model.parse();
       expect(model.component.projection.explicit).toEqual({});
+      expect(model.component.projection.implicit).toEqual({name: 'projection', type: 'equalEarth'});
     });
 
     it('should create projection from config', () => {

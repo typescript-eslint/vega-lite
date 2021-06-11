@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A diverging stacked bar chart for sentiments towards a set of eight questions, displayed as percentages with neutral responses straddling the 0% mark",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -284,7 +284,7 @@
         {"type": "formula", "expr": "datum.v2 - datum.offset", "as": "nx2"},
         {
           "type": "filter",
-          "expr": "datum[\"nx\"] !== null && !isNaN(datum[\"nx\"])"
+          "expr": "isValid(datum[\"nx\"]) && isFinite(+datum[\"nx\"])"
         }
       ]
     }
@@ -305,13 +305,14 @@
       "encode": {
         "update": {
           "fill": {"scale": "color", "field": "type"},
-          "tooltip": {
-            "signal": "{\"Percentage\": format(datum[\"nx\"], \"\"), \"nx2\": format(datum[\"nx2\"], \"\"), \"Question\": ''+datum[\"question\"], \"Response\": ''+datum[\"type\"]}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"Percentage: \" + (format(datum[\"nx\"], \"\")) + \"; nx2: \" + (format(datum[\"nx2\"], \"\")) + \"; Question: \" + (isValid(datum[\"question\"]) ? datum[\"question\"] : \"\"+datum[\"question\"]) + \"; Response: \" + (isValid(datum[\"type\"]) ? datum[\"type\"] : \"\"+datum[\"type\"])"
           },
           "x": {"scale": "x", "field": "nx"},
           "x2": {"scale": "x", "field": "nx2"},
           "y": {"scale": "y", "field": "question"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     }
@@ -350,24 +351,25 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Percentage",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Percentage",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
       "zindex": 0
     },
     {
@@ -379,16 +381,8 @@
       "minExtent": 60,
       "offset": 5,
       "ticks": false,
-      "zindex": 1
+      "zindex": 0
     }
   ],
-  "legends": [
-    {
-      "title": "Response",
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "encode": {"symbols": {"update": {"shape": {"value": "square"}}}}
-    }
-  ]
+  "legends": [{"title": "Response", "fill": "color", "symbolType": "square"}]
 }

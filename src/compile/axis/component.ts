@@ -1,16 +1,37 @@
-import {Axis as VgAxis} from 'vega';
-import {Axis, AxisPart} from '../../axis';
+import {Axis as VgAxis, SignalRef, Text} from 'vega';
+import {
+  AxisInternal,
+  AxisPart,
+  AxisPropsWithCondition,
+  COMMON_AXIS_PROPERTIES_INDEX,
+  ConditionalAxisProp
+} from '../../axis';
 import {FieldDefBase} from '../../channeldef';
-import {duplicate, Omit} from '../../util';
+import {duplicate, Flag, keys} from '../../util';
+import {isSignalRef} from '../../vega.schema';
 import {Split} from '../split';
 
 function isFalseOrNull(v: any) {
   return v === false || v === null;
 }
 
-export interface AxisComponentProps extends Omit<VgAxis, 'title'> {
-  title: string | FieldDefBase<string>[];
-}
+export type AxisComponentProps = Omit<VgAxis, 'title' | ConditionalAxisProp> &
+  Omit<AxisPropsWithCondition<SignalRef>, 'title'> & {
+    title: Text | FieldDefBase<string>[] | SignalRef;
+    labelExpr: string;
+    disable: boolean;
+  };
+
+const AXIS_COMPONENT_PROPERTIES_INDEX: Flag<keyof AxisComponentProps> = {
+  disable: 1,
+  gridScale: 1,
+  scale: 1,
+  ...COMMON_AXIS_PROPERTIES_INDEX,
+  labelExpr: 1,
+  encode: 1
+};
+
+export const AXIS_COMPONENT_PROPERTIES = keys(AXIS_COMPONENT_PROPERTIES_INDEX);
 
 export class AxisComponent extends Split<AxisComponentProps> {
   constructor(
@@ -39,6 +60,10 @@ export class AxisComponent extends Split<AxisComponentProps> {
     // Other parts are enabled by default, so they should not be false or null.
     return !isFalseOrNull(this.get(part));
   }
+
+  public hasOrientSignalRef() {
+    return isSignalRef(this.explicit.orient);
+  }
 }
 
 export interface AxisComponentIndex {
@@ -46,7 +71,7 @@ export interface AxisComponentIndex {
   y?: AxisComponent[];
 }
 
-export interface AxisIndex {
-  x?: Axis;
-  y?: Axis;
+export interface AxisInternalIndex {
+  x?: AxisInternal;
+  y?: AxisInternal;
 }

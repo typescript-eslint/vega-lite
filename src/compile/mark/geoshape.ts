@@ -1,15 +1,23 @@
+import {GeoShapeTransform as VgGeoShapeTransform} from 'vega';
 import {isFieldDef, vgField} from '../../channeldef';
 import {GEOJSON} from '../../type';
-import {VgGeoShapeTransform, VgPostEncodingTransform} from '../../vega.schema';
+import {VgPostEncodingTransform} from '../../vega.schema';
 import {UnitModel} from '../unit';
 import {MarkCompiler} from './base';
-import * as mixins from './mixins';
+import * as encode from './encode';
 
 export const geoshape: MarkCompiler = {
   vgMark: 'shape',
   encodeEntry: (model: UnitModel) => {
     return {
-      ...mixins.baseEncodeEntry(model, {size: 'ignore', orient: 'ignore'})
+      ...encode.baseEncodeEntry(model, {
+        align: 'ignore',
+        baseline: 'ignore',
+        color: 'include',
+        size: 'ignore',
+        orient: 'ignore',
+        theta: 'ignore'
+      })
     };
   },
   postEncodingTransform: (model: UnitModel): VgPostEncodingTransform[] => {

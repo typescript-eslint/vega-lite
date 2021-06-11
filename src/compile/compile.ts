@@ -1,32 +1,45 @@
-import {Spec as VgSpec} from 'vega';
+import {AutoSizeType, LoggerInterface, Spec as VgSpec} from 'vega';
+import {isString, mergeConfig} from 'vega-util';
+import {getPositionScaleChannel} from '../channel';
 import * as vlFieldDef from '../channeldef';
 import {Config, initConfig, stripAndRedirectConfig} from '../config';
 import * as log from '../log';
-import {normalize} from '../normalize/index';
-import {isLayerSpec, isUnitSpec, LayoutSizeMixins, TopLevel, TopLevelSpec} from '../spec';
+import {normalize} from '../normalize';
+import {assembleParameterSignals} from '../parameter';
+import {LayoutSizeMixins, TopLevel, TopLevelSpec} from '../spec';
 import {
   AutoSizeParams,
   Datasets,
   extractTopLevelProperties,
-  normalizeAutoSize,
+  getFitType,
+  isFitType,
   TopLevelProperties
 } from '../spec/toplevel';
-import {keys, mergeDeep} from '../util';
+import {Dict, keys} from '../util';
 import {buildModel} from './buildmodel';
 import {assembleRootData} from './data/assemble';
-// import {draw} from './data/debug';
 import {optimizeDataflow} from './data/optimize';
 import {Model} from './model';
 
 export interface CompileOptions {
+  /**
+   * Sets a Vega-Lite configuration.
+   */
   config?: Config;
-  logger?: log.LoggerInterface;
 
+  /**
+   * Sets a custom logger.
+   */
+  logger?: LoggerInterface;
+
+  /**
+   * Sets a field title formatter.
+   */
   fieldTitle?: vlFieldDef.FieldTitleFormatter;
 }
 
 /**
- * Vega-Lite's main function, for compiling Vega-lite spec into Vega spec.
+ * Vega-Lite's main function, for compiling Vega-Lite spec into Vega spec.
  *
  * At a high-level, we make the following transformations in different phases:
  *
@@ -51,6 +64,10 @@ export interface CompileOptions {
  *     | (Assemble)
  *     v
  * Vega spec
+ *
+ * @param inputSpec The Vega-Lite specification.
+ * @param opt       Optional arguments passed to the Vega-Lite compiler.
+ * @returns         An object containing the compiled Vega spec and normalized Vega-Lite spec.
  */
 export function compile(inputSpec: TopLevelSpec, opt: CompileOptions = {}) {
   // 0. Augment opt with default opts
@@ -66,20 +83,19 @@ export function compile(inputSpec: TopLevelSpec, opt: CompileOptions = {}) {
 
   try {
     // 1. Initialize config by deep merging default config with the config provided via option and the input spec.
-    const config = initConfig(mergeDeep({}, opt.config, inputSpec.config));
+    const config = initConfig(mergeConfig(opt.config, inputSpec.config));
 
     // 2. Normalize: Convert input spec -> normalized spec
 
-    // - Decompose all extended unit specs into composition of unit spec.  For example, a box plot get expanded into multiple layers of bars, ticks, and rules. The shorthand row/column channel is also expanded to a facet spec.
+    // - Decompose all extended unit specs into composition of unit spec. For example, a box plot get expanded into multiple layers of bars, ticks, and rules. The shorthand row/column channel is also expanded to a facet spec.
+    // - Normalize autosize and width or height spec
     const spec = normalize(inputSpec, config);
-    // - Normalize autosize to be a autosize properties object.
-    const autosize = normalizeAutoSize(inputSpec.autosize, config.autosize, isLayerSpec(spec) || isUnitSpec(spec));
 
     // 3. Build Model: normalized spec -> Model (a tree structure)
 
     // This phases instantiates the models with default config by doing a top-down traversal. This allows us to pass properties that child models derive from their parents via their constructors.
-    // See the abstract `Model` class and its children (UnitModel, LayerModel, FacetModel, RepeatModel, ConcatModel) for different types of models.
-    const model: Model = buildModel(spec, null, '', undefined, undefined, config, autosize.type === 'fit');
+    // See the abstract `Model` class and its children (UnitModel, LayerModel, FacetModel, ConcatModel) for different types of models.
+    const model: Model = buildModel(spec, null, '', undefined, config);
 
     // 4 Parse: Model --> Model with components
 
@@ -95,18 +111,25 @@ export function compile(inputSpec: TopLevelSpec, opt: CompileOptions = {}) {
     // Please see inside model.parse() for order of different components parsed.
     model.parse();
 
-    // draw(model.component.data.sources);
+    // drawDataflow(model.component.data.sources);
 
-    // 5. Optimize the dataflow.  This will modify the data component of the model.
+    // 5. Optimize the dataflow. This will modify the data component of the model.
     optimizeDataflow(model.component.data, model);
 
+    // drawDataflow(model.component.data.sources);
+
     // 6. Assemble: convert model components --> Vega Spec.
-    return assembleTopLevelModel(
+    const vgSpec = assembleTopLevelModel(
       model,
-      getTopLevelProperties(inputSpec, config, autosize),
+      getTopLevelProperties(inputSpec, spec.autosize, config, model),
       inputSpec.datasets,
       inputSpec.usermeta
     );
+
+    return {
+      spec: vgSpec,
+      normalized: spec
+    };
   } finally {
     // Reset the singleton logger if a logger is provided
     if (opt.logger) {
@@ -119,16 +142,53 @@ export function compile(inputSpec: TopLevelSpec, opt: CompileOptions = {}) {
   }
 }
 
-function getTopLevelProperties(topLevelSpec: TopLevel<any>, config: Config, autosize: AutoSizeParams) {
+function getTopLevelProperties(
+  inputSpec: TopLevel<any>,
+  autosize: AutoSizeType | AutoSizeParams,
+  config: Config,
+  model: Model
+) {
+  const width = model.component.layoutSize.get('width');
+  const height = model.component.layoutSize.get('height');
+  if (autosize === undefined) {
+    autosize = {type: 'pad'};
+    if (model.hasAxisOrientSignalRef()) {
+      autosize.resize = true;
+    }
+  } else if (isString(autosize)) {
+    autosize = {type: autosize};
+  }
+  if (width && height && isFitType(autosize.type)) {
+    if (width === 'step' && height === 'step') {
+      log.warn(log.message.droppingFit());
+      autosize.type = 'pad';
+    } else if (width === 'step' || height === 'step') {
+      // effectively XOR, because else if
+
+      // get step dimension
+      const sizeType = width === 'step' ? 'width' : 'height';
+      // log that we're dropping fit for respective channel
+      log.warn(log.message.droppingFit(getPositionScaleChannel(sizeType)));
+
+      // setting type to inverse fit (so if we dropped fit-x, type is now fit-y)
+      const inverseSizeType = sizeType === 'width' ? 'height' : 'width';
+      autosize.type = getFitType(inverseSizeType);
+    }
+  }
+
   return {
-    autosize: keys(autosize).length === 1 && autosize.type ? autosize.type : autosize,
-    ...extractTopLevelProperties(config),
-    ...extractTopLevelProperties(topLevelSpec)
+    ...(keys(autosize).length === 1 && autosize.type
+      ? autosize.type === 'pad'
+        ? {}
+        : {autosize: autosize.type}
+      : {autosize}),
+    ...extractTopLevelProperties(config, false),
+    ...extractTopLevelProperties(inputSpec, true)
   };
 }
 
 /*
- * Assemble the top-level model.
+ * Assemble the top-level model to a Vega spec.
  *
  * Note: this couldn't be `model.assemble()` since the top-level model
  * needs some special treatment to generate top-level properties.
@@ -137,10 +197,8 @@ function assembleTopLevelModel(
   model: Model,
   topLevelProperties: TopLevelProperties & LayoutSizeMixins,
   datasets: Datasets = {},
-  usermeta: object
-) {
-  // TODO: change type to become VgSpec
-
+  usermeta: Dict<any>
+): VgSpec {
   // Config with Vega-Lite only config removed.
   const vgConfig = model.config ? stripAndRedirectConfig(model.config) : undefined;
 
@@ -166,22 +224,23 @@ function assembleTopLevelModel(
     return true;
   });
 
-  const output: VgSpec = {
+  const {params, ...otherTopLevelProps} = topLevelProperties;
+
+  return {
     $schema: 'https://vega.github.io/schema/vega/v5.json',
     ...(model.description ? {description: model.description} : {}),
-    ...topLevelProperties,
+    ...otherTopLevelProps,
     ...(title ? {title} : {}),
     ...(style ? {style} : {}),
     ...(encodeEntry ? {encode: {update: encodeEntry}} : {}),
     data,
     ...(projections.length > 0 ? {projections: projections} : {}),
-    ...model.assembleGroup([...layoutSignals, ...model.assembleSelectionTopLevelSignals([])]),
+    ...model.assembleGroup([
+      ...layoutSignals,
+      ...model.assembleSelectionTopLevelSignals([]),
+      ...assembleParameterSignals(params)
+    ]),
     ...(vgConfig ? {config: vgConfig} : {}),
     ...(usermeta ? {usermeta} : {})
-  };
-
-  return {
-    spec: output
-    // TODO: add warning / errors here
   };
 }

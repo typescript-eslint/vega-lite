@@ -1,8 +1,7 @@
-/* tslint:disable:quotemark */
 import {CalculateNode} from '../../../src/compile/data/calculate';
 import {ModelWithField} from '../../../src/compile/model';
 import {parseUnitModel} from '../../util';
-import {DataFlowNode} from './../../../src/compile/data/dataflow';
+import {PlaceholderDataFlowNode} from './util';
 
 function assembleFromSortArray(model: ModelWithField) {
   const node = CalculateNode.parseAllForSortIndex(null, model) as CalculateNode;
@@ -14,7 +13,11 @@ describe('compile/data/calculate', () => {
     it('produces correct formula transform', () => {
       const model = parseUnitModel({
         data: {
-          values: [{a: 'A', b: 28}, {a: 'B', b: 55}, {a: 'C', b: 43}]
+          values: [
+            {a: 'A', b: 28},
+            {a: 'B', b: 55},
+            {a: 'C', b: 43}
+          ]
         },
         mark: 'bar',
         encoding: {
@@ -47,7 +50,11 @@ describe('compile/data/calculate', () => {
     it('should generate the correct hash', () => {
       const model = parseUnitModel({
         data: {
-          values: [{a: 'A', b: 28}, {a: 'B', b: 55}, {a: 'C', b: 43}]
+          values: [
+            {a: 'A', b: 28},
+            {a: 'B', b: 55},
+            {a: 'C', b: 43}
+          ]
         },
         mark: 'bar',
         encoding: {
@@ -64,7 +71,7 @@ describe('compile/data/calculate', () => {
 
   describe('clone', () => {
     it('should never clone parent', () => {
-      const parent = new DataFlowNode(null);
+      const parent = new PlaceholderDataFlowNode(null);
       const calculate = new CalculateNode(parent, {calculate: 'foo', as: 'bar'});
       expect(calculate.clone().parent).toBeNull();
     });

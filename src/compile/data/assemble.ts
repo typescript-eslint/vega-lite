@@ -6,6 +6,7 @@ import {AggregateNode} from './aggregate';
 import {BinNode} from './bin';
 import {CalculateNode} from './calculate';
 import {DataFlowNode, OutputNode} from './dataflow';
+import {DensityTransformNode} from './density';
 import {FacetNode} from './facet';
 import {FilterNode} from './filter';
 import {FilterInvalidNode} from './filterinvalid';
@@ -18,7 +19,11 @@ import {GraticuleNode} from './graticule';
 import {IdentifierNode} from './identifier';
 import {ImputeNode} from './impute';
 import {JoinAggregateTransformNode} from './joinaggregate';
+import {LoessTransformNode} from './loess';
 import {LookupNode} from './lookup';
+import {QuantileTransformNode} from './quantile';
+import {RegressionTransformNode} from './regression';
+import {PivotTransformNode} from './pivot';
 import {SampleTransformNode} from './sample';
 import {SequenceNode} from './sequence';
 import {SourceNode} from './source';
@@ -37,7 +42,7 @@ function makeWalkTree(data: VgData[]) {
     if (node instanceof SourceNode) {
       // If the source is a named data source or a data source with values, we need
       // to put it in a different data source. Otherwise, Vega may override the data.
-      if (!node.generator && !isUrlData(node.data)) {
+      if (!node.isGenerator && !isUrlData(node.data)) {
         data.push(dataSource);
         const newData: VgData = {
           name: null,
@@ -52,7 +57,7 @@ function makeWalkTree(data: VgData[]) {
       if (node.parent instanceof SourceNode && !dataSource.source) {
         // If node's parent is a root source and the data source does not refer to another data source, use normal format parse
         dataSource.format = {
-          ...(dataSource.format || {}),
+          ...(dataSource.format ?? {}),
           parse: node.assembleFormatParse()
         };
 
@@ -76,7 +81,7 @@ function makeWalkTree(data: VgData[]) {
         node.data = dataSource.source;
       }
 
-      node.assemble().forEach(d => data.push(d));
+      data.push(...node.assemble());
 
       // break here because the rest of the tree has to be taken care of by the facet.
       return;
@@ -89,15 +94,19 @@ function makeWalkTree(data: VgData[]) {
       node instanceof FilterNode ||
       node instanceof CalculateNode ||
       node instanceof GeoPointNode ||
-      node instanceof GeoJSONNode ||
       node instanceof AggregateNode ||
       node instanceof LookupNode ||
       node instanceof WindowTransformNode ||
       node instanceof JoinAggregateTransformNode ||
       node instanceof FoldTransformNode ||
       node instanceof FlattenTransformNode ||
+      node instanceof DensityTransformNode ||
+      node instanceof LoessTransformNode ||
+      node instanceof QuantileTransformNode ||
+      node instanceof RegressionTransformNode ||
       node instanceof IdentifierNode ||
-      node instanceof SampleTransformNode
+      node instanceof SampleTransformNode ||
+      node instanceof PivotTransformNode
     ) {
       dataSource.transform.push(node.assemble());
     }
@@ -106,9 +115,10 @@ function makeWalkTree(data: VgData[]) {
       node instanceof BinNode ||
       node instanceof TimeUnitNode ||
       node instanceof ImputeNode ||
-      node instanceof StackNode
+      node instanceof StackNode ||
+      node instanceof GeoJSONNode
     ) {
-      dataSource.transform = dataSource.transform.concat(node.assemble());
+      dataSource.transform.push(...node.assemble());
     }
 
     if (node instanceof OutputNode) {
@@ -151,7 +161,7 @@ function makeWalkTree(data: VgData[]) {
       case 1:
         walkTree(node.children[0], dataSource);
         break;
-      default:
+      default: {
         if (!dataSource.name) {
           dataSource.name = `data_${datasetIndex++}`;
         }
@@ -163,15 +173,16 @@ function makeWalkTree(data: VgData[]) {
           source = dataSource.source;
         }
 
-        node.children.forEach(child => {
+        for (const child of node.children) {
           const newData: VgData = {
             name: null,
             source: source,
             transform: []
           };
           walkTree(child, newData);
-        });
+        }
         break;
+      }
     }
   }
 
@@ -185,19 +196,19 @@ export function assembleFacetData(root: FacetNode): VgData[] {
   const data: VgData[] = [];
   const walkTree = makeWalkTree(data);
 
-  root.children.forEach(child =>
+  for (const child of root.children) {
     walkTree(child, {
       source: root.name,
       name: null,
       transform: []
-    })
-  );
+    });
+  }
 
   return data;
 }
 
 /**
- * Create Vega Data array from a given compiled model and append all of them to the given array
+ * Create Vega data array from a given compiled model and append all of them to the given array
  *
  * @param  model
  * @param  data array
@@ -213,7 +224,7 @@ export function assembleRootData(dataComponent: DataComponent, datasets: Dict<In
 
   let sourceIndex = 0;
 
-  dataComponent.sources.forEach(root => {
+  for (const root of dataComponent.sources) {
     // assign a name if the source does not have a name yet
     if (!root.hasName()) {
       root.dataName = `source_${sourceIndex++}`;
@@ -222,27 +233,26 @@ export function assembleRootData(dataComponent: DataComponent, datasets: Dict<In
     const newData: VgData = root.assemble();
 
     walkTree(root, newData);
-  });
+  }
 
   // remove empty transform arrays for cleaner output
-  data.forEach(d => {
+  for (const d of data) {
     if (d.transform.length === 0) {
       delete d.transform;
     }
-  });
+  }
 
   // move sources without transforms (the ones that are potentially used in lookups) to the beginning
   let whereTo = 0;
-  for (let i = 0; i < data.length; i++) {
-    const d = data[i];
-    if ((d.transform || []).length === 0 && !d.source) {
+  for (const [i, d] of data.entries()) {
+    if ((d.transform ?? []).length === 0 && !d.source) {
       data.splice(whereTo++, 0, data.splice(i, 1)[0]);
     }
   }
 
   // now fix the from references in lookup transforms
   for (const d of data) {
-    for (const t of d.transform || []) {
+    for (const t of d.transform ?? []) {
       if (t.type === 'lookup') {
         t.from = dataComponent.outputNodes[t.from].getSource();
       }

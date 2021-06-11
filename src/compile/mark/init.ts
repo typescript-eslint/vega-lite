@@ -1,37 +1,67 @@
-import {Orientation} from 'vega';
+import {Orientation, SignalRef} from 'vega';
 import {isBinned, isBinning} from '../../bin';
-import {isContinuous, isFieldDef, TypedFieldDef} from '../../channeldef';
+import {isContinuousFieldOrDatumDef, isFieldDef, isNumericDataDef, TypedFieldDef} from '../../channeldef';
 import {Config} from '../../config';
 import {Encoding, isAggregate} from '../../encoding';
+import {replaceExprRef} from '../../expr';
 import * as log from '../../log';
-import {AREA, BAR, CIRCLE, isMarkDef, LINE, Mark, MarkDef, POINT, RECT, RULE, SQUARE, TEXT, TICK} from '../../mark';
+import {
+  AREA,
+  BAR,
+  BAR_CORNER_RADIUS_INDEX as BAR_CORNER_RADIUS_END_INDEX,
+  CIRCLE,
+  IMAGE,
+  LINE,
+  Mark,
+  MarkDef,
+  POINT,
+  RECT,
+  RULE,
+  SQUARE,
+  TEXT,
+  TICK
+} from '../../mark';
 import {QUANTITATIVE, TEMPORAL} from '../../type';
 import {contains, getFirstDefined} from '../../util';
-import {getMarkConfig} from '../common';
+import {getMarkConfig, getMarkPropOrConfig} from '../common';
 
-export function normalizeMarkDef(mark: Mark | MarkDef, encoding: Encoding<string>, config: Config) {
-  const markDef: MarkDef = isMarkDef(mark) ? {...mark} : {type: mark};
+export function initMarkdef(originalMarkDef: MarkDef, encoding: Encoding<string>, config: Config<SignalRef>) {
+  // FIXME: markDef expects that exprRefs are replaced recursively but replaceExprRef only replaces the top level
+  const markDef: MarkDef<Mark, SignalRef> = replaceExprRef(originalMarkDef) as any;
 
   // set orient, which can be overridden by rules as sometimes the specified orient is invalid.
-  const specifiedOrient = markDef.orient || getMarkConfig('orient', markDef, config);
+  const specifiedOrient = getMarkPropOrConfig('orient', markDef, config);
   markDef.orient = orient(markDef.type, encoding, specifiedOrient);
   if (specifiedOrient !== undefined && specifiedOrient !== markDef.orient) {
     log.warn(log.message.orientOverridden(markDef.orient, specifiedOrient));
   }
 
+  if (markDef.type === 'bar' && markDef.orient) {
+    const cornerRadiusEnd = getMarkPropOrConfig('cornerRadiusEnd', markDef, config);
+    if (cornerRadiusEnd !== undefined) {
+      const newProps =
+        (markDef.orient === 'horizontal' && encoding.x2) || (markDef.orient === 'vertical' && encoding.y2)
+          ? ['cornerRadius']
+          : BAR_CORNER_RADIUS_END_INDEX[markDef.orient];
+
+      for (const newProp of newProps) {
+        markDef[newProp] = cornerRadiusEnd;
+      }
+
+      if (markDef.cornerRadiusEnd !== undefined) {
+        delete markDef.cornerRadiusEnd; // no need to keep the original cap cornerRadius
+      }
+    }
+  }
+
   // set opacity and filled if not specified in mark config
-  const specifiedOpacity = getFirstDefined(markDef.opacity, getMarkConfig('opacity', markDef, config));
+  const specifiedOpacity = getMarkPropOrConfig('opacity', markDef, config);
   if (specifiedOpacity === undefined) {
     markDef.opacity = opacity(markDef.type, encoding);
   }
 
-  const specifiedFilled = markDef.filled;
-  if (specifiedFilled === undefined) {
-    markDef.filled = filled(markDef, config);
-  }
-
   // set cursor, which should be pointer if href channel is present unless otherwise specified
-  const specifiedCursor = markDef.cursor || getMarkConfig('cursor', markDef, config);
+  const specifiedCursor = getMarkPropOrConfig('cursor', markDef, config);
   if (specifiedCursor === undefined) {
     markDef.cursor = cursor(markDef, encoding, config);
   }
@@ -39,8 +69,8 @@ export function normalizeMarkDef(mark: Mark | MarkDef, encoding: Encoding<string
   return markDef;
 }
 
-function cursor(markDef: MarkDef, encoding: Encoding<string>, config: Config) {
-  if (encoding.href || markDef.href || getMarkConfig('href', markDef, config)) {
+function cursor(markDef: MarkDef<Mark, SignalRef>, encoding: Encoding<string>, config: Config<SignalRef>) {
+  if (encoding.href || markDef.href || getMarkPropOrConfig('href', markDef, config)) {
     return 'pointer';
   }
   return markDef.cursor;
@@ -56,7 +86,10 @@ function opacity(mark: Mark, encoding: Encoding<string>) {
   return undefined;
 }
 
-function filled(markDef: MarkDef, config: Config) {
+export function defaultFilled(markDef: MarkDef, config: Config<SignalRef>, {graticule}: {graticule: boolean}) {
+  if (graticule) {
+    return false;
+  }
   const filledConfig = getMarkConfig('filled', markDef, config);
   const mark = markDef.type;
   return getFirstDefined(filledConfig, mark !== POINT && mark !== LINE && mark !== RULE);
@@ -69,6 +102,7 @@ function orient(mark: Mark, encoding: Encoding<string>, specifiedOrient: Orienta
     case SQUARE:
     case TEXT:
     case RECT:
+    case IMAGE:
       // orient is meaningless for these marks.
       return undefined;
   }
@@ -77,10 +111,10 @@ function orient(mark: Mark, encoding: Encoding<string>, specifiedOrient: Orienta
 
   switch (mark) {
     case BAR:
-      if (isFieldDef(x) && isBinned(x.bin)) {
+      if (isFieldDef(x) && (isBinned(x.bin) || (isFieldDef(y) && y.aggregate && !x.aggregate))) {
         return 'vertical';
       }
-      if (isFieldDef(y) && isBinned(y.bin)) {
+      if (isFieldDef(y) && (isBinned(y.bin) || (isFieldDef(x) && x.aggregate && !y.aggregate))) {
         return 'horizontal';
       }
       if (y2 || x2) {
@@ -90,23 +124,30 @@ function orient(mark: Mark, encoding: Encoding<string>, specifiedOrient: Orienta
         }
 
         // If y is range and x is non-range, non-bin Q, y is likely a prebinned field
-        if (!x2 && isFieldDef(x) && x.type === QUANTITATIVE && !isBinning(x.bin)) {
-          return 'horizontal';
+        if (!x2) {
+          if ((isFieldDef(x) && x.type === QUANTITATIVE && !isBinning(x.bin)) || isNumericDataDef(x)) {
+            return 'horizontal';
+          }
         }
 
         // If x is range and y is non-range, non-bin Q, x is likely a prebinned field
-        if (!y2 && isFieldDef(y) && y.type === QUANTITATIVE && !isBinning(y.bin)) {
-          return 'vertical';
+        if (!y2) {
+          if ((isFieldDef(y) && y.type === QUANTITATIVE && !isBinning(y.bin)) || isNumericDataDef(y)) {
+            return 'vertical';
+          }
         }
       }
-    /* tslint:disable */
-    case RULE: // intentionally fall through
+
+    // falls through
+    case RULE:
       // return undefined for line segment rule and bar with both axis ranged
-      if (x2 && y2) {
+      // we have to ignore the case that the data are already binned
+      if (x2 && !(isFieldDef(x) && isBinned(x.bin)) && y2 && !(isFieldDef(y) && isBinned(y.bin))) {
         return undefined;
       }
 
-    case AREA: // intentionally fall through
+    // falls through
+    case AREA:
       // If there are range for both x and y, y (vertical) has higher precedence.
       if (y2) {
         if (isFieldDef(y) && isBinned(y.bin)) {
@@ -121,25 +162,29 @@ function orient(mark: Mark, encoding: Encoding<string>, specifiedOrient: Orienta
           return 'horizontal';
         }
       } else if (mark === RULE) {
-        if (encoding.x && !encoding.y) {
+        if (x && !y) {
           return 'vertical';
-        } else if (encoding.y && !encoding.x) {
+        } else if (y && !x) {
           return 'horizontal';
         }
       }
 
-    case LINE: // intentional fall through
-    case TICK: // Tick is opposite to bar, line, area and never have ranged mark.
-      /* tslint:enable */
-      const xIsContinuous = isFieldDef(encoding.x) && isContinuous(encoding.x);
-      const yIsContinuous = isFieldDef(encoding.y) && isContinuous(encoding.y);
-      if (xIsContinuous && !yIsContinuous) {
+    // falls through
+    case LINE:
+    case TICK: {
+      // Tick is opposite to bar, line, area and never have ranged mark.
+      const xIsContinuous = isContinuousFieldOrDatumDef(x);
+      const yIsContinuous = isContinuousFieldOrDatumDef(y);
+
+      if (specifiedOrient) {
+        return specifiedOrient;
+      } else if (xIsContinuous && !yIsContinuous) {
         return mark !== 'tick' ? 'horizontal' : 'vertical';
       } else if (!xIsContinuous && yIsContinuous) {
         return mark !== 'tick' ? 'vertical' : 'horizontal';
       } else if (xIsContinuous && yIsContinuous) {
-        const xDef = encoding.x as TypedFieldDef<string>; // we can cast here since they are surely fieldDef
-        const yDef = encoding.y as TypedFieldDef<string>;
+        const xDef = x as TypedFieldDef<string>; // we can cast here since they are surely fieldDef
+        const yDef = y as TypedFieldDef<string>;
 
         const xIsTemporal = xDef.type === TEMPORAL;
         const yIsTemporal = yDef.type === TEMPORAL;
@@ -156,22 +201,11 @@ function orient(mark: Mark, encoding: Encoding<string>, specifiedOrient: Orienta
         } else if (xDef.aggregate && !yDef.aggregate) {
           return mark !== 'tick' ? 'horizontal' : 'vertical';
         }
-
-        if (specifiedOrient) {
-          // When ambiguous, use user specified one.
-          return specifiedOrient;
-        }
-
         return 'vertical';
       } else {
-        // Discrete x Discrete case
-        if (specifiedOrient) {
-          // When ambiguous, use user specified one.
-          return specifiedOrient;
-        }
-
         return undefined;
       }
+    }
   }
   return 'vertical';
 }

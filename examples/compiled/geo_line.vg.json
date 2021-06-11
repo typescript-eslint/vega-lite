@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Line drawn between airports in the U.S. simulating a flight itinerary",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 800,
   "height": 500,
@@ -85,7 +85,11 @@
       "style": ["geoshape"],
       "from": {"data": "source_0"},
       "encode": {
-        "update": {"fill": {"value": "#eee"}, "stroke": {"value": "white"}}
+        "update": {
+          "fill": {"value": "#eee"},
+          "stroke": {"value": "white"},
+          "ariaRoleDescription": {"value": "geoshape"}
+        }
       },
       "transform": [{"type": "geoshape", "projection": "projection"}]
     },
@@ -98,8 +102,9 @@
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"value": "gray"},
-          "tooltip": {
-            "signal": "{\"longitude\": format(datum[\"longitude\"], \"\"), \"latitude\": format(datum[\"latitude\"], \"\")}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"longitude: \" + (format(datum[\"longitude\"], \"\")) + \"; latitude: \" + (format(datum[\"latitude\"], \"\"))"
           },
           "x": {"field": "layer_1_x"},
           "y": {"field": "layer_1_y"},
@@ -117,8 +122,8 @@
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"longitude\": format(datum[\"longitude\"], \"\"), \"latitude\": format(datum[\"latitude\"], \"\"), \"order\": ''+datum[\"order\"]}"
+          "description": {
+            "signal": "\"longitude: \" + (format(datum[\"longitude\"], \"\")) + \"; latitude: \" + (format(datum[\"latitude\"], \"\")) + \"; order: \" + (isValid(datum[\"order\"]) ? datum[\"order\"] : \"\"+datum[\"order\"])"
           },
           "x": {"field": "layer_2_x"},
           "y": {"field": "layer_2_y"}

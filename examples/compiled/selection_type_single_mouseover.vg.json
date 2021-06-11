@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "style": "cell",
   "data": [
@@ -37,7 +37,10 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "pts", "update": "vlSelectionResolve(\"pts_store\")"},
+    {
+      "name": "pts",
+      "update": "vlSelectionResolve(\"pts_store\", \"union\", true, true)"
+    },
     {
       "name": "pts_tuple",
       "on": [
@@ -46,35 +49,55 @@
           "update": "datum && item().mark.marktype !== 'group' ? {unit: \"\", fields: pts_tuple_fields, values: [(item().isVoronoi ? datum.datum : datum)[\"_vgsid_\"]]} : null",
           "force": true
         },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"}
       ]
     },
     {"name": "pts_tuple_fields", "value": [{"type": "E", "field": "_vgsid_"}]},
-    {"name": "pts_modify", "update": "modify(\"pts_store\", pts_tuple, true)"}
+    {
+      "name": "pts_toggle",
+      "value": false,
+      "on": [
+        {
+          "events": [{"source": "scope", "type": "mouseover"}],
+          "update": "event.shiftKey"
+        },
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "false"}
+      ]
+    },
+    {
+      "name": "pts_modify",
+      "on": [
+        {
+          "events": {"signal": "pts_tuple"},
+          "update": "modify(\"pts_store\", pts_toggle ? null : pts_tuple, pts_toggle ? null : true, pts_toggle ? pts_tuple : null)"
+        }
+      ]
+    }
   ],
   "marks": [
     {
       "name": "marks",
       "type": "rect",
       "style": ["rect"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "fill": [
             {
-              "test": "!(length(data(\"pts_store\"))) || (vlSelectionTest(\"pts_store\", datum))",
+              "test": "!length(data(\"pts_store\")) || vlSelectionTest(\"pts_store\", datum)",
               "scale": "color",
               "field": "__count"
             },
             {"value": "grey"}
           ],
-          "tooltip": {
-            "signal": "{\"Origin\": ''+datum[\"Origin\"], \"Cylinders\": ''+datum[\"Cylinders\"], \"Count of Records\": format(datum[\"__count\"], \"\")}"
+          "description": {
+            "signal": "\"Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"]) + \"; Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"]) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Cylinders"},
-          "width": {"scale": "x", "band": true},
+          "width": {"scale": "x", "band": 1},
           "y": {"scale": "y", "field": "Origin"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     }
@@ -114,7 +137,6 @@
       "labelAlign": "right",
       "labelAngle": 270,
       "labelBaseline": "middle",
-      "labelOverlap": true,
       "zindex": 1
     },
     {
@@ -122,7 +144,6 @@
       "orient": "left",
       "grid": false,
       "title": "Origin",
-      "labelOverlap": true,
       "zindex": 1
     }
   ],
@@ -130,7 +151,6 @@
     {
       "fill": "color",
       "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
       "title": "Count of Records"
     }
   ]

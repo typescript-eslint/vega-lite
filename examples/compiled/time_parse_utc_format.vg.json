@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "description": "Google's stock price over time.",
-  "autosize": "pad",
+  "description": "Using format parse to parsing of input time data as utc time.",
+  "background": "white",
   "padding": 5,
   "width": 20,
   "style": "cell",
@@ -23,9 +23,10 @@
           "as": "date"
         },
         {
-          "type": "formula",
-          "as": "hours_date",
-          "expr": "datetime(0, 0, 1, hours(datum[\"date\"]), 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["hours", "minutes"],
+          "as": ["hoursminutes_date", "hoursminutes_date_end"]
         }
       ]
     }
@@ -35,8 +36,7 @@
     {
       "name": "height",
       "update": "bandspace(domain('y').length, 1, 0.5) * y_step"
-    },
-    {"name": "width", "update": "width"}
+    }
   ],
   "marks": [
     {
@@ -49,11 +49,12 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"time\": timeFormat(datum[\"hours_date\"], '%H')}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"time: \" + (timeFormat(datum[\"hoursminutes_date\"], timeUnitSpecifier([\"hours\",\"minutes\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})))"
           },
           "x": {"signal": "width", "mult": 0.5},
-          "y": {"scale": "y", "field": "hours_date"}
+          "y": {"scale": "y", "field": "hoursminutes_date"}
         }
       }
     }
@@ -62,7 +63,7 @@
     {
       "name": "y",
       "type": "point",
-      "domain": {"data": "data_0", "field": "hours_date", "sort": true},
+      "domain": {"data": "data_0", "field": "hoursminutes_date", "sort": true},
       "range": {"step": {"signal": "y_step"}},
       "padding": 0.5
     }
@@ -73,13 +74,12 @@
       "orient": "left",
       "grid": false,
       "title": "time",
-      "labelOverlap": true,
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%H')"}}
-        }
+      "format": {
+        "signal": "timeUnitSpecifier([\"hours\",\"minutes\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
       },
-      "zindex": 1
+      "formatType": "time",
+      "labelOverlap": true,
+      "zindex": 0
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": {
     "values": [
       {"label": "Begin", "amount": 4000},
@@ -20,6 +20,104 @@
   },
   "width": 800,
   "height": 450,
+  "layer": [
+    {
+      "mark": {"type": "bar", "size": 45},
+      "encoding": {
+        "x": {
+          "field": "label",
+          "type": "ordinal",
+          "sort": null,
+          "axis": {"labelAngle": 0, "title": "Months"}
+        },
+        "y": {
+          "field": "previous_sum",
+          "type": "quantitative",
+          "title": "Amount"
+        },
+        "y2": {"field": "sum"},
+        "color": {
+          "condition": [
+            {
+              "value": "#f7e0b6",
+              "test": "datum.label === 'Begin' || datum.label === 'End'"
+            },
+            {"value": "#f78a64", "test": "datum.sum < datum.previous_sum"}
+          ],
+          "value": "#93c4aa"
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "rule",
+        "color": "#404040",
+        "opacity": 1,
+        "strokeWidth": 2,
+        "xOffset": -22.5,
+        "x2Offset": 22.5
+      },
+      "encoding": {
+        "x": {
+          "field": "label",
+          "type": "ordinal",
+          "sort": null,
+          "axis": {"labelAngle": 0, "title": "Months"}
+        },
+        "x2": {"field": "lead"},
+        "y": {"field": "sum", "type": "quantitative"}
+      }
+    },
+    {
+      "mark": {"type": "text", "dy": -4, "baseline": "bottom"},
+      "encoding": {
+        "x": {
+          "field": "label",
+          "type": "ordinal",
+          "sort": null,
+          "axis": {"labelAngle": 0, "title": "Months"}
+        },
+        "y": {"field": "sum_inc", "type": "quantitative"},
+        "text": {"field": "sum_inc", "type": "nominal"}
+      }
+    },
+    {
+      "mark": {"type": "text", "dy": 4, "baseline": "top"},
+      "encoding": {
+        "x": {
+          "field": "label",
+          "type": "ordinal",
+          "sort": null,
+          "axis": {"labelAngle": 0, "title": "Months"}
+        },
+        "y": {"field": "sum_dec", "type": "quantitative"},
+        "text": {"field": "sum_dec", "type": "nominal"}
+      }
+    },
+    {
+      "mark": {"type": "text", "fontWeight": "bold", "baseline": "middle"},
+      "encoding": {
+        "x": {
+          "field": "label",
+          "type": "ordinal",
+          "sort": null,
+          "axis": {"labelAngle": 0, "title": "Months"}
+        },
+        "y": {"field": "center", "type": "quantitative"},
+        "text": {"field": "text_amount", "type": "nominal"},
+        "color": {
+          "condition": [
+            {
+              "value": "#725a30",
+              "test": "datum.label === 'Begin' || datum.label === 'End'"
+            }
+          ],
+          "value": "white"
+        }
+      }
+    }
+  ],
+  "config": {"text": {"fontWeight": "bold", "color": "#404040"}},
   "transform": [
     {"window": [{"op": "sum", "field": "amount", "as": "sum"}]},
     {"window": [{"op": "lead", "field": "label", "as": "lead"}]},
@@ -48,103 +146,5 @@
       "calculate": "datum.sum > datum.previous_sum ? datum.sum : ''",
       "as": "sum_inc"
     }
-  ],
-  "layer": [
-    {
-      "mark": {"type": "bar", "size": 45},
-      "encoding": {
-        "x": {
-          "field": "label",
-          "type": "ordinal",
-          "sort": null,
-          "title": "Months"
-        },
-        "y": {
-          "field": "previous_sum",
-          "type": "quantitative",
-          "title": "Amount"
-        },
-        "y2": {"field": "sum"},
-        "color": {
-          "condition": [
-            {
-              "test": "datum.label === 'Begin' || datum.label === 'End'",
-              "value": "#f7e0b6"
-            },
-            {"test": "datum.sum < datum.previous_sum", "value": "#f78a64"}
-          ],
-          "value": "#93c4aa"
-        }
-      }
-    },
-    {
-      "mark": {
-        "type": "rule",
-        "color": "#404040",
-        "opacity": 1,
-        "strokeWidth": 2,
-        "xOffset": -22.5,
-        "x2Offset": 22.5
-      },
-      "encoding": {
-        "x": {
-          "field": "label",
-          "type": "ordinal",
-          "sort": null,
-          "title": "Months"
-        },
-        "x2": {"field": "lead"},
-        "y": {"field": "sum", "type": "quantitative"}
-      }
-    },
-    {
-      "mark": {"type": "text", "dy": -4, "baseline": "bottom"},
-      "encoding": {
-        "x": {
-          "field": "label",
-          "type": "ordinal",
-          "sort": null,
-          "title": "Months"
-        },
-        "y": {"field": "sum_inc", "type": "quantitative"},
-        "text": {"field": "sum_inc", "type": "nominal"}
-      }
-    },
-    {
-      "mark": {"type": "text", "dy": 4, "baseline": "top"},
-      "encoding": {
-        "x": {
-          "field": "label",
-          "type": "ordinal",
-          "sort": null,
-          "title": "Months"
-        },
-        "y": {"field": "sum_dec", "type": "quantitative"},
-        "text": {"field": "sum_dec", "type": "nominal"}
-      }
-    },
-    {
-      "mark": {"type": "text", "fontWeight": "bold", "baseline": "middle"},
-      "encoding": {
-        "x": {
-          "field": "label",
-          "type": "ordinal",
-          "sort": null,
-          "title": "Months"
-        },
-        "y": {"field": "center", "type": "quantitative"},
-        "text": {"field": "text_amount", "type": "nominal"},
-        "color": {
-          "condition": [
-            {
-              "test": "datum.label === 'Begin' || datum.label === 'End'",
-              "value": "#725a30"
-            }
-          ],
-          "value": "white"
-        }
-      }
-    }
-  ],
-  "config": {"text": {"fontWeight": "bold", "color": "#404040"}}
+  ]
 }

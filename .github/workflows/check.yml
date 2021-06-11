@@ -1,0 +1,84 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  check:
+    name: Format, Schema, and Examples
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Install Node dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Setup data
+        run: yarn data
+
+      - name: Install Parallel
+        run: |
+          # Faster than "sudo apt-get install parallel"
+          wget https://raw.githubusercontent.com/martinda/gnu-parallel/master/src/parallel
+          chmod +x parallel
+          cp parallel sem
+          sudo mv parallel sem /usr/local/bin
+
+      - name: Format
+        if: github.ref != 'refs/heads/master'
+        run: yarn format
+
+      - name: Build Schema
+        run: yarn schema
+
+      - name: Check Schema
+        run: ./scripts/check-schema.sh
+
+      - name: Setup Git remote
+        run: ./scripts/setup-git-ci.sh
+
+      - name: Check and Commit
+        run: ./scripts/check-and-commit.sh
+
+  toc:
+    name: TOC
+    if: "!contains(github.event.head_commit.message, '[CI]')"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - name: Install Node dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Setup Ruby
+        uses: actions/setup-ruby@v1
+        with:
+          ruby-version: '2.x'
+
+      - name: Setup data
+        run: yarn data
+
+      - name: Build Jekyll
+        run: |
+          gem install bundler
+          pushd site
+          bundle install
+          bundle exec jekyll build -q
+          popd
+
+      - name: Build TOC
+        run: scripts/generate-toc
+
+      - name: Setup Git remote
+        run: ./scripts/setup-git-ci.sh
+
+      - name: Check and Commit
+        run: ./scripts/check-and-commit-toc.sh

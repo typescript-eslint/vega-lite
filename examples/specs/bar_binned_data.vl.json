@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": {
     "values": [
       {"bin_start": 8, "bin_end": 10, "count": 7},
@@ -16,11 +16,7 @@
   "encoding": {
     "x": {
       "field": "bin_start",
-      "bin": {
-        "binned": true,
-        "step": 2
-      },
-      "type": "quantitative"
+      "bin": {"binned": true, "step": 2}
     },
     "x2": {"field": "bin_end"},
     "y": {

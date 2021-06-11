@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "width": 800,
   "height": 500,
   "layer": [
@@ -83,14 +83,8 @@
           "field": "origin_latitude",
           "type": "quantitative"
         },
-        "longitude2": {
-          "field": "dest_longitude",
-          "type": "quantitative"
-        },
-        "latitude2": {
-          "field": "dest_latitude",
-          "type": "quantitative"
-        }
+        "longitude2": {"field": "dest_longitude"},
+        "latitude2": {"field": "dest_latitude"}
       }
     }
   ]

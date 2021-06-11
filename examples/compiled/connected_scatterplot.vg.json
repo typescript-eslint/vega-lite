@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -9,7 +9,7 @@
     {
       "name": "source_0",
       "url": "data/driving.json",
-      "format": {"type": "json", "parse": {"year": "date"}}
+      "format": {"type": "json"}
     },
     {
       "name": "data_0",
@@ -17,7 +17,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"miles\"] !== null && !isNaN(datum[\"miles\"]) && datum[\"gas\"] !== null && !isNaN(datum[\"gas\"])"
+          "expr": "isValid(datum[\"miles\"]) && isFinite(+datum[\"miles\"]) && isValid(datum[\"gas\"]) && isFinite(+datum[\"gas\"])"
         }
       ]
     }
@@ -32,13 +32,13 @@
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"miles\": format(datum[\"miles\"], \"\"), \"gas\": format(datum[\"gas\"], \"\"), \"year\": timeFormat(datum[\"year\"], '%b %d, %Y')}"
+          "description": {
+            "signal": "\"miles: \" + (format(datum[\"miles\"], \"\")) + \"; gas: \" + (format(datum[\"gas\"], \"\")) + \"; year: \" + (isValid(datum[\"year\"]) ? datum[\"year\"] : \"\"+datum[\"year\"])"
           },
           "x": {"scale": "x", "field": "miles"},
           "y": {"scale": "y", "field": "gas"},
           "defined": {
-            "signal": "datum[\"miles\"] !== null && !isNaN(datum[\"miles\"]) && datum[\"gas\"] !== null && !isNaN(datum[\"gas\"])"
+            "signal": "isValid(datum[\"miles\"]) && isFinite(+datum[\"miles\"]) && isValid(datum[\"gas\"]) && isFinite(+datum[\"gas\"])"
           }
         }
       }
@@ -53,19 +53,20 @@
         "update": {
           "opacity": {"value": 1},
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"miles\": format(datum[\"miles\"], \"\"), \"gas\": format(datum[\"gas\"], \"\"), \"year\": timeFormat(datum[\"year\"], '%b %d, %Y')}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"miles: \" + (format(datum[\"miles\"], \"\")) + \"; gas: \" + (format(datum[\"gas\"], \"\")) + \"; year: \" + (isValid(datum[\"year\"]) ? datum[\"year\"] : \"\"+datum[\"year\"])"
           },
           "x": [
             {
-              "test": "datum[\"miles\"] === null || isNaN(datum[\"miles\"])",
+              "test": "!isValid(datum[\"miles\"]) || !isFinite(+datum[\"miles\"])",
               "value": 0
             },
             {"scale": "x", "field": "miles"}
           ],
           "y": [
             {
-              "test": "datum[\"gas\"] === null || isNaN(datum[\"gas\"])",
+              "test": "!isValid(datum[\"gas\"]) || !isFinite(+datum[\"gas\"])",
               "field": {"group": "height"}
             },
             {"scale": "y", "field": "gas"}
@@ -106,34 +107,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "miles",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "gas",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -143,9 +126,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "miles",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "gas",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

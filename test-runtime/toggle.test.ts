@@ -1,8 +1,8 @@
-import {Page} from 'puppeteer';
 import {stringValue} from 'vega-util';
+import {TopLevelSpec} from '../src';
+import {SelectionType} from '../src/selection';
 import {compositeTypes, embedFn, parentSelector, spec, testRenderFn} from './util';
-
-declare const page: Page;
+import {Page} from 'puppeteer/lib/cjs/puppeteer/common/Page';
 
 const hits = {
   qq: [8, 19, 13, 21],
@@ -17,14 +17,23 @@ function toggle(key: string, idx: number, shiftKey: boolean, parent?: string) {
   return `${fn}(${hits[key][idx]}, ${stringValue(parent)}, ${!!shiftKey})`;
 }
 
-describe('Toggle multi selections at runtime', () => {
+describe('Toggle point selections at runtime', () => {
+  let page: Page;
+  let embed: (specification: TopLevelSpec) => Promise<void>;
+  let testRender: (filename: string) => Promise<void>;
+
   beforeAll(async () => {
+    page = await (global as any).__BROWSER__.newPage();
+    embed = embedFn(page);
+    testRender = testRenderFn(page, 'point/toggle');
     await page.goto('http://0.0.0.0:8000/test-runtime/');
   });
 
-  const type = 'multi';
-  const embed = embedFn(page);
-  const testRender = testRenderFn(page, 'multi/toggle');
+  afterAll(async () => {
+    await page.close();
+  });
+
+  const type: SelectionType = 'point';
 
   it('should toggle values into/out of the store', async () => {
     await embed(spec('unit', 0, {type}));
@@ -84,7 +93,7 @@ describe('Toggle multi selections at runtime', () => {
       let length = 0;
       for (let i = 0; i < hits.composite.length; i++) {
         const parent = parentSelector(specType, i % 3);
-        const store = await page.evaluate(toggle('composite', i, true, parent));
+        const store = (await page.evaluate(toggle('composite', i, true, parent))) as string;
         expect((length = store.length)).toEqual(i + 1);
         if (i % 3 === 2) {
           await testRender(`${specType}_${i}`);

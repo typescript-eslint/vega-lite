@@ -1,19 +1,12 @@
-/* tslint:disable:quotemark */
-
 import {LegendOrient} from 'vega';
 import * as properties from '../../../src/compile/legend/properties';
 
 describe('compile/legend', () => {
-  describe('direction()', () => {
+  describe('defaultDirection()', () => {
     it('should return horizontal for top/bottom if legend.orient and its config are not defined', () => {
       const orients: LegendOrient[] = ['top', 'bottom'];
       for (const orient of orients) {
-        const dir = properties.direction({
-          legend: {orient},
-          legendConfig: {},
-          channel: 'color',
-          scaleType: 'linear'
-        });
+        const dir = properties.defaultDirection(orient, 'gradient');
 
         expect(dir).toBe('horizontal');
       }
@@ -22,26 +15,16 @@ describe('compile/legend', () => {
     it('should return undefined for left/right if legend.orient and its config are not defined', () => {
       const orients: LegendOrient[] = ['left', 'right', undefined, 'none'];
       for (const orient of orients) {
-        const dir = properties.direction({
-          legend: {orient},
-          legendConfig: {},
-          channel: 'color',
-          scaleType: 'linear'
-        });
+        const dir = properties.defaultDirection(orient, 'gradient');
 
-        expect(dir).toEqual(undefined);
+        expect(dir).toBeUndefined();
       }
     });
 
     it('should return horizontal for quantitative inner legend if legend.orient and its config are not defined', () => {
       const orients: LegendOrient[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
       for (const orient of orients) {
-        const dir = properties.direction({
-          legend: {orient},
-          legendConfig: {},
-          channel: 'color',
-          scaleType: 'linear'
-        });
+        const dir = properties.defaultDirection(orient, 'gradient');
 
         expect(dir).toBe('horizontal');
       }
@@ -50,14 +33,8 @@ describe('compile/legend', () => {
     it('should return undefined for discrete inner legend if legend.orient and its config are not defined', () => {
       const orients: LegendOrient[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
       for (const orient of orients) {
-        const dir = properties.direction({
-          legend: {orient},
-          legendConfig: {},
-          channel: 'color',
-          scaleType: 'ordinal'
-        });
-
-        expect(dir).toEqual(undefined);
+        const dir = properties.defaultDirection(orient, 'symbol');
+        expect(dir).toBeUndefined();
       }
     });
   });
@@ -76,6 +53,11 @@ describe('compile/legend', () => {
       const values = properties.values({values: [1, 2, 3, 4]}, {field: 'a', type: 'quantitative'});
 
       expect(values).toEqual([1, 2, 3, 4]);
+    });
+
+    it('returns signal correctly for non-DateTime', () => {
+      const values = properties.values({values: {signal: 'a'}}, {field: 'a', type: 'quantitative'});
+      expect(values).toEqual({signal: 'a'});
     });
   });
 
@@ -102,6 +84,11 @@ describe('compile/legend', () => {
       expect(overlap).toBe('greedy');
     });
 
+    it('should return greedy for symlog', () => {
+      const overlap = properties.defaultLabelOverlap('symlog');
+      expect(overlap).toBe('greedy');
+    });
+
     it('should return greedy for threshold', () => {
       const overlap = properties.defaultLabelOverlap('threshold');
       expect(overlap).toBe('greedy');
@@ -110,13 +97,33 @@ describe('compile/legend', () => {
 
   describe('defaultSymbolType()', () => {
     it('return stroke for line', () => {
-      const overlap = properties.defaultSymbolType('line');
+      const overlap = properties.defaultSymbolType('line', 'color', {}, undefined);
       expect(overlap).toBe('stroke');
     });
 
-    it('return undefined otherwise', () => {
-      const overlap = properties.defaultSymbolType('circle');
+    it('return stroke for rule', () => {
+      const overlap = properties.defaultSymbolType('rule', 'color', {}, undefined);
+      expect(overlap).toBe('stroke');
+    });
+
+    it('return square for rect', () => {
+      const overlap = properties.defaultSymbolType('rect', 'color', {}, undefined);
+      expect(overlap).toBe('square');
+    });
+
+    it('return circle for point', () => {
+      const overlap = properties.defaultSymbolType('point', 'color', {}, undefined);
       expect(overlap).toBe('circle');
+    });
+
+    it('return the mark shape if defined', () => {
+      const overlap = properties.defaultSymbolType('point', 'color', {}, 'triangle');
+      expect(overlap).toBe('triangle');
+    });
+
+    it('return the value of the shape encoding', () => {
+      const overlap = properties.defaultSymbolType('point', 'color', {value: 'triangle'}, undefined);
+      expect(overlap).toBe('triangle');
     });
   });
 });

@@ -9,13 +9,14 @@ permalink: /docs/spec.html
 
 Vega-Lite specifications are JSON objects that describe a diverse range of interactive visualizations. The simplest form of specification is a specification of a [single view](#single), which describes a view that uses a single [mark type](mark.html) to visualize the data. Besides using a single view specification as a standalone visualization, Vega-Lite also provides operators for composing multiple view specifications into a layered or multi-view specification. These operators include [`layer`](layer.html), [`facet`](facet.html), [`concat`](concat.html), and [`repeat`](repeat.html).
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#common}
 
@@ -23,11 +24,15 @@ Vega-Lite specifications are JSON objects that describe a diverse range of inter
 
 All view specifications in Vega-Lite can contain the following properties:
 
-{% include table.html props="name,description,title,data,transform" source="TopLevelUnitSpec" %}
+{% include table.html props="name,description,title,data,transform,params" source="TopLevelUnitSpec" %}
 
-In addition, all view composition specifications ([`layer`](layer.html), [`facet`](facet.html), [`concat`](concat.html), and [`repeat`](repeat.html)) and unit specifications with [facet channels](https://vega.github.io/vega-lite/docs/encoding.html#facet) can have the following composition layout and [resolution](https://vega.github.io/vega-lite/docs/resolve.html) properties:
+In addition, all view composition specifications ([`layer`](layer.html), [`facet`](facet.html), [`concat`](concat.html), and [`repeat`](repeat.html)) can have the [`resolve` property for scale, axes, and legend resolution](resolve.html):
 
-{% include table.html props="bounds,center,spacing,resolve" source="TopLevelUnitSpec" %}
+{% include table.html props="resolve" source="TopLevelFacetSpec" %}
+
+Finally, all view layout composition ([`facet`](facet.html), [`concat`](concat.html), and [`repeat`](repeat.html)) can have the following layout properties:
+
+{% include table.html props="align,bounds,center,spacing" source="TopLevelFacetSpec" %}
 
 {:#top-level}
 
@@ -35,7 +40,7 @@ In addition, all view composition specifications ([`layer`](layer.html), [`facet
 
 In addition to the [common properties](#common), any kind of top-level specifications (including a standalone single view specification as well as layered and multi-view specifications) can contain the following properties:
 
-{% include table.html props="$schema,background,padding,autosize,config" source="TopLevelUnitSpec" %}
+{% include table.html props="$schema,background,padding,autosize,config,usermeta" source="TopLevelUnitSpec" %}
 
 {:#single}
 
@@ -44,11 +49,12 @@ In addition to the [common properties](#common), any kind of top-level specifica
 ```js
 {
   // Properties for top-level specification (e.g., standalone single view specifications)
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "background": ...,
   "padding": ...,
   "autosize": ...,
   "config": ...,
+  "usermeta": ...,
 
   // Properties for any specifications
   "title": ...,
@@ -80,7 +86,7 @@ As it is designed for analysis, Vega-Lite also supports data transformation such
 
 To summarize, a single-view specification in Vega-Lite can have the following properties (in addition to [common properties of a specification](#common)):
 
-{% include table.html props="mark,encoding,width,height,view,selection,projection" source="TopLevelUnitSpec" %}
+{% include table.html props="mark,encoding,width,height,view,projection" source="TopLevelUnitSpec" %}
 
 {:#view-background}
 
@@ -88,7 +94,7 @@ To summarize, a single-view specification in Vega-Lite can have the following pr
 
 The `background` property of a _top-level_ view specification defines the background of the whole visualization canvas. Meanwhile, the `view` property of a single-view or [layer](layer.html) specification can define the background of the view with the following properties:
 
-{% include table.html props="style,cornerRadius,fill,fillOpacity,opacity,stroke,strokeCap,strokeDash,strokeDashOffset,strokeJoin,strokeMiterLimit,strokeOpacity,strokeWidth" source="ViewBackground" %}
+{% include table.html props="style,cornerRadius,cursor,fill,fillOpacity,opacity,stroke,strokeCap,strokeDash,strokeDashOffset,strokeJoin,strokeMiterLimit,strokeOpacity,strokeWidth" source="ViewBackground" %}
 
 #### Example: Background
 
@@ -118,8 +124,10 @@ To create layered and multi-view graphics, please refer to the following pages:
     "view": { // - View Configuration
 
       // View Size
-      "width": ...,
-      "height": ...,
+      "continuousWidth": ...,
+      "continuousHeight": ...,
+      "discreteWidth": ...,
+      "discreteHeight": ...,
       // View Background Properties
       "fill": ...,
       "stroke": ...,
@@ -132,8 +140,12 @@ To create layered and multi-view graphics, please refer to the following pages:
 
 The style of a single view visualization can be customized by specifying the `view` property of the `config` object. The view config support all [view background properties](#view-background) except `"style"`.
 
-In addition, the `width` and `height` properties of the `view` configuration determine the width of a single view with a continuous x-scale and the height of a single view with a continuous y-scale respectively.
+In addition, the following properties of the `view` configuration determine the default width and height of single and layered views.
 
-{% include table.html props="width,height" source="ViewConfig" %}
+{% include table.html props="continuousWidth,continuousHeight,discreteWidth,discreteHeight,step" source="ViewConfig" %}
+
+For example, setting the `step` property in the view config can adjust default discrete step in the plot.
+
+<span class="vl-example" data-name="bar_1d_step_config"></span>
 
 **For more information about view size, please see the [size](size.html) documentation.**

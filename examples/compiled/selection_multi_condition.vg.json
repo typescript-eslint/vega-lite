@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Drag out a rectangular brush to highlight points.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -17,7 +17,7 @@
         {"type": "identifier", "as": "_vgsid_"},
         {
           "type": "filter",
-          "expr": "datum[\"Horsepower\"] !== null && !isNaN(datum[\"Horsepower\"]) && datum[\"Miles_per_Gallon\"] !== null && !isNaN(datum[\"Miles_per_Gallon\"])"
+          "expr": "isValid(datum[\"Horsepower\"]) && isFinite(+datum[\"Horsepower\"]) && isValid(datum[\"Miles_per_Gallon\"]) && isFinite(+datum[\"Miles_per_Gallon\"])"
         }
       ]
     }
@@ -30,10 +30,13 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "brush", "update": "vlSelectionResolve(\"brush_store\")"},
+    {
+      "name": "brush",
+      "update": "vlSelectionResolve(\"brush_store\", \"union\")"
+    },
     {
       "name": "hoverbrush",
-      "update": "vlSelectionResolve(\"hoverbrush_store\")"
+      "update": "vlSelectionResolve(\"hoverbrush_store\", \"union\", true, true)"
     },
     {
       "name": "brush_x",
@@ -72,16 +75,16 @@
           "update": "[scale(\"x\", brush_Horsepower[0]), scale(\"x\", brush_Horsepower[1])]"
         },
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "brush_translate_delta"},
           "update": "clampRange(panLinear(brush_translate_anchor.extent_x, brush_translate_delta.x / span(brush_translate_anchor.extent_x)), 0, width)"
         },
         {
           "events": {"signal": "brush_zoom_delta"},
           "update": "clampRange(zoomLinear(brush_x, brush_zoom_anchor.x, brush_zoom_delta), 0, width)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -131,16 +134,16 @@
           "update": "[scale(\"y\", brush_Miles_per_Gallon[0]), scale(\"y\", brush_Miles_per_Gallon[1])]"
         },
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "brush_translate_delta"},
           "update": "clampRange(panLinear(brush_translate_anchor.extent_y, brush_translate_delta.y / span(brush_translate_anchor.extent_y)), 0, height)"
         },
         {
           "events": {"signal": "brush_zoom_delta"},
           "update": "clampRange(zoomLinear(brush_y, brush_zoom_anchor.y, brush_zoom_delta), 0, height)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -250,17 +253,24 @@
     },
     {
       "name": "brush_modify",
-      "update": "modify(\"brush_store\", brush_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "brush_tuple"},
+          "update": "modify(\"brush_store\", brush_tuple, true)"
+        }
+      ]
     },
     {
       "name": "hoverbrush_tuple",
       "on": [
         {
-          "events": [{"source": "scope", "type": "mouseover"}],
-          "update": "datum && item().mark.marktype !== 'group' ? {unit: \"\", fields: hoverbrush_tuple_fields, values: [(item().isVoronoi ? datum.datum : datum)[\"_vgsid_\"]]} : null",
+          "events": [
+            {"source": "scope", "type": "mouseover", "markname": "voronoi"}
+          ],
+          "update": "datum && item().mark.marktype !== 'group' && indexof(item().mark.name, 'brush_brush') < 0 ? {unit: \"\", fields: hoverbrush_tuple_fields, values: [(item().isVoronoi ? datum.datum : datum)[\"_vgsid_\"]]} : null",
           "force": true
         },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"}
       ]
     },
     {
@@ -272,15 +282,22 @@
       "value": false,
       "on": [
         {
-          "events": [{"source": "scope", "type": "mouseover"}],
+          "events": [
+            {"source": "scope", "type": "mouseover", "markname": "voronoi"}
+          ],
           "update": "event.shiftKey"
         },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "false"}
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "false"}
       ]
     },
     {
       "name": "hoverbrush_modify",
-      "update": "modify(\"hoverbrush_store\", hoverbrush_toggle ? null : hoverbrush_tuple, hoverbrush_toggle ? null : true, hoverbrush_toggle ? hoverbrush_tuple : null)"
+      "on": [
+        {
+          "events": {"signal": "hoverbrush_tuple"},
+          "update": "modify(\"hoverbrush_store\", hoverbrush_toggle ? null : hoverbrush_tuple, hoverbrush_toggle ? null : true, hoverbrush_toggle ? hoverbrush_tuple : null)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -326,6 +343,7 @@
       "name": "marks",
       "type": "symbol",
       "style": ["point"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
@@ -333,17 +351,18 @@
           "fill": {"value": "transparent"},
           "stroke": [
             {
-              "test": "!(length(data(\"hoverbrush_store\"))) || (vlSelectionTest(\"hoverbrush_store\", datum))",
+              "test": "!length(data(\"hoverbrush_store\")) || vlSelectionTest(\"hoverbrush_store\", datum)",
               "value": "teal"
             },
             {
-              "test": "!(length(data(\"brush_store\"))) || (vlSelectionTest(\"brush_store\", datum))",
+              "test": "!length(data(\"brush_store\")) || vlSelectionTest(\"brush_store\", datum)",
               "value": "skyblue"
             },
             {"value": "grey"}
           ],
-          "tooltip": {
-            "signal": "{\"Horsepower\": format(datum[\"Horsepower\"], \"\"), \"Miles_per_Gallon\": format(datum[\"Miles_per_Gallon\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"Horsepower: \" + (format(datum[\"Horsepower\"], \"\")) + \"; Miles_per_Gallon: \" + (format(datum[\"Miles_per_Gallon\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Horsepower"},
           "y": {"scale": "y", "field": "Miles_per_Gallon"}
@@ -353,16 +372,14 @@
     {
       "name": "voronoi",
       "type": "path",
+      "interactive": true,
       "from": {"data": "marks"},
       "encode": {
         "update": {
           "fill": {"value": "transparent"},
           "strokeWidth": {"value": 0.35},
           "stroke": {"value": "transparent"},
-          "isVoronoi": {"value": true},
-          "tooltip": {
-            "signal": "{\"Horsepower\": format(datum.datum[\"Horsepower\"], \"\"), \"Miles_per_Gallon\": format(datum.datum[\"Miles_per_Gallon\"], \"\")}"
-          }
+          "isVoronoi": {"value": true}
         }
       },
       "transform": [
@@ -442,34 +459,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Horsepower",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Miles_per_Gallon",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -479,9 +478,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Horsepower",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Miles_per_Gallon",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

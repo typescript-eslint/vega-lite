@@ -1,5 +1,3 @@
-/* tslint:disable quotemark */
-
 import {COLOR, X, Y} from '../../../src/channel';
 import {area} from '../../../src/compile/mark/area';
 import {Encoding} from '../../../src/encoding';
@@ -236,7 +234,7 @@ describe('Mark: Area', () => {
         encoding: {
           x: {timeUnit: 'year', field: 'Year', type: 'temporal'},
           y: {aggregate: 'min', field: 'Weight_in_lbs', type: 'quantitative'},
-          y2: {aggregate: 'max', field: 'Weight_in_lbs', type: 'quantitative'}
+          y2: {aggregate: 'max', field: 'Weight_in_lbs'}
         }
       });
       const props = area.encodeEntry(model);
@@ -252,7 +250,7 @@ describe('Mark: Area', () => {
         encoding: {
           y: {timeUnit: 'year', field: 'Year', type: 'temporal'},
           x: {aggregate: 'min', field: 'Weight_in_lbs', type: 'quantitative'},
-          x2: {aggregate: 'max', field: 'Weight_in_lbs', type: 'quantitative'}
+          x2: {aggregate: 'max', field: 'Weight_in_lbs'}
         }
       });
       const props = area.encodeEntry(model);

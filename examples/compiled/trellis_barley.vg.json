@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "The Trellis display by Becker et al. helped establish small multiples as a “powerful mechanism for understanding interactions in studies of how a response depends on explanatory variables”. Here we reproduce a trellis of Barley yields from the 1930s, complete with main-effects ordering to facilitate comparison.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {"name": "source_0", "url": "data/barley.json", "format": {"type": "json"}},
@@ -43,7 +43,7 @@
       ]
     },
     {
-      "name": "data_1",
+      "name": "data_2",
       "source": "source_0",
       "transform": [
         {
@@ -52,6 +52,10 @@
           "ops": ["median"],
           "fields": ["yield"],
           "as": ["median_yield"]
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"median_yield\"]) && isFinite(+datum[\"median_yield\"])"
         }
       ]
     }
@@ -86,8 +90,7 @@
           "orient": "left",
           "grid": false,
           "title": "variety",
-          "labelOverlap": true,
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -106,7 +109,7 @@
           "labelFlush": true,
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(trellis_barley_child_width/40)"},
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -114,7 +117,9 @@
       "name": "trellis_barley_cell",
       "type": "group",
       "title": {
-        "text": {"signal": "''+parent[\"site\"]"},
+        "text": {
+          "signal": "isValid(parent[\"site\"]) ? parent[\"site\"] : \"\"+parent[\"site\"]"
+        },
         "style": "guide-label",
         "frame": "group",
         "offset": 10
@@ -147,6 +152,10 @@
               "ops": ["median"],
               "fields": ["yield"],
               "as": ["median_yield"]
+            },
+            {
+              "type": "filter",
+              "expr": "isValid(datum[\"median_yield\"]) && isFinite(+datum[\"median_yield\"])"
             }
           ]
         }
@@ -167,12 +176,13 @@
             "update": {
               "fill": {"value": "transparent"},
               "stroke": {"scale": "trellis_barley_color", "field": "year"},
-              "tooltip": {
-                "signal": "{\"Median of yield\": format(datum[\"median_yield\"], \"\"), \"variety\": ''+datum[\"variety\"], \"year\": ''+datum[\"year\"]}"
+              "ariaRoleDescription": {"value": "point"},
+              "description": {
+                "signal": "\"Median of yield: \" + (format(datum[\"median_yield\"], \"\")) + \"; variety: \" + (isValid(datum[\"variety\"]) ? datum[\"variety\"] : \"\"+datum[\"variety\"]) + \"; year: \" + (isValid(datum[\"year\"]) ? datum[\"year\"] : \"\"+datum[\"year\"])"
               },
               "x": [
                 {
-                  "test": "datum[\"median_yield\"] === null || isNaN(datum[\"median_yield\"])",
+                  "test": "!isValid(datum[\"median_yield\"]) || !isFinite(+datum[\"median_yield\"])",
                   "value": 0
                 },
                 {"scale": "trellis_barley_x", "field": "median_yield"}
@@ -191,6 +201,7 @@
           "tickCount": {"signal": "ceil(trellis_barley_child_width/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
@@ -203,7 +214,7 @@
     {
       "name": "trellis_barley_x",
       "type": "linear",
-      "domain": {"data": "data_1", "field": "median_yield"},
+      "domain": {"data": "data_2", "field": "median_yield"},
       "range": [0, {"signal": "trellis_barley_child_width"}],
       "zero": false,
       "nice": true
@@ -222,16 +233,13 @@
     {
       "name": "trellis_barley_color",
       "type": "ordinal",
-      "domain": {"data": "data_1", "field": "year", "sort": true},
+      "domain": {"data": "data_2", "field": "year", "sort": true},
       "range": "category"
     }
   ],
   "legends": [
     {
       "stroke": "trellis_barley_color",
-      "gradientLength": {
-        "signal": "clamp(trellis_barley_child_height, 64, 200)"
-      },
       "symbolType": "circle",
       "title": "year",
       "encode": {"symbols": {"update": {"fill": {"value": "transparent"}}}}

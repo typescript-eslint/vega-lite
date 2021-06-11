@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 20,
   "style": "cell",
@@ -25,8 +25,7 @@
     {
       "name": "width",
       "update": "bandspace(domain('x').length, 1, 0.5) * x_step"
-    },
-    {"name": "height", "update": "height"}
+    }
   ],
   "marks": [
     {
@@ -39,7 +38,10 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {"signal": "{\"a\": ''+datum[\"a\"]}"},
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"a: \" + (isValid(datum[\"a\"]) ? datum[\"a\"] : \"\"+datum[\"a\"])"
+          },
           "x": {"scale": "x", "field": "a"},
           "y": {"signal": "height", "mult": 0.5}
         }
@@ -64,7 +66,7 @@
       "labelAlign": "right",
       "labelAngle": 270,
       "labelBaseline": "middle",
-      "zindex": 1
+      "zindex": 0
     }
   ]
 }

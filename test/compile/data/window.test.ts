@@ -1,8 +1,6 @@
-/* tslint:disable:quotemark */
-
 import {WindowTransformNode} from '../../../src/compile/data/window';
 import {Transform} from '../../../src/transform';
-import {DataFlowNode} from './../../../src/compile/data/dataflow';
+import {PlaceholderDataFlowNode} from './util';
 
 describe('compile/data/window', () => {
   it('should return a proper vg transform', () => {
@@ -127,6 +125,22 @@ describe('compile/data/window', () => {
     expect(window.dependentFields()).toEqual(new Set(['g', 'f']));
   });
 
+  it('should generate the correct dependent fields when groupby and sort are undefined', () => {
+    const transform: Transform = {
+      window: [
+        {
+          field: 'w',
+          op: 'row_number',
+          as: 'ordered_row_number'
+        }
+      ],
+      ignorePeers: false,
+      frame: [null, 0]
+    };
+    const window = new WindowTransformNode(null, transform);
+    expect(window.dependentFields()).toEqual(new Set(['w']));
+  });
+
   it('should clone to an equivalent version', () => {
     const transform: Transform = {
       window: [
@@ -150,7 +164,7 @@ describe('compile/data/window', () => {
   });
 
   it('should never clone parent', () => {
-    const parent = new DataFlowNode(null);
+    const parent = new PlaceholderDataFlowNode(null);
     const window = new WindowTransformNode(parent, null);
     expect(window.clone().parent).toBeNull();
   });

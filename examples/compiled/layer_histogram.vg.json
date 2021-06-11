@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -21,8 +21,8 @@
           "field": "distance",
           "as": ["bin_maxbins_10_distance", "bin_maxbins_10_distance_end"],
           "signal": "layer_1_bin_maxbins_10_distance_bins",
-          "maxbins": 10,
-          "extent": {"signal": "layer_1_bin_maxbins_10_distance_extent"}
+          "extent": {"signal": "layer_1_bin_maxbins_10_distance_extent"},
+          "maxbins": 10
         }
       ]
     },
@@ -30,7 +30,7 @@
       "name": "data_0",
       "source": "source_0",
       "transform": [
-        {"type": "filter", "expr": "datum.delay < 500"},
+        {"type": "filter", "expr": "datum.delay < 5"},
         {
           "type": "aggregate",
           "groupby": ["bin_maxbins_10_distance", "bin_maxbins_10_distance_end"],
@@ -40,7 +40,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_10_distance\"] !== null && !isNaN(datum[\"bin_maxbins_10_distance\"])"
+          "expr": "isValid(datum[\"bin_maxbins_10_distance\"]) && isFinite(+datum[\"bin_maxbins_10_distance\"])"
         }
       ]
     },
@@ -57,7 +57,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_10_distance\"] !== null && !isNaN(datum[\"bin_maxbins_10_distance\"])"
+          "expr": "isValid(datum[\"bin_maxbins_10_distance\"]) && isFinite(+datum[\"bin_maxbins_10_distance\"])"
         }
       ]
     }
@@ -71,19 +71,20 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"distance (binned)\": datum[\"bin_maxbins_10_distance\"] === null || isNaN(datum[\"bin_maxbins_10_distance\"]) ? \"null\" : format(datum[\"bin_maxbins_10_distance\"], \"\") + \" - \" + format(datum[\"bin_maxbins_10_distance_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"distance (binned): \" + (!isValid(datum[\"bin_maxbins_10_distance\"]) || !isFinite(+datum[\"bin_maxbins_10_distance\"]) ? \"null\" : format(datum[\"bin_maxbins_10_distance\"], \"\") + \" – \" + format(datum[\"bin_maxbins_10_distance_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\"))"
           },
           "x2": [
             {
-              "test": "datum[\"bin_maxbins_10_distance\"] === null || isNaN(datum[\"bin_maxbins_10_distance\"])",
+              "test": "!isValid(datum[\"bin_maxbins_10_distance\"]) || !isFinite(+datum[\"bin_maxbins_10_distance\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_maxbins_10_distance", "offset": 1}
           ],
           "x": [
             {
-              "test": "datum[\"bin_maxbins_10_distance\"] === null || isNaN(datum[\"bin_maxbins_10_distance\"])",
+              "test": "!isValid(datum[\"bin_maxbins_10_distance\"]) || !isFinite(+datum[\"bin_maxbins_10_distance\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_maxbins_10_distance_end"}
@@ -101,19 +102,20 @@
       "encode": {
         "update": {
           "fill": {"value": "goldenrod"},
-          "tooltip": {
-            "signal": "{\"distance (binned)\": datum[\"bin_maxbins_10_distance\"] === null || isNaN(datum[\"bin_maxbins_10_distance\"]) ? \"null\" : format(datum[\"bin_maxbins_10_distance\"], \"\") + \" - \" + format(datum[\"bin_maxbins_10_distance_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"distance (binned): \" + (!isValid(datum[\"bin_maxbins_10_distance\"]) || !isFinite(+datum[\"bin_maxbins_10_distance\"]) ? \"null\" : format(datum[\"bin_maxbins_10_distance\"], \"\") + \" – \" + format(datum[\"bin_maxbins_10_distance_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\"))"
           },
           "x2": [
             {
-              "test": "datum[\"bin_maxbins_10_distance\"] === null || isNaN(datum[\"bin_maxbins_10_distance\"])",
+              "test": "!isValid(datum[\"bin_maxbins_10_distance\"]) || !isFinite(+datum[\"bin_maxbins_10_distance\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_maxbins_10_distance", "offset": 1}
           ],
           "x": [
             {
-              "test": "datum[\"bin_maxbins_10_distance\"] === null || isNaN(datum[\"bin_maxbins_10_distance\"])",
+              "test": "!isValid(datum[\"bin_maxbins_10_distance\"]) || !isFinite(+datum[\"bin_maxbins_10_distance\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_maxbins_10_distance_end"}
@@ -151,6 +153,20 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
@@ -158,7 +174,7 @@
       "labelFlush": true,
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(width/10)"},
-      "zindex": 1
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -167,19 +183,6 @@
       "title": "Count of Records",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ]

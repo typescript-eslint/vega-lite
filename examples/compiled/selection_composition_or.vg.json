@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "style": "cell",
   "data": [
@@ -36,8 +36,11 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "alex", "update": "vlSelectionResolve(\"alex_store\")"},
-    {"name": "morgan", "update": "vlSelectionResolve(\"morgan_store\")"},
+    {"name": "alex", "update": "vlSelectionResolve(\"alex_store\", \"union\")"},
+    {
+      "name": "morgan",
+      "update": "vlSelectionResolve(\"morgan_store\", \"union\")"
+    },
     {
       "name": "alex_x",
       "value": [],
@@ -73,16 +76,16 @@
         },
         {"events": {"signal": "alex_scale_trigger"}, "update": "[0, 0]"},
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "alex_translate_delta"},
           "update": "clampRange(panLinear(alex_translate_anchor.extent_x, alex_translate_delta.x / span(alex_translate_anchor.extent_x)), 0, width)"
         },
         {
           "events": {"signal": "alex_zoom_delta"},
           "update": "clampRange(zoomLinear(alex_x, alex_zoom_anchor.x, alex_zoom_delta), 0, width)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -130,16 +133,16 @@
         },
         {"events": {"signal": "alex_scale_trigger"}, "update": "[0, 0]"},
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "alex_translate_delta"},
           "update": "clampRange(panLinear(alex_translate_anchor.extent_y, alex_translate_delta.y / span(alex_translate_anchor.extent_y)), 0, height)"
         },
         {
           "events": {"signal": "alex_zoom_delta"},
           "update": "clampRange(zoomLinear(alex_y, alex_zoom_anchor.y, alex_zoom_delta), 0, height)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -254,7 +257,12 @@
     },
     {
       "name": "alex_modify",
-      "update": "modify(\"alex_store\", alex_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "alex_tuple"},
+          "update": "modify(\"alex_store\", alex_tuple, true)"
+        }
+      ]
     },
     {
       "name": "morgan_x",
@@ -291,16 +299,16 @@
         },
         {"events": {"signal": "morgan_scale_trigger"}, "update": "[0, 0]"},
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "morgan_translate_delta"},
           "update": "clampRange(panLinear(morgan_translate_anchor.extent_x, morgan_translate_delta.x / span(morgan_translate_anchor.extent_x)), 0, width)"
         },
         {
           "events": {"signal": "morgan_zoom_delta"},
           "update": "clampRange(zoomLinear(morgan_x, morgan_zoom_anchor.x, morgan_zoom_delta), 0, width)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -348,16 +356,16 @@
         },
         {"events": {"signal": "morgan_scale_trigger"}, "update": "[0, 0]"},
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "morgan_translate_delta"},
           "update": "clampRange(panLinear(morgan_translate_anchor.extent_y, morgan_translate_delta.y / span(morgan_translate_anchor.extent_y)), 0, height)"
         },
         {
           "events": {"signal": "morgan_zoom_delta"},
           "update": "clampRange(zoomLinear(morgan_y, morgan_zoom_anchor.y, morgan_zoom_delta), 0, height)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -472,7 +480,12 @@
     },
     {
       "name": "morgan_modify",
-      "update": "modify(\"morgan_store\", morgan_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "morgan_tuple"},
+          "update": "modify(\"morgan_store\", morgan_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -556,24 +569,25 @@
       "name": "marks",
       "type": "rect",
       "style": ["rect"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "fill": [
             {
-              "test": "!(length(data(\"alex_store\")) || length(data(\"morgan_store\"))) || ((vlSelectionTest(\"alex_store\", datum)) || (vlSelectionTest(\"morgan_store\", datum)))",
+              "test": "(!length(data(\"alex_store\")) || vlSelectionTest(\"alex_store\", datum)) || (!length(data(\"morgan_store\")) || vlSelectionTest(\"morgan_store\", datum))",
               "scale": "color",
               "field": "__count"
             },
             {"value": "grey"}
           ],
-          "tooltip": {
-            "signal": "{\"Origin\": ''+datum[\"Origin\"], \"Cylinders\": ''+datum[\"Cylinders\"], \"Count of Records\": format(datum[\"__count\"], \"\")}"
+          "description": {
+            "signal": "\"Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"]) + \"; Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"]) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Cylinders"},
-          "width": {"scale": "x", "band": true},
+          "width": {"scale": "x", "band": 1},
           "y": {"scale": "y", "field": "Origin"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     },
@@ -703,7 +717,6 @@
       "labelAlign": "right",
       "labelAngle": 270,
       "labelBaseline": "middle",
-      "labelOverlap": true,
       "zindex": 1
     },
     {
@@ -711,7 +724,6 @@
       "orient": "left",
       "grid": false,
       "title": "Origin",
-      "labelOverlap": true,
       "zindex": 1
     }
   ],
@@ -719,7 +731,6 @@
     {
       "fill": "color",
       "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
       "title": "Count of Records"
     }
   ]

@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 600,
   "title": {"text": "Seattle Weather, 2012-2015", "anchor": "start"},
@@ -10,20 +10,21 @@
     {
       "name": "source_0",
       "url": "data/seattle-weather.csv",
-      "format": {"type": "csv"}
+      "format": {"type": "csv", "parse": {"date": "date"}}
     },
     {
       "name": "data_0",
       "source": "source_0",
       "transform": [
         {
-          "type": "formula",
-          "as": "monthdate_date",
-          "expr": "datetime(0, month(datum[\"date\"]), date(datum[\"date\"]), 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["month", "date"],
+          "as": ["monthdate_date", "monthdate_date_end"]
         },
         {
           "type": "filter",
-          "expr": "!(length(data(\"brush_store\"))) || (vlSelectionTest(\"brush_store\", datum))"
+          "expr": "!length(data(\"brush_store\")) || vlSelectionTest(\"brush_store\", datum)"
         },
         {
           "type": "aggregate",
@@ -38,19 +39,19 @@
       "name": "data_1",
       "source": "source_0",
       "transform": [
-        {"type": "formula", "expr": "toDate(datum[\"date\"])", "as": "date"},
         {
           "type": "filter",
-          "expr": "!(length(data(\"click_store\"))) || (vlSelectionTest(\"click_store\", datum))"
+          "expr": "!length(data(\"click_store\")) || vlSelectionTest(\"click_store\", datum)"
         },
         {
-          "type": "formula",
-          "as": "monthdate_date",
-          "expr": "datetime(0, month(datum[\"date\"]), date(datum[\"date\"]), 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["month", "date"],
+          "as": ["monthdate_date", "monthdate_date_end"]
         },
         {
           "type": "filter",
-          "expr": "datum[\"precipitation\"] !== null && !isNaN(datum[\"precipitation\"]) && datum[\"monthdate_date\"] !== null && !isNaN(datum[\"monthdate_date\"]) && datum[\"temp_max\"] !== null && !isNaN(datum[\"temp_max\"])"
+          "expr": "isValid(datum[\"precipitation\"]) && isFinite(+datum[\"precipitation\"]) && (isDate(datum[\"monthdate_date\"]) || (isValid(datum[\"monthdate_date\"]) && isFinite(+datum[\"monthdate_date\"]))) && isValid(datum[\"temp_max\"]) && isFinite(+datum[\"temp_max\"])"
         }
       ]
     }
@@ -69,8 +70,14 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "brush", "update": "vlSelectionResolve(\"brush_store\")"},
-    {"name": "click", "update": "vlSelectionResolve(\"click_store\")"}
+    {
+      "name": "brush",
+      "update": "vlSelectionResolve(\"brush_store\", \"union\")"
+    },
+    {
+      "name": "click",
+      "update": "vlSelectionResolve(\"click_store\", \"union\", true, true)"
+    }
   ],
   "layout": {"padding": 20, "columns": 1, "bounds": "full", "align": "each"},
   "marks": [
@@ -122,16 +129,16 @@
               "update": "[scale(\"concat_0_x\", brush_monthdate_date[0]), scale(\"concat_0_x\", brush_monthdate_date[1])]"
             },
             {
+              "events": [{"source": "view", "type": "dblclick"}],
+              "update": "[0, 0]"
+            },
+            {
               "events": {"signal": "brush_translate_delta"},
               "update": "clampRange(panLinear(brush_translate_anchor.extent_x, brush_translate_delta.x / span(brush_translate_anchor.extent_x)), 0, width)"
             },
             {
               "events": {"signal": "brush_zoom_delta"},
               "update": "clampRange(zoomLinear(brush_x, brush_zoom_anchor.x, brush_zoom_delta), 0, width)"
-            },
-            {
-              "events": [{"source": "scope", "type": "dblclick"}],
-              "update": "[0, 0]"
             }
           ]
         },
@@ -242,7 +249,12 @@
         },
         {
           "name": "brush_modify",
-          "update": "modify(\"brush_store\", brush_tuple, true)"
+          "on": [
+            {
+              "events": {"signal": "brush_tuple"},
+              "update": "modify(\"brush_store\", brush_tuple, true)"
+            }
+          ]
         }
       ],
       "marks": [
@@ -291,6 +303,7 @@
           "name": "concat_0_marks",
           "type": "symbol",
           "style": ["point"],
+          "interactive": true,
           "from": {"data": "data_1"},
           "encode": {
             "update": {
@@ -298,14 +311,15 @@
               "fill": {"value": "transparent"},
               "stroke": [
                 {
-                  "test": "!(length(data(\"brush_store\"))) || (vlSelectionTest(\"brush_store\", datum))",
+                  "test": "!length(data(\"brush_store\")) || vlSelectionTest(\"brush_store\", datum)",
                   "scale": "color",
                   "field": "weather"
                 },
                 {"value": "lightgray"}
               ],
-              "tooltip": {
-                "signal": "{\"Weather\": ''+datum[\"weather\"], \"Precipitation\": format(datum[\"precipitation\"], \"\"), \"Date\": timeFormat(datum[\"monthdate_date\"], '%b'), \"Maximum Daily Temperature (C)\": format(datum[\"temp_max\"], \"\")}"
+              "ariaRoleDescription": {"value": "point"},
+              "description": {
+                "signal": "\"Weather: \" + (isValid(datum[\"weather\"]) ? datum[\"weather\"] : \"\"+datum[\"weather\"]) + \"; Precipitation: \" + (format(datum[\"precipitation\"], \"\")) + \"; Date: \" + (timeFormat(datum[\"monthdate_date\"], '%b')) + \"; Maximum Daily Temperature (C): \" + (format(datum[\"temp_max\"], \"\"))"
               },
               "x": {"scale": "concat_0_x", "field": "monthdate_date"},
               "y": {"scale": "concat_0_y", "field": "temp_max"},
@@ -360,39 +374,16 @@
         {
           "scale": "concat_0_x",
           "orient": "bottom",
-          "grid": false,
-          "title": "Date",
-          "labelFlush": true,
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(width/40)"},
-          "encode": {
-            "labels": {
-              "update": {"text": {"signal": "timeFormat(datum.value, '%b')"}}
-            }
-          },
-          "zindex": 1
-        },
-        {
-          "scale": "concat_0_x",
-          "orient": "bottom",
           "gridScale": "concat_0_y",
           "grid": true,
           "tickCount": {"signal": "ceil(width/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
           "zindex": 0
-        },
-        {
-          "scale": "concat_0_y",
-          "orient": "left",
-          "grid": false,
-          "title": "Maximum Daily Temperature (C)",
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(concat_0_height/40)"},
-          "zindex": 1
         },
         {
           "scale": "concat_0_y",
@@ -402,9 +393,30 @@
           "tickCount": {"signal": "ceil(concat_0_height/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "concat_0_x",
+          "orient": "bottom",
+          "grid": false,
+          "title": "Date",
+          "format": "%b",
+          "labelFlush": true,
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(width/40)"},
+          "zindex": 0
+        },
+        {
+          "scale": "concat_0_y",
+          "orient": "left",
+          "grid": false,
+          "title": "Maximum Daily Temperature (C)",
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(concat_0_height/40)"},
           "zindex": 0
         }
       ]
@@ -429,7 +441,7 @@
               "force": true
             },
             {
-              "events": [{"source": "scope", "type": "dblclick"}],
+              "events": [{"source": "view", "type": "dblclick"}],
               "update": "null"
             }
           ]
@@ -447,14 +459,19 @@
               "update": "event.shiftKey"
             },
             {
-              "events": [{"source": "scope", "type": "dblclick"}],
+              "events": [{"source": "view", "type": "dblclick"}],
               "update": "false"
             }
           ]
         },
         {
           "name": "click_modify",
-          "update": "modify(\"click_store\", click_toggle ? null : click_tuple, click_toggle ? null : true, click_toggle ? click_tuple : null)"
+          "on": [
+            {
+              "events": {"signal": "click_tuple"},
+              "update": "modify(\"click_store\", click_toggle ? null : click_tuple, click_toggle ? null : true, click_toggle ? click_tuple : null)"
+            }
+          ]
         }
       ],
       "marks": [
@@ -462,24 +479,26 @@
           "name": "concat_1_marks",
           "type": "rect",
           "style": ["bar"],
+          "interactive": true,
           "from": {"data": "data_0"},
           "encode": {
             "update": {
               "fill": [
                 {
-                  "test": "!(length(data(\"click_store\"))) || (vlSelectionTest(\"click_store\", datum))",
+                  "test": "!length(data(\"click_store\")) || vlSelectionTest(\"click_store\", datum)",
                   "scale": "color",
                   "field": "weather"
                 },
                 {"value": "lightgray"}
               ],
-              "tooltip": {
-                "signal": "{\"weather\": ''+datum[\"weather\"], \"Count of Records\": format(datum[\"__count\"], \"\"), \"Weather\": ''+datum[\"weather\"]}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"weather: \" + (isValid(datum[\"weather\"]) ? datum[\"weather\"] : \"\"+datum[\"weather\"]) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\")) + \"; Weather: \" + (isValid(datum[\"weather\"]) ? datum[\"weather\"] : \"\"+datum[\"weather\"])"
               },
               "x": {"scale": "concat_1_x", "field": "__count"},
               "x2": {"scale": "concat_1_x", "value": 0},
               "y": {"scale": "concat_1_y", "field": "weather"},
-              "height": {"scale": "concat_1_y", "band": true}
+              "height": {"scale": "concat_1_y", "band": 1}
             }
           }
         }
@@ -488,24 +507,25 @@
         {
           "scale": "concat_1_x",
           "orient": "bottom",
-          "grid": false,
-          "title": "Count of Records",
-          "labelFlush": true,
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(width/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "concat_1_x",
-          "orient": "bottom",
           "gridScale": "concat_1_y",
           "grid": true,
           "tickCount": {"signal": "ceil(width/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "concat_1_x",
+          "orient": "bottom",
+          "grid": false,
+          "title": "Count of Records",
+          "labelFlush": true,
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(width/40)"},
           "zindex": 0
         },
         {
@@ -513,7 +533,7 @@
           "orient": "left",
           "grid": false,
           "title": "Weather",
-          "zindex": 1
+          "zindex": 0
         }
       ]
     }
@@ -543,7 +563,6 @@
       "type": "linear",
       "domain": [-5, 40],
       "range": [{"signal": "concat_0_height"}, 0],
-      "nice": true,
       "zero": true
     },
     {
@@ -567,7 +586,6 @@
     {
       "title": "Weather",
       "stroke": "color",
-      "gradientLength": {"signal": "clamp(concat_0_height, 64, 200)"},
       "symbolType": "circle",
       "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}},
       "fill": "color"
@@ -575,7 +593,6 @@
     {
       "title": "Precipitation",
       "size": "size",
-      "gradientLength": {"signal": "clamp(concat_0_height, 64, 200)"},
       "symbolType": "circle",
       "encode": {
         "symbols": {

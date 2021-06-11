@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": {"url": "data/barley.json"},
   "layer": [
     {
@@ -20,37 +20,37 @@
           "as": "lower_yield"
         }
       ],
-      "layer": [
-        {
-          "mark": {"type": "rule", "style": "errorbar-rule"},
-          "encoding": {
-            "x": {
-              "field": "lower_yield",
-              "type": "quantitative",
-              "title": "yield",
-              "scale": {"zero": false}
-            },
-            "x2": {"field": "upper_yield", "type": "quantitative"},
-            "tooltip": [
-              {
-                "field": "center_yield",
-                "type": "quantitative",
-                "title": "Mean of yield"
-              },
-              {
-                "field": "upper_yield",
-                "type": "quantitative",
-                "title": "Mean + stderr of yield"
-              },
-              {
-                "field": "lower_yield",
-                "type": "quantitative",
-                "title": "Mean - stderr of yield"
-              }
-            ]
+      "mark": {
+        "type": "rule",
+        "ariaRoleDescription": "errorbar",
+        "style": "errorbar-rule"
+      },
+      "encoding": {
+        "x": {
+          "field": "lower_yield",
+          "type": "quantitative",
+          "title": "yield",
+          "scale": {"zero": false}
+        },
+        "x2": {"field": "upper_yield"},
+        "tooltip": [
+          {
+            "field": "center_yield",
+            "type": "quantitative",
+            "title": "Mean of yield"
+          },
+          {
+            "field": "upper_yield",
+            "type": "quantitative",
+            "title": "Mean + stderr of yield"
+          },
+          {
+            "field": "lower_yield",
+            "type": "quantitative",
+            "title": "Mean - stderr of yield"
           }
-        }
-      ]
+        ]
+      }
     },
     {
       "mark": {"type": "point", "filled": true, "color": "black"},

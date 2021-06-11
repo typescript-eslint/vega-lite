@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A simple bar chart with embedded data that uses a filter and calculate.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -27,8 +27,16 @@
         {"type": "formula", "expr": "2*datum.b", "as": "b2"},
         {"type": "filter", "expr": "datum.b2 > 60"},
         {
+          "type": "stack",
+          "groupby": ["a"],
+          "field": "b2",
+          "sort": {"field": [], "order": []},
+          "as": ["b2_start", "b2_end"],
+          "offset": "zero"
+        },
+        {
           "type": "filter",
-          "expr": "datum[\"b2\"] !== null && !isNaN(datum[\"b2\"])"
+          "expr": "isValid(datum[\"b2\"]) && isFinite(+datum[\"b2\"])"
         }
       ]
     }
@@ -49,13 +57,14 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"b2\": format(datum[\"b2\"], \"\"), \"a\": ''+datum[\"a\"]}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"b2: \" + (format(datum[\"b2\"], \"\")) + \"; a: \" + (isValid(datum[\"a\"]) ? datum[\"a\"] : \"\"+datum[\"a\"])"
           },
           "x": {"scale": "x", "field": "a"},
-          "width": {"scale": "x", "band": true},
-          "y": {"scale": "y", "field": "b2"},
-          "y2": {"scale": "y", "value": 0}
+          "width": {"scale": "x", "band": 1},
+          "y": {"scale": "y", "field": "b2_end"},
+          "y2": {"scale": "y", "field": "b2_start"}
         }
       }
     }
@@ -72,33 +81,13 @@
     {
       "name": "y",
       "type": "linear",
-      "domain": {"data": "data_0", "field": "b2"},
+      "domain": {"data": "data_0", "fields": ["b2_start", "b2_end"]},
       "range": [{"signal": "height"}, 0],
       "nice": true,
       "zero": true
     }
   ],
   "axes": [
-    {
-      "scale": "x",
-      "orient": "bottom",
-      "grid": false,
-      "title": "a",
-      "labelAlign": "right",
-      "labelAngle": 270,
-      "labelBaseline": "middle",
-      "labelOverlap": true,
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "b2",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
     {
       "scale": "y",
       "orient": "left",
@@ -107,9 +96,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "a",
+      "labelAlign": "right",
+      "labelAngle": 270,
+      "labelBaseline": "middle",
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "b2",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

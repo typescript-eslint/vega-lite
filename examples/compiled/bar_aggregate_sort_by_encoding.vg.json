@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A bar chart that sorts the y-values by the x-values.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -22,6 +22,10 @@
           "ops": ["sum"],
           "fields": ["people"],
           "as": ["sum_people"]
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"sum_people\"]) && isFinite(+datum[\"sum_people\"])"
         }
       ]
     }
@@ -42,13 +46,14 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"age\": ''+datum[\"age\"], \"population\": format(datum[\"sum_people\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; population: \" + (format(datum[\"sum_people\"], \"\"))"
           },
           "x": {"scale": "x", "field": "sum_people"},
           "x2": {"scale": "x", "value": 0},
           "y": {"scale": "y", "field": "age"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     }
@@ -68,7 +73,7 @@
       "domain": {
         "data": "source_0",
         "field": "age",
-        "sort": {"op": "sum", "field": "people"}
+        "sort": {"op": "sum", "field": "people", "order": "descending"}
       },
       "range": {"step": {"signal": "y_step"}},
       "paddingInner": 0.1,
@@ -79,33 +84,27 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "population",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
     },
     {
-      "scale": "y",
-      "orient": "left",
+      "scale": "x",
+      "orient": "bottom",
       "grid": false,
-      "title": "age",
+      "title": "population",
+      "labelFlush": true,
       "labelOverlap": true,
-      "zindex": 1
-    }
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {"scale": "y", "orient": "left", "grid": false, "title": "age", "zindex": 0}
   ]
 }

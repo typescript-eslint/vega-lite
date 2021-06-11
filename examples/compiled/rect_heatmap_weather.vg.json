@@ -1,34 +1,43 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "title": {
-    "text": "2010 Daily Max Temperature (F) in Seattle, WA",
+    "text": "Daily Max Temperatures (C) in Seattle, WA",
     "frame": "group"
   },
   "style": "cell",
   "data": [
     {
       "name": "source_0",
-      "url": "data/seattle-temps.csv",
-      "format": {"type": "csv", "parse": {"date": "date", "temp": "number"}},
+      "url": "data/seattle-weather.csv",
+      "format": {
+        "type": "csv",
+        "parse": {"date": "date", "temp_max": "number"}
+      },
       "transform": [
         {
-          "type": "formula",
-          "as": "date_date",
-          "expr": "datetime(0, 0, date(datum[\"date\"]), 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["date"],
+          "as": ["date_date", "date_date_end"]
         },
         {
-          "type": "formula",
-          "as": "month_date",
-          "expr": "datetime(0, month(datum[\"date\"]), 1, 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["month"],
+          "as": ["month_date", "month_date_end"]
         },
         {
           "type": "aggregate",
           "groupby": ["date_date", "month_date"],
           "ops": ["max"],
-          "fields": ["temp"],
-          "as": ["max_temp"]
+          "fields": ["temp_max"],
+          "as": ["max_temp_max"]
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"max_temp_max\"]) && isFinite(+datum[\"max_temp_max\"])"
         }
       ]
     }
@@ -47,14 +56,14 @@
       "from": {"data": "source_0"},
       "encode": {
         "update": {
-          "fill": {"scale": "color", "field": "max_temp"},
-          "tooltip": {
-            "signal": "{\"Day\": timeFormat(datum[\"date_date\"], '%e'), \"Month\": timeFormat(datum[\"month_date\"], '%b'), \"Max of temp\": format(datum[\"max_temp\"], \"\")}"
+          "fill": {"scale": "color", "field": "max_temp_max"},
+          "description": {
+            "signal": "\"Day: \" + (timeFormat(datum[\"date_date\"], '%e')) + \"; Month: \" + (timeFormat(datum[\"month_date\"], timeUnitSpecifier([\"month\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; Max of temp_max: \" + (format(datum[\"max_temp_max\"], \"\"))"
           },
           "x": {"scale": "x", "field": "date_date"},
-          "width": {"scale": "x", "band": true},
+          "width": {"scale": "x", "band": 1},
           "y": {"scale": "y", "field": "month_date"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     }
@@ -79,7 +88,7 @@
     {
       "name": "color",
       "type": "linear",
-      "domain": {"data": "source_0", "field": "max_temp"},
+      "domain": {"data": "source_0", "field": "max_temp_max"},
       "range": "heatmap",
       "interpolate": "hcl",
       "zero": false
@@ -91,13 +100,9 @@
       "orient": "bottom",
       "grid": false,
       "title": "Day",
+      "format": "%e",
       "labelAngle": 0,
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%e')"}}
-        }
-      },
-      "labelAlign": "center",
+      "formatType": "time",
       "labelBaseline": "top",
       "labelOverlap": true,
       "zindex": 1
@@ -107,21 +112,16 @@
       "orient": "left",
       "grid": false,
       "title": "Month",
-      "labelOverlap": true,
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%b')"}}
-        }
+      "format": {
+        "signal": "timeUnitSpecifier([\"month\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
       },
+      "formatType": "time",
+      "labelOverlap": true,
       "zindex": 1
     }
   ],
   "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle"
-    }
+    {"fill": "color", "gradientLength": {"signal": "clamp(height, 64, 200)"}}
   ],
   "config": {"axis": {"domain": false}, "style": {"cell": {"strokeWidth": 0}}}
 }

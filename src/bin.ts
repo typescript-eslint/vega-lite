@@ -1,9 +1,8 @@
 import {isBoolean, isObject} from 'vega-util';
-import {BinParams} from './bin';
 import {
-  Channel,
   COLOR,
   COLUMN,
+  ExtendedChannel,
   FILL,
   FILLOPACITY,
   OPACITY,
@@ -11,11 +10,13 @@ import {
   SHAPE,
   SIZE,
   STROKE,
+  STROKEDASH,
   STROKEOPACITY,
   STROKEWIDTH
 } from './channel';
 import {normalizeBin} from './channeldef';
-import {keys, varName} from './util';
+import {ParameterExtent} from './selection';
+import {entries, keys, varName} from './util';
 
 export interface BaseBin {
   /**
@@ -47,7 +48,7 @@ export interface BaseBin {
    *
    * @minItems 1
    */
-  divide?: number[];
+  divide?: [number, number];
   /**
    * Maximum number of bins.
    *
@@ -59,11 +60,13 @@ export interface BaseBin {
   /**
    * A value in the binned domain at which to anchor the bins, shifting the bin boundaries if necessary to ensure that a boundary aligns with the anchor value.
    *
-   * __Default Value:__ the minimum bin extent value
+   * __Default value:__ the minimum bin extent value
    */
   anchor?: number;
   /**
-   * If true (the default), attempts to make the bin boundaries use human-friendly boundaries, such as multiples of ten.
+   * If true, attempts to make the bin boundaries use human-friendly boundaries, such as multiples of ten.
+   *
+   * __Default value:__ `true`
    */
   nice?: boolean;
 }
@@ -74,16 +77,18 @@ export interface BaseBin {
 export interface BinParams extends BaseBin {
   /**
    * A two-element (`[min, max]`) array indicating the range of desired bin values.
-   * @minItems 2
-   * @maxItems 2
    */
-  extent?: number[]; // VgBinTransform uses a different extent so we need to pull this out.
+  extent?: BinExtent; // VgBinTransform uses a different extent so we need to pull this out.
 
   /**
-   * When set to true, Vega-Lite treats the input data as already binned.
+   * When set to `true`, Vega-Lite treats the input data as already binned.
    */
   binned?: boolean;
 }
+
+export type Bin = boolean | BinParams | 'binned' | null;
+
+export type BinExtent = [number, number] | ParameterExtent;
 
 /**
  * Create a key for the bin configuration. Not for prebinned bin.
@@ -95,7 +100,7 @@ export function binToString(bin: BinParams | true) {
   return (
     'bin' +
     keys(bin)
-      .map(p => varName(`_${p}_${bin[p]}`))
+      .map(p => (isParameterExtent(bin[p]) ? varName(`_${p}_${entries(bin[p])}`) : varName(`_${p}_${bin[p]}`)))
       .join('')
   );
 }
@@ -110,15 +115,19 @@ export function isBinning(bin: BinParams | boolean | 'binned'): bin is BinParams
 /**
  * The data is already binned and so Vega-Lite should not bin it again.
  */
-export function isBinned(bin: BinParams | boolean | 'binned'): bin is 'binned' {
-  return bin === 'binned' || (isBinParams(bin) && bin.binned);
+export function isBinned(bin: BinParams | boolean | 'binned'): bin is 'binned' | BinParams {
+  return bin === 'binned' || (isBinParams(bin) && bin.binned === true);
 }
 
 export function isBinParams(bin: BinParams | boolean | 'binned'): bin is BinParams {
   return isObject(bin);
 }
 
-export function autoMaxBins(channel: Channel): number {
+export function isParameterExtent(extent: BinExtent): extent is ParameterExtent {
+  return extent?.['param'];
+}
+
+export function autoMaxBins(channel?: ExtendedChannel): number {
   switch (channel) {
     case ROW:
     case COLUMN:
@@ -131,9 +140,11 @@ export function autoMaxBins(channel: Channel): number {
     case FILLOPACITY:
     case STROKEOPACITY:
     // Facets and Size shouldn't have too many bins
-    // We choose 6 like shape to simplify the rule
+    // We choose 6 like shape to simplify the rule [falls through]
     case SHAPE:
       return 6; // Vega's "shape" has 6 distinct values
+    case STROKEDASH:
+      return 4; // We only provide 5 different stroke dash values (but 4 is more effective)
     default:
       return 10;
   }

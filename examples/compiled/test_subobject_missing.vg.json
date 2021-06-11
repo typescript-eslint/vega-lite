@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -38,18 +38,18 @@
       "name": "marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"rank\"]", "order": "descending"},
+      "sort": {"field": "datum[\"rank\"]"},
       "from": {"data": "data_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"rank\": ''+datum[\"rank\"], \"options.price\": format(datum[\"options.price\"], \"\")}"
+          "description": {
+            "signal": "\"rank: \" + (isValid(datum[\"rank\"]) ? datum[\"rank\"] : \"\"+datum[\"rank\"]) + \"; options.price: \" + (format(datum[\"options.price\"], \"\"))"
           },
           "x": {"scale": "x", "field": "rank"},
           "y": {"scale": "y", "field": "options\\.price"},
           "defined": {
-            "signal": "datum[\"options.price\"] !== null && !isNaN(datum[\"options.price\"])"
+            "signal": "isValid(datum[\"options.price\"]) && isFinite(+datum[\"options.price\"])"
           }
         }
       }
@@ -74,6 +74,20 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
@@ -81,8 +95,7 @@
       "labelAlign": "right",
       "labelAngle": 270,
       "labelBaseline": "middle",
-      "labelOverlap": true,
-      "zindex": 1
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -91,19 +104,6 @@
       "title": "options.price",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ]

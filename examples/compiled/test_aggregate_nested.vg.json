@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -58,9 +58,13 @@
           "type": "stack",
           "groupby": ["properties\\.variety"],
           "field": "sum_properties\\.yield",
-          "sort": {"field": ["properties\\.site"], "order": ["descending"]},
+          "sort": {"field": ["properties\\.site"], "order": ["ascending"]},
           "as": ["sum_properties.yield_start", "sum_properties.yield_end"],
           "offset": "zero"
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"sum_properties.yield\"]) && isFinite(+datum[\"sum_properties.yield\"])"
         }
       ]
     }
@@ -81,13 +85,14 @@
       "encode": {
         "update": {
           "fill": {"scale": "color", "field": "properties\\.site"},
-          "tooltip": {
-            "signal": "{\"properties.variety\": ''+datum[\"properties.variety\"], \"Sum of properties.yield\": format(datum[\"sum_properties.yield\"], \"\"), \"site\": ''+datum[\"properties.site\"]}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"properties.variety: \" + (isValid(datum[\"properties.variety\"]) ? datum[\"properties.variety\"] : \"\"+datum[\"properties.variety\"]) + \"; Sum of properties.yield: \" + (format(datum[\"sum_properties.yield\"], \"\")) + \"; site: \" + (isValid(datum[\"properties.site\"]) ? datum[\"properties.site\"] : \"\"+datum[\"properties.site\"])"
           },
           "x": {"scale": "x", "field": "sum_properties\\.yield_end"},
           "x2": {"scale": "x", "field": "sum_properties\\.yield_start"},
           "y": {"scale": "y", "field": "properties\\.variety"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     }
@@ -127,24 +132,25 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Sum of properties.yield",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Sum of properties.yield",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
       "zindex": 0
     },
     {
@@ -152,16 +158,8 @@
       "orient": "left",
       "grid": false,
       "title": "properties.variety",
-      "zindex": 1
+      "zindex": 0
     }
   ],
-  "legends": [
-    {
-      "title": "site",
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "encode": {"symbols": {"update": {"shape": {"value": "square"}}}}
-    }
-  ]
+  "legends": [{"title": "site", "fill": "color", "symbolType": "square"}]
 }

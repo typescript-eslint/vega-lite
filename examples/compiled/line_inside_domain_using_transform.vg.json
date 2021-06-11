@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -34,18 +34,18 @@
       "name": "marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"wavelength\"]", "order": "descending"},
+      "sort": {"field": "datum[\"wavelength\"]"},
       "from": {"data": "data_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"wavelength\": format(datum[\"wavelength\"], \"\"), \"power\": format(datum[\"power\"], \"\")}"
+          "description": {
+            "signal": "\"wavelength: \" + (format(datum[\"wavelength\"], \"\")) + \"; power: \" + (format(datum[\"power\"], \"\"))"
           },
           "x": {"scale": "x", "field": "wavelength"},
           "y": {"scale": "y", "field": "power"},
           "defined": {
-            "signal": "datum[\"wavelength\"] !== null && !isNaN(datum[\"wavelength\"]) && datum[\"power\"] !== null && !isNaN(datum[\"power\"])"
+            "signal": "isValid(datum[\"wavelength\"]) && isFinite(+datum[\"wavelength\"]) && isValid(datum[\"power\"]) && isFinite(+datum[\"power\"])"
           }
         }
       }
@@ -57,7 +57,6 @@
       "type": "linear",
       "domain": [300, 450],
       "range": [0, {"signal": "width"}],
-      "nice": true,
       "zero": false
     },
     {
@@ -73,34 +72,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "wavelength",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "power",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -110,9 +91,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "wavelength",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "power",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

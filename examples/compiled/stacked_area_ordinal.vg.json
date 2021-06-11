@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -12,9 +12,10 @@
       "format": {"type": "json", "parse": {"Year": "date"}},
       "transform": [
         {
-          "type": "formula",
-          "as": "year_Year",
-          "expr": "datetime(year(datum[\"Year\"]), 0, 1, 0, 0, 0, 0)"
+          "field": "Year",
+          "type": "timeunit",
+          "units": ["year"],
+          "as": ["year_Year", "year_Year_end"]
         },
         {
           "type": "aggregate",
@@ -64,21 +65,21 @@
           "name": "marks",
           "type": "area",
           "style": ["area"],
-          "sort": {"field": "datum[\"year_Year\"]", "order": "descending"},
+          "sort": {"field": "datum[\"year_Year\"]"},
           "from": {"data": "faceted_path_main"},
           "encode": {
             "update": {
               "interpolate": {"value": "monotone"},
               "orient": {"value": "vertical"},
               "fill": {"scale": "color", "field": "Cylinders"},
-              "tooltip": {
-                "signal": "{\"Year (year)\": timeFormat(datum[\"year_Year\"], '%Y'), \"Sum of Weight_in_lbs\": format(datum[\"sum_Weight_in_lbs\"], \"\"), \"Cylinders\": ''+datum[\"Cylinders\"]}"
+              "description": {
+                "signal": "\"Year (year): \" + (timeFormat(datum[\"year_Year\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; Sum of Weight_in_lbs: \" + (format(datum[\"sum_Weight_in_lbs\"], \"\")) + \"; Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"])"
               },
               "x": {"scale": "x", "field": "year_Year"},
               "y": {"scale": "y", "field": "sum_Weight_in_lbs_end"},
               "y2": {"scale": "y", "field": "sum_Weight_in_lbs_start"},
               "defined": {
-                "signal": "datum[\"year_Year\"] !== null && !isNaN(datum[\"year_Year\"]) && datum[\"sum_Weight_in_lbs\"] !== null && !isNaN(datum[\"sum_Weight_in_lbs\"])"
+                "signal": "isValid(datum[\"year_Year\"]) && isFinite(+datum[\"year_Year\"]) && isValid(datum[\"sum_Weight_in_lbs\"]) && isFinite(+datum[\"sum_Weight_in_lbs\"])"
               }
             }
           }
@@ -116,39 +117,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Year (year)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%Y')"}}
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Sum of Weight_in_lbs",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -158,18 +136,34 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Year (year)",
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Sum of Weight_in_lbs",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "zindex": 0
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "Cylinders"
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "circle", "title": "Cylinders"}]
 }

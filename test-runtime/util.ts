@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import {sync as mkdirp} from 'mkdirp';
-import {Page} from 'puppeteer';
+import {Page} from 'puppeteer/lib/cjs/puppeteer/common/Page';
+import {promisify} from 'util';
 import {stringValue} from 'vega-util';
 import {SelectionResolution, SelectionType} from '../src/selection';
 import {NormalizedLayerSpec, NormalizedUnitSpec, TopLevelSpec} from '../src/spec';
@@ -9,7 +10,7 @@ const generate = process.env.VL_GENERATE_TESTS;
 const output = 'test-runtime/resources';
 
 export type ComposeType = 'unit' | 'repeat' | 'facet';
-export const selectionTypes: SelectionType[] = ['single', 'multi', 'interval'];
+export const selectionTypes: SelectionType[] = ['point', 'interval'];
 export const compositeTypes: ComposeType[] = ['repeat', 'facet'];
 export const resolutions: SelectionResolution[] = ['union', 'intersect'];
 
@@ -50,7 +51,7 @@ export const tuples = [
 ];
 
 const UNIT_NAMES = {
-  repeat: ['child__repeat_row_d', 'child__repeat_row_e', 'child__repeat_row_f'],
+  repeat: ['child__row_d', 'child__row_e', 'child__row_f'],
   facet: ['child__facet_row_0', 'child__facet_row_1', 'child__facet_row_2']
 };
 
@@ -70,42 +71,63 @@ export const hits = {
   },
 
   interval: {
-    drag: [[5, 14], [18, 26]],
+    drag: [
+      [5, 14],
+      [18, 26]
+    ],
     drag_clear: [[5], [16]],
-    translate: [[6, 16], [24, 8]],
+    translate: [
+      [6, 16],
+      [24, 8]
+    ],
 
-    bins: [[4, 8], [2, 7]],
+    bins: [
+      [4, 8],
+      [2, 7]
+    ],
     bins_clear: [[5], [9]],
-    bins_translate: [[5, 7], [1, 8]],
+    bins_translate: [
+      [5, 7],
+      [1, 8]
+    ],
 
-    repeat: [[8, 29], [11, 26], [7, 21]],
+    repeat: [
+      [8, 29],
+      [11, 26],
+      [7, 21]
+    ],
     repeat_clear: [[8], [11], [17]],
 
-    facet: [[1, 9], [2, 8], [4, 10]],
+    facet: [
+      [1, 9],
+      [2, 8],
+      [4, 10]
+    ],
     facet_clear: [[3], [5], [7]]
   }
 };
 
-function base(iter: number, sel: any, opts: any = {}): NormalizedUnitSpec | NormalizedLayerSpec {
-  const data = {values: opts.values || tuples};
+function base(iter: number, selDef: any, opts: any = {}): NormalizedUnitSpec | NormalizedLayerSpec {
+  const data = {values: opts.values ?? tuples};
   const x = {field: 'a', type: 'quantitative', ...opts.x};
   const y = {field: 'b', type: 'quantitative', ...opts.y};
   const color = {field: 'c', type: 'nominal', ...opts.color};
   const size = {value: 100, ...opts.size};
-  const selection = {sel};
+  const {bind, ...select} = selDef;
+  const params = [{name: 'sel', select, bind}];
   const mark = 'circle';
 
   if (iter % 2 === 0) {
     return {
       data,
-      selection,
+      params,
       mark,
       encoding: {
         x,
         y,
         size,
         color: {
-          condition: {selection: 'sel', ...color},
+          condition: {param: 'sel', ...color},
           value: 'grey'
         }
       }
@@ -115,7 +137,7 @@ function base(iter: number, sel: any, opts: any = {}): NormalizedUnitSpec | Norm
       data,
       layer: [
         {
-          selection,
+          params,
           mark,
           encoding: {
             x,
@@ -126,7 +148,7 @@ function base(iter: number, sel: any, opts: any = {}): NormalizedUnitSpec | Norm
           }
         },
         {
-          transform: [{filter: {selection: 'sel'}}],
+          transform: [{filter: {param: 'sel'}}],
           mark,
           encoding: {x, y, size, color}
         }
@@ -138,10 +160,16 @@ function base(iter: number, sel: any, opts: any = {}): NormalizedUnitSpec | Norm
 export function spec(compose: ComposeType, iter: number, sel: any, opts: any = {}): TopLevelSpec {
   const {data, ...specification} = base(iter, sel, opts);
   const resolve = opts.resolve;
-  const config = {scale: {rangeStep: 21}}; // A lot of magic number in this file uses the old rangeStep = 21
+  const config = {
+    // reduce changes in generated SVGs
+    aria: false,
+
+    // A lot of magic numbers in this file use the old step = 21
+    view: {discreteWidth: {step: 21}, discreteHeight: {step: 21}}
+  };
   switch (compose) {
     case 'unit':
-      return {data, ...specification, config};
+      return {data, ...specification, config} as TopLevelSpec;
     case 'facet':
       return {
         data,
@@ -149,7 +177,7 @@ export function spec(compose: ComposeType, iter: number, sel: any, opts: any = {
         spec: specification,
         resolve,
         config
-      };
+      } as TopLevelSpec;
     case 'repeat':
       return {
         data,
@@ -157,10 +185,8 @@ export function spec(compose: ComposeType, iter: number, sel: any, opts: any = {
         spec: specification,
         resolve,
         config
-      };
+      } as TopLevelSpec;
   }
-
-  return null;
 }
 
 export function unitNameRegex(specType: ComposeType, idx: number) {
@@ -169,7 +195,7 @@ export function unitNameRegex(specType: ComposeType, idx: number) {
 }
 
 export function parentSelector(compositeType: ComposeType, index: number) {
-  return compositeType === 'facet' ? `cell > g:nth-child(${index + 1})` : UNIT_NAMES.repeat[index] + '_group';
+  return compositeType === 'facet' ? `cell > g:nth-child(${index + 1})` : `${UNIT_NAMES.repeat[index]}_group`;
 }
 
 export function brush(key: string, idx: number, parent?: string, targetBrush?: boolean) {
@@ -192,14 +218,17 @@ export function embedFn(page: Page) {
   };
 }
 
+const readFileAsync = promisify(fs.readFile);
+const writeFileAsync = promisify(fs.writeFile);
+
 export async function svg(page: Page, path: string, filename: string) {
-  const svgString = await page.evaluate(
-    `new Promise((resolve, reject) => { vega.resetSVGClipId(); view.runAsync().then(view => view.toSVG().then(resolve)) })`
-  );
+  const svgString = (await page.evaluate(
+    `(async () => { vega.resetSVGClipId(); await view.runAsync(); return await view.toSVG() })()`
+  )) as string;
 
   if (generate) {
     mkdirp((path = `${output}/${path}`));
-    fs.writeFileSync(`${path}/${filename}.svg`, svgString);
+    await writeFileAsync(`${path}/${filename}.svg`, svgString);
   }
 
   return svgString;
@@ -208,7 +237,15 @@ export async function svg(page: Page, path: string, filename: string) {
 export function testRenderFn(page: Page, path: string) {
   return async (filename: string) => {
     const render = await svg(page, path, filename);
-    const file = fs.readFileSync(`${output}/${path}/${filename}.svg`);
+    const file = await readFileAsync(`${output}/${path}/${filename}.svg`);
     expect(render).toBe(file.toString());
   };
+}
+
+export function fill<T>(val: T, len: number) {
+  const arr = new Array<T>(len);
+  for (let i = 0; i < len; ++i) {
+    arr[i] = val;
+  }
+  return arr;
 }

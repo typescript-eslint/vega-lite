@@ -1,33 +1,71 @@
-import {
+import type {
   AggregateOp,
-  Align,
+  BandScale,
+  BaseScale,
+  BinOrdinalScale,
+  ColorValueRef,
   Compare as VgCompare,
   ExprRef as VgExprRef,
-  Field as VgField,
-  FlattenTransform as VgFlattenTransform,
-  FoldTransform as VgFoldTransform,
-  FontStyle as VgFontStyle,
-  FontWeight as VgFontWeight,
+  GeoShapeTransform as VgGeoShapeTransform,
+  IdentityScale,
   LayoutAlign,
-  Orientation,
+  LinearScale,
+  LogScale,
+  Mark,
+  MarkConfig,
+  NumericValueRef,
+  OrdinalScale,
+  PointScale,
+  PowScale,
   ProjectionType,
-  SampleTransform as VgSampleTransform,
+  QuantileScale,
+  QuantizeScale,
+  RangeBand,
+  RangeRaw,
+  RangeScheme,
+  ScaleData,
+  ScaleDataRef,
+  ScaledValueRef,
+  ScaleMultiDataRef,
+  ScaleMultiFieldsRef,
+  SequentialScale,
   SignalRef,
   SortField as VgSortField,
-  TextBaseline as VgTextBaseline,
+  SqrtScale,
+  SymLogScale,
+  ThresholdScale,
+  TimeInterval,
+  TimeIntervalStep,
+  TimeScale,
   Title as VgTitle,
+  Transforms as VgTransform,
   UnionSortField as VgUnionSortField
 } from 'vega';
 import {isArray} from 'vega-util';
-import {BaseBin} from './bin';
-import {NiceTime, ScaleType} from './scale';
-import {StackOffset} from './stack';
-import {WindowOnlyOp} from './transform';
-import {Flag, flagKeys} from './util';
+import {Value} from './channeldef';
+import {ExprRef} from './expr';
+import {SortOrder} from './sort';
+import {Dict, Flag, keys} from './util';
 
-export {VgSortField, VgUnionSortField, VgCompare, VgTitle, LayoutAlign, ProjectionType, VgExprRef};
+export type {VgSortField, VgUnionSortField, VgCompare, VgTitle, LayoutAlign, ProjectionType, VgExprRef};
 
-export type Color = string;
+// TODO: make recursive (e.g. with https://stackoverflow.com/a/64900252/214950 but needs https://github.com/vega/ts-json-schema-generator/issues/568)
+export type MappedExclude<T, E> = {
+  [P in keyof T]: Exclude<T[P], E>;
+};
+
+export type MapExcludeAndKeepSignalAs<T, E, S extends ExprRef | SignalRef> = {
+  [P in keyof T]: SignalRef extends T[P] ? Exclude<T[P], E> | S : Exclude<T[P], E>;
+};
+
+// Remove ValueRefs from mapped types
+export type MappedExcludeValueRef<T> = MappedExclude<T, ScaledValueRef<any> | NumericValueRef | ColorValueRef>;
+
+export type MapExcludeValueRefAndReplaceSignalWith<T, S extends ExprRef | SignalRef> = MapExcludeAndKeepSignalAs<
+  T,
+  ScaledValueRef<any> | NumericValueRef | ColorValueRef,
+  S
+>;
 
 export interface VgData {
   name: string;
@@ -35,7 +73,7 @@ export interface VgData {
   values?: any;
   format?: {
     type?: string;
-    parse?: string | object;
+    parse?: string | Dict<unknown>;
     property?: string;
     feature?: string;
     mesh?: string;
@@ -44,21 +82,17 @@ export interface VgData {
   transform?: VgTransform[];
 }
 
-export interface VgDataRef {
-  data: string;
-  field: VgField;
+export type VgScaleDataRefWithSort = ScaleDataRef & {
   sort?: VgSortField;
-}
+};
 
 export function isSignalRef(o: any): o is SignalRef {
-  return !!o['signal'];
+  return o && !!o['signal'];
 }
 
-export type EventStream = any;
-
-// TODO: add type of value (Make it VgValueRef<T> {value?:T ...})
+// TODO: add type of value (Make it VgValueRef<V extends ValueOrGradient> {value?:V ...})
 export interface VgValueRef {
-  value?: number | string | boolean;
+  value?: Value<never>; // value should never be a signal so we use never
   field?:
     | string
     | {
@@ -75,30 +109,16 @@ export interface VgValueRef {
 }
 
 // TODO: add vg prefix
-export interface DataRefUnionDomain {
-  fields: (any[] | VgDataRef | SignalRef)[];
+export type VgScaleMultiDataRefWithSort = ScaleMultiDataRef & {
+  fields: (any[] | VgScaleDataRefWithSort | SignalRef)[];
   sort?: VgUnionSortField;
-}
+};
 
-export interface VgFieldRefUnionDomain {
-  data: string;
-  fields: VgField[];
+export type VgMultiFieldsRefWithSort = ScaleMultiFieldsRef & {
   sort?: VgUnionSortField;
-}
+};
 
-export interface SchemeConfig {
-  scheme: string;
-  extent?: number[];
-  count?: number;
-}
-
-export type VgRange =
-  | string
-  | VgDataRef
-  | (number | string | VgDataRef | SignalRef)[]
-  | SchemeConfig
-  | VgRangeStep
-  | SignalRef;
+export type VgRange = RangeScheme | ScaleData | RangeBand | RangeRaw;
 
 export function isVgRangeStep(range: VgRange): range is VgRangeStep {
   return !!range['step'];
@@ -108,109 +128,41 @@ export interface VgRangeStep {
   step: number | SignalRef;
 }
 // Domains that are not a union of domains
-export type VgNonUnionDomain = any[] | VgDataRef | SignalRef;
-export type VgDomain = VgNonUnionDomain | DataRefUnionDomain | VgFieldRefUnionDomain;
+export type VgNonUnionDomain = (null | string | number | boolean | SignalRef)[] | VgScaleDataRefWithSort | SignalRef;
+
+export type VgDomain = BaseScale['domain'];
 
 export type VgMarkGroup = any;
 
-export interface VgProjection {
-  /*
-   * The name of the projection.
-   */
-  name: string;
-  /*
-   * The type of the projection.
-   */
-  type?: ProjectionType;
-  /*
-   * The clip angle of the projection.
-   */
-  clipAngle?: number;
-  /*
-   * Sets the projection’s viewport clip extent to the specified bounds in pixels
-   */
-  clipExtent?: number[][];
-  /*
-   * Sets the projection’s scale factor to the specified value
-   */
-  scale?: number;
-  /*
-   * The translation of the projection.
-   */
-  translate?: SignalRef | number[];
-  /*
-   * The center of the projection.
-   */
-  center?: number[];
-  /**
-   * The rotation of the projection.
-   */
-  rotate?: number[];
-  /*
-   * The desired precision of the projection.
-   */
-  precision?: string;
-  /*
-   * GeoJSON data to which the projection should attempt to automatically fit the translate and scale parameters..
-   */
-  fit?: SignalRef | object | any[];
-  /*
-   * Used in conjunction with fit, provides the pixel area to which the projection should be automatically fit.
-   */
-  extent?: SignalRef | number[][];
-  /*
-   * Used in conjunction with fit, provides the width and height in pixels of the area to which the projection should be automatically fit.
-   */
-  size?: SignalRef | (number | SignalRef)[];
-  /*
-   * Sets whether or not the x-dimension is reflected (negated) in the output.
-   */
-  reflectX?: boolean;
-  /*
-   * Sets whether or not the y-dimension is reflected (negated) in the output.
-   */
-  reflectY?: boolean;
-
-  /* The following properties are all supported for specific types of projections. Consult the d3-geo-projection library for more information: https://github.com/d3/d3-geo-projection */
-  coefficient?: number;
-  distance?: number;
-  fraction?: number;
-  lobes?: number;
-  parallel?: number;
-  radius?: number;
-  ratio?: number;
-  spacing?: number;
-  tilt?: number;
-}
-
-// TODO: Eventually migrate to Vega-typings and make Vega typings take generic SR that can allow us to replace SignalRef with SignalComponent
-export interface VgScale {
-  name: string;
-  type: ScaleType;
-  domain?: VgDomain;
-  domainRaw?: SignalRef;
-  bins?: number[] | SignalRef;
-  range: VgRange;
-  clamp?: boolean;
-  base?: number;
-  exponent?: number;
-  constant?: number;
-  interpolate?: ScaleInterpolate | ScaleInterpolateParams;
-  nice?: boolean | number | NiceTime | {interval: string; step: number};
-  padding?: number;
-  paddingInner?: number;
-  paddingOuter?: number;
-  reverse?: boolean;
-  round?: boolean;
-  zero?: boolean;
-}
-
-export type ScaleInterpolate = 'rgb' | 'lab' | 'hcl' | 'hsl' | 'hsl-long' | 'hcl-long' | 'cubehelix' | 'cubehelix-long';
-
-export interface ScaleInterpolateParams {
-  type: 'rgb' | 'cubehelix' | 'cubehelix-long';
-  gamma?: number;
-}
+/**
+ * A combined type for any Vega scales that Vega-Lite can generate
+ */
+export type VgScale = Pick<BaseScale, 'type'> & {
+  range?: RangeScheme | RangeBand | ScaleData; // different Vega scales have conflicting range, need to union them here
+  nice?: boolean | number | TimeInterval | TimeIntervalStep | SignalRef; // different Vega scales have conflicting range, need to union them here
+  zero?: boolean | SignalRef; // LogScale only allow false, making the intersection type overly strict
+} & Omit<
+    // Continuous
+    Omit<LinearScale, 'type'> &
+      Omit<LogScale, 'type'> &
+      Omit<SymLogScale, 'type'> &
+      Omit<Partial<PowScale>, 'type'> & // use partial so exponent is not required
+      Omit<SqrtScale, 'type'> &
+      Omit<IdentityScale, 'type'> &
+      Omit<TimeScale, 'type'> &
+      // Discretizing
+      Omit<QuantileScale, 'type'> &
+      Omit<QuantizeScale, 'type'> &
+      Omit<ThresholdScale, 'type'> &
+      Omit<BinOrdinalScale, 'type'> &
+      // Sequential
+      Omit<SequentialScale, 'type'> &
+      // Discrete
+      Omit<BandScale, 'type'> &
+      Omit<PointScale, 'type'> &
+      Omit<OrdinalScale, 'type'>,
+    'range' | 'nice' | 'zero'
+  >;
 
 export interface RowCol<T> {
   row?: T;
@@ -239,21 +191,21 @@ export interface VgLayout {
   align?: LayoutAlign | RowCol<LayoutAlign>;
 }
 
-export function isDataRefUnionedDomain(domain: VgDomain): domain is DataRefUnionDomain {
+export function isDataRefUnionedDomain(domain: VgDomain): domain is VgScaleMultiDataRefWithSort {
   if (!isArray(domain)) {
     return 'fields' in domain && !('data' in domain);
   }
   return false;
 }
 
-export function isFieldRefUnionDomain(domain: VgDomain): domain is VgFieldRefUnionDomain {
+export function isFieldRefUnionDomain(domain: VgDomain): domain is VgMultiFieldsRefWithSort {
   if (!isArray(domain)) {
     return 'fields' in domain && 'data' in domain;
   }
   return false;
 }
 
-export function isDataRefDomain(domain: VgDomain): domain is VgDataRef {
+export function isDataRefDomain(domain: VgDomain | any): domain is VgScaleDataRefWithSort {
   if (!isArray(domain)) {
     return 'field' in domain && 'data' in domain;
   }
@@ -280,6 +232,8 @@ export type VgEncodeChannel =
   | 'strokeDashOffset'
   | 'strokeMiterLimit'
   | 'strokeJoin'
+  | 'strokeOffset'
+  | 'strokeForeground'
   | 'cursor'
   | 'clip'
   | 'size'
@@ -312,8 +266,15 @@ export type VgEncodeChannel =
   | 'href'
   | 'cursor'
   | 'defined'
-  | 'cornerRadius';
-export type VgEncodeEntry = {[k in VgEncodeChannel]?: VgValueRef | (VgValueRef & {test?: string})[]};
+  | 'cornerRadius'
+  | 'cornerRadiusTopLeft'
+  | 'cornerRadiusTopRight'
+  | 'cornerRadiusBottomRight'
+  | 'cornerRadiusBottomLeft'
+  | 'scaleX'
+  | 'scaleY';
+
+export type VgEncodeEntry = Partial<Record<VgEncodeChannel, VgValueRef | (VgValueRef & {test?: string})[]>>;
 
 // TODO: make export interface VgEncodeEntry {
 //   x?: VgValueRef<number>
@@ -323,487 +284,14 @@ export type VgEncodeEntry = {[k in VgEncodeChannel]?: VgValueRef | (VgValueRef &
 //  ...
 // }
 
-export interface VgBinTransform extends BaseBin {
-  type: 'bin';
-  extent?: number[] | {signal: string};
-  field: string;
-  as: string[];
-  signal?: string;
-}
-
-export interface VgExtentTransform {
-  type: 'extent';
-  field: string;
-  signal: string;
-}
-
-export interface VgFormulaTransform {
-  type: 'formula';
-  as: string;
-  expr: string;
-}
-
-export interface VgFilterTransform {
-  type: 'filter';
-  expr: string;
-}
-
-export interface VgAggregateTransform {
-  type: 'aggregate';
-  groupby?: VgField[];
-  fields?: VgField[];
-  ops?: AggregateOp[];
-  as?: string[];
-  cross?: boolean;
-  drop?: boolean;
-}
-
-export interface VgCollectTransform {
-  type: 'collect';
-  sort: VgCompare;
-}
-
-export interface VgLookupTransform {
-  type: 'lookup';
-  from: string;
-  key: string;
-  fields: string[];
-  values?: string[];
-  as?: string[];
-  default?: string;
-}
-
-export interface VgStackTransform {
-  type: 'stack';
-  offset?: StackOffset;
-  groupby: string[];
-  field: string;
-  sort: VgCompare;
-  as: string[];
-}
-
-export interface VgIdentifierTransform {
-  type: 'identifier';
-  as: string;
-}
-
-export type VgTransform =
-  | VgBinTransform
-  | VgExtentTransform
-  | VgFormulaTransform
-  | VgAggregateTransform
-  | VgFilterTransform
-  | VgFlattenTransform
-  | VgImputeTransform
-  | VgStackTransform
-  | VgCollectTransform
-  | VgLookupTransform
-  | VgIdentifierTransform
-  | VgGeoPointTransform
-  | VgGeoJSONTransform
-  | VgGraticuleTransform
-  | VgWindowTransform
-  | VgJoinAggregateTransform
-  | VgFoldTransform
-  | VgSampleTransform
-  | VgSequenceTransform;
-
-export interface VgGraticuleTransform {
-  type: 'graticule';
-  extentMajor?: number[][];
-  extentMinor?: number[][];
-  extent?: number[][];
-  stepMajor?: number[];
-  stepMinor?: number[];
-  step?: number[];
-  precision?: number;
-}
-
-export interface VgSequenceTransform {
-  type: 'sequence';
-  start: number | SignalRef;
-  stop: number | SignalRef;
-  step?: number | SignalRef;
-  as?: string | SignalRef;
-}
-
-export interface VgGeoPointTransform {
-  type: 'geopoint';
-  projection: string; // projection name
-  fields: (VgField | VgExprRef)[];
-  as?: string[];
-}
-
-export interface VgGeoShapeTransform {
-  type: 'geoshape';
-  projection: string; // projection name
-  field?: VgField;
-  as?: string;
-}
-
-export interface VgGeoJSONTransform {
-  type: 'geojson';
-  fields?: (VgField | VgExprRef)[];
-  geojson?: VgField;
-  signal: string;
-}
-
 export type VgPostEncodingTransform = VgGeoShapeTransform;
 
-export type VgGuideEncode = any; // TODO: replace this (See guideEncode in Vega Schema)
-
-export type ImputeMethod = 'value' | 'median' | 'max' | 'min' | 'mean';
-
-export interface VgImputeTransform {
-  type: 'impute';
-  groupby?: string[];
-  field: string;
-  key: string;
-  keyvals?: any[] | SignalRef;
-  method?: ImputeMethod;
-  value?: any;
-}
-
-export type Interpolate =
-  | 'linear'
-  | 'linear-closed'
-  | 'step'
-  | 'step-before'
-  | 'step-after'
-  | 'basis'
-  | 'basis-open'
-  | 'basis-closed'
-  | 'cardinal'
-  | 'cardinal-open'
-  | 'cardinal-closed'
-  | 'bundle'
-  | 'monotone';
-export type Cursor =
-  | 'auto'
-  | 'default'
-  | 'none'
-  | 'context-menu'
-  | 'help'
-  | 'pointer'
-  | 'progress'
-  | 'wait'
-  | 'cell'
-  | 'crosshair'
-  | 'text'
-  | 'vertical-text'
-  | 'alias'
-  | 'copy'
-  | 'move'
-  | 'no-drop'
-  | 'not-allowed'
-  | 'e-resize'
-  | 'n-resize'
-  | 'ne-resize'
-  | 'nw-resize'
-  | 's-resize'
-  | 'se-resize'
-  | 'sw-resize'
-  | 'w-resize'
-  | 'ew-resize'
-  | 'ns-resize'
-  | 'nesw-resize'
-  | 'nwse-resize'
-  | 'col-resize'
-  | 'row-resize'
-  | 'all-scroll'
-  | 'zoom-in'
-  | 'zoom-out'
-  | 'grab'
-  | 'grabbing';
-export type StrokeCap = 'butt' | 'round' | 'square';
-export type StrokeJoin = 'miter' | 'round' | 'bevel';
-export type Dir = 'ltr' | 'rtl';
-
-export interface BaseMarkConfig {
-  /**
-   * X coordinates of the marks, or width of horizontal `"bar"` and `"area"` without `x2`.
-   */
-  x?: number;
-
-  /**
-   * Y coordinates of the marks, or height of vertical `"bar"` and `"area"` without `y2`
-   */
-  y?: number;
-
-  /**
-   * X2 coordinates for ranged `"area"`, `"bar"`, `"rect"`, and  `"rule"`.
-   */
-  x2?: number;
-
-  /**
-   * Y2 coordinates for ranged `"area"`, `"bar"`, `"rect"`, and  `"rule"`.
-   */
-  y2?: number;
-
-  /**
-   * Default Fill Color.  This has higher precedence than `config.color`
-   *
-   * __Default value:__ (None)
-   *
-   */
-  fill?: Color;
-
-  /**
-   * Default Stroke Color.  This has higher precedence than `config.color`
-   *
-   * __Default value:__ (None)
-   *
-   */
-  stroke?: Color;
-
-  // ---------- Opacity ----------
-  /**
-   * The overall opacity (value between [0,1]).
-   *
-   * __Default value:__ `0.7` for non-aggregate plots with `point`, `tick`, `circle`, or `square` marks or layered `bar` charts and `1` otherwise.
-   *
-   * @minimum 0
-   * @maximum 1
-   */
-  opacity?: number;
-
-  /**
-   * The fill opacity (value between [0,1]).
-   *
-   * __Default value:__ `1`
-   *
-   * @minimum 0
-   * @maximum 1
-   */
-  fillOpacity?: number;
-
-  /**
-   * The stroke opacity (value between [0,1]).
-   *
-   * __Default value:__ `1`
-   *
-   * @minimum 0
-   * @maximum 1
-   */
-  strokeOpacity?: number;
-
-  // ---------- Stroke Style ----------
-  /**
-   * The stroke width, in pixels.
-   *
-   * @minimum 0
-   */
-  strokeWidth?: number;
-
-  /**
-   * The stroke cap for line ending style. One of `"butt"`, `"round"`, or `"square"`.
-   *
-   * __Default value:__ `"square"`
-   */
-  strokeCap?: StrokeCap;
-
-  /**
-   * An array of alternating stroke, space lengths for creating dashed or dotted lines.
-   */
-  strokeDash?: number[];
-
-  /**
-   * The offset (in pixels) into which to begin drawing with the stroke dash array.
-   */
-  strokeDashOffset?: number;
-
-  /**
-   * The stroke line join method. One of `"miter"`, `"round"` or `"bevel"`.
-   *
-   * __Default value:__ `"miter"`
-   */
-  strokeJoin?: StrokeJoin;
-
-  /**
-   * The miter limit at which to bevel a line join.
-   */
-  strokeMiterLimit?: number;
-
-  // ---------- Orientation: Bar, Tick, Line, Area ----------
-  /**
-   * The orientation of a non-stacked bar, tick, area, and line charts.
-   * The value is either horizontal (default) or vertical.
-   * - For bar, rule and tick, this determines whether the size of the bar and tick
-   * should be applied to x or y dimension.
-   * - For area, this property determines the orient property of the Vega output.
-   * - For line and trail marks, this property determines the sort order of the points in the line
-   * if `config.sortLineBy` is not specified.
-   * For stacked charts, this is always determined by the orientation of the stack;
-   * therefore explicitly specified value will be ignored.
-   */
-  orient?: Orientation;
-
-  // ---------- Interpolation: Line / area ----------
-  /**
-   * The line interpolation method to use for line and area marks. One of the following:
-   * - `"linear"`: piecewise linear segments, as in a polyline.
-   * - `"linear-closed"`: close the linear segments to form a polygon.
-   * - `"step"`: alternate between horizontal and vertical segments, as in a step function.
-   * - `"step-before"`: alternate between vertical and horizontal segments, as in a step function.
-   * - `"step-after"`: alternate between horizontal and vertical segments, as in a step function.
-   * - `"basis"`: a B-spline, with control point duplication on the ends.
-   * - `"basis-open"`: an open B-spline; may not intersect the start or end.
-   * - `"basis-closed"`: a closed B-spline, as in a loop.
-   * - `"cardinal"`: a Cardinal spline, with control point duplication on the ends.
-   * - `"cardinal-open"`: an open Cardinal spline; may not intersect the start or end, but will intersect other control points.
-   * - `"cardinal-closed"`: a closed Cardinal spline, as in a loop.
-   * - `"bundle"`: equivalent to basis, except the tension parameter is used to straighten the spline.
-   * - `"monotone"`: cubic interpolation that preserves monotonicity in y.
-   */
-  interpolate?: Interpolate;
-  /**
-   * Depending on the interpolation type, sets the tension parameter (for line and area marks).
-   * @minimum 0
-   * @maximum 1
-   */
-  tension?: number;
-
-  /**
-   * Shape of the point marks. Supported values include:
-   * - plotting shapes: `"circle"`, `"square"`, `"cross"`, `"diamond"`, `"triangle-up"`, `"triangle-down"`, `"triangle-right"`, or `"triangle-left"`.
-   * - the line symbol `"stroke"`
-   * - centered directional shapes `"arrow"`, `"wedge"`, or `"triangle"`
-   * - a custom [SVG path string](https://developer.mozilla.org/en-US/docs/Web/SVG/Tutorial/Paths) (For correct sizing, custom shape paths should be defined within a square bounding box with coordinates ranging from -1 to 1 along both the x and y dimensions.)
-   *
-   * __Default value:__ `"circle"`
-   */
-  shape?: string;
-
-  /**
-   * The pixel area each the point/circle/square.
-   * For example: in the case of circles, the radius is determined in part by the square root of the size value.
-   *
-   * __Default value:__ `30`
-   *
-   * @minimum 0
-   */
-  size?: number;
-
-  // Text / Label Mark Config
-
-  /**
-   * The horizontal alignment of the text. One of `"left"`, `"right"`, `"center"`.
-   */
-  align?: Align;
-
-  /**
-   * The rotation angle of the text, in degrees.
-   * @minimum 0
-   * @maximum 360
-   */
-  angle?: number;
-
-  /**
-   * The vertical alignment of the text. One of `"top"`, `"middle"`, `"bottom"`.
-   *
-   * __Default value:__ `"middle"`
-   *
-   */
-  baseline?: VgTextBaseline;
-
-  /**
-   * The direction of the text. One of `"ltr"` (left-to-right) or `"rtl"` (right-to-left). This property determines on which side is truncated in response to the limit parameter.
-   *
-   * __Default value:__ `"ltr"`
-   */
-  dir?: Dir;
-
-  /**
-   * The horizontal offset, in pixels, between the text label and its anchor point. The offset is applied after rotation by the _angle_ property.
-   */
-  dx?: number;
-
-  /**
-   * The vertical offset, in pixels, between the text label and its anchor point. The offset is applied after rotation by the _angle_ property.
-   */
-  dy?: number;
-
-  /**
-   * Polar coordinate radial offset, in pixels, of the text label from the origin determined by the `x` and `y` properties.
-   * @minimum 0
-   */
-  radius?: number;
-
-  /**
-   * The maximum length of the text mark in pixels. The text value will be automatically truncated if the rendered size exceeds the limit.
-   *
-   * __Default value:__ `0`, indicating no limit
-   */
-  limit?: number;
-
-  /**
-   * The ellipsis string for text truncated in response to the limit parameter.
-   *
-   * __Default value:__ `"…"`
-   */
-  ellipsis?: string;
-
-  /**
-   * Polar coordinate angle, in radians, of the text label from the origin determined by the `x` and `y` properties. Values for `theta` follow the same convention of `arc` mark `startAngle` and `endAngle` properties: angles are measured in radians, with `0` indicating "north".
-   */
-  theta?: number;
-
-  /**
-   * The typeface to set the text in (e.g., `"Helvetica Neue"`).
-   */
-  font?: string;
-
-  /**
-   * The font size, in pixels.
-   * @minimum 0
-   *
-   * __Default value:__ `11`
-   */
-  fontSize?: number;
-
-  /**
-   * The font style (e.g., `"italic"`).
-   */
-  fontStyle?: VgFontStyle;
-  /**
-   * The font weight.
-   * This can be either a string (e.g `"bold"`, `"normal"`) or a number (`100`, `200`, `300`, ..., `900` where `"normal"` = `400` and `"bold"` = `700`).
-   */
-  fontWeight?: VgFontWeight;
-
-  /**
-   * Placeholder text if the `text` channel is not specified
-   */
-  text?: string;
-
-  /**
-   * A URL to load upon mouse click. If defined, the mark acts as a hyperlink.
-   *
-   * @format uri
-   */
-  href?: string;
-
-  /**
-   * The mouse cursor used over the mark. Any valid [CSS cursor type](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#Values) can be used.
-   */
-  cursor?: Cursor;
-
-  /**
-   * The tooltip text to show upon mouse hover.
-   */
-  tooltip?: any;
-
-  // ---------- Corner Radius: Bar, Tick, Rect ----------
-
-  /**
-   * The radius in pixels of rounded rectangle corners.
-   *
-   * __Default value:__ `0`
-   */
-  cornerRadius?: number;
-}
-
-const VG_MARK_CONFIG_INDEX: Flag<keyof BaseMarkConfig> = {
+const VG_MARK_CONFIG_INDEX: Flag<keyof MarkConfig> = {
+  aria: 1,
+  description: 1,
+  ariaRole: 1,
+  ariaRoleDescription: 1,
+  blend: 1,
   opacity: 1,
   fill: 1,
   fillOpacity: 1,
@@ -814,7 +302,13 @@ const VG_MARK_CONFIG_INDEX: Flag<keyof BaseMarkConfig> = {
   strokeDash: 1,
   strokeDashOffset: 1,
   strokeJoin: 1,
+  strokeOffset: 1,
   strokeMiterLimit: 1,
+  startAngle: 1,
+  endAngle: 1,
+  padAngle: 1,
+  innerRadius: 1,
+  outerRadius: 1,
   size: 1,
   shape: 1,
   interpolate: 1,
@@ -835,45 +329,63 @@ const VG_MARK_CONFIG_INDEX: Flag<keyof BaseMarkConfig> = {
   fontSize: 1,
   fontWeight: 1,
   fontStyle: 1,
+  lineBreak: 1,
+  lineHeight: 1,
   cursor: 1,
   href: 1,
   tooltip: 1,
   cornerRadius: 1,
-  x: 1,
-  y: 1,
-  x2: 1,
-  y2: 1
+  cornerRadiusTopLeft: 1,
+  cornerRadiusTopRight: 1,
+  cornerRadiusBottomLeft: 1,
+  cornerRadiusBottomRight: 1,
+  aspect: 1,
+  width: 1,
+  height: 1,
+  url: 1,
+  smooth: 1
 
   // commented below are vg channel that do not have mark config.
-  // xc'|'width'|'yc'|'height'
+  // x: 1,
+  // y: 1,
+  // x2: 1,
+  // y2: 1,
+
+  // xc'|'yc'
   // clip: 1,
-  // endAngle: 1,
-  // innerRadius: 1,
-  // outerRadius: 1,
   // path: 1,
-  // startAngle: 1,
   // url: 1,
 };
 
-export const VG_MARK_CONFIGS = flagKeys(VG_MARK_CONFIG_INDEX);
+export const VG_MARK_CONFIGS = keys(VG_MARK_CONFIG_INDEX);
 
-export type VgComparatorOrder = 'ascending' | 'descending';
+export const VG_MARK_INDEX: Flag<Mark['type']> = {
+  arc: 1,
+  area: 1,
+  group: 1,
+  image: 1,
+  line: 1,
+  path: 1,
+  rect: 1,
+  rule: 1,
+  shape: 1,
+  symbol: 1,
+  text: 1,
+  trail: 1
+};
+
+// Vega's cornerRadius channels.
+export const VG_CORNERRADIUS_CHANNELS = [
+  'cornerRadius',
+  'cornerRadiusTopLeft',
+  'cornerRadiusTopRight',
+  'cornerRadiusBottomLeft',
+  'cornerRadiusBottomRight'
+] as const;
 
 export interface VgComparator {
   field?: string | string[];
-  order?: VgComparatorOrder | VgComparatorOrder[];
-}
-
-export interface VgWindowTransform {
-  type: 'window';
-  params?: number[];
-  as?: string[];
-  ops?: (AggregateOp | WindowOnlyOp)[];
-  fields?: string[];
-  frame?: number[];
-  ignorePeers?: boolean;
-  groupby?: string[];
-  sort?: VgComparator;
+  order?: SortOrder | SortOrder[];
 }
 
 export interface VgJoinAggregateTransform {

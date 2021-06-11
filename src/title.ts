@@ -1,38 +1,27 @@
-import {
-  Align,
-  BaseTitle,
-  FontStyle,
-  FontWeight,
-  TextBaseline,
-  TextEncodeEntry,
-  TitleAnchor,
-  TitleFrame,
-  TitleOrient
-} from 'vega';
-import {BaseMarkConfig, Color} from './vega.schema';
-type BaseTitleNoSignals = BaseTitle<
-  number,
-  string,
-  Color,
-  FontWeight,
-  FontStyle,
-  Align,
-  TextBaseline,
-  TitleFrame,
-  TitleAnchor,
-  TitleOrient
->;
+import {BaseTitle, SignalRef, Text, TextEncodeEntry, TitleAnchor} from 'vega';
+import {isArray, isString} from 'vega-util';
+import {ExprRef} from './expr';
+import {MarkConfig} from './mark';
+import {pick} from './util';
+import {MapExcludeValueRefAndReplaceSignalWith, MappedExcludeValueRef} from './vega.schema';
 
-export type TitleConfig = BaseTitleNoSignals;
+export type BaseTitleNoValueRefs<ES extends ExprRef | SignalRef> = MapExcludeValueRefAndReplaceSignalWith<
+  Omit<BaseTitle, 'align' | 'baseline'>,
+  ES
+> &
+  // Since some logic depends on align/baseline, Vega-Lite does NOT allow signal for them.
+  MappedExcludeValueRef<Pick<BaseTitle, 'align' | 'baseline'>>;
 
-export interface TitleBase extends BaseTitleNoSignals {
+export type TitleConfig<ES extends ExprRef | SignalRef> = BaseTitleNoValueRefs<ES>;
+
+export interface TitleBase<ES extends ExprRef | SignalRef> extends BaseTitleNoValueRefs<ES> {
   /**
    * The anchor position for placing the title. One of `"start"`, `"middle"`, or `"end"`. For example, with an orientation of top these anchor positions map to a left-, center-, or right-aligned title.
    *
    * __Default value:__ `"middle"` for [single](https://vega.github.io/vega-lite/docs/spec.html) and [layered](https://vega.github.io/vega-lite/docs/layer.html) views.
    * `"start"` for other composite views.
    *
-   * __Note:__ [For now](https://github.com/vega/vega-lite/issues/2875), `anchor` is only customizable only for [single](https://vega.github.io/vega-lite/docs/spec.html) and [layered](https://vega.github.io/vega-lite/docs/layer.html) views.  For other composite views, `anchor` is always `"start"`.
+   * __Note:__ [For now](https://github.com/vega/vega-lite/issues/2875), `anchor` is only customizable only for [single](https://vega.github.io/vega-lite/docs/spec.html) and [layered](https://vega.github.io/vega-lite/docs/layer.html) views. For other composite views, `anchor` is always `"start"`.
    */
   anchor?: TitleAnchor;
 
@@ -54,25 +43,30 @@ export interface TitleBase extends BaseTitleNoSignals {
   zindex?: number;
 
   /**
-   * Mark definitions for custom axis encoding.
+   * Mark definitions for custom encoding.
    *
-   * @hide
+   * @hidden
    */
   encoding?: TextEncodeEntry;
 }
 
-export interface TitleParams extends TitleBase {
+export interface TitleParams<ES extends ExprRef | SignalRef> extends TitleBase<ES> {
   /**
    * The title text.
    */
-  text: string;
+  text: Text | ES;
+
+  /**
+   * The subtitle Text.
+   */
+  subtitle?: Text;
 }
 
-export function extractTitleConfig(
-  titleConfig: TitleConfig
-): {
-  mark: BaseMarkConfig;
-  nonMark: BaseTitleNoSignals;
+export function extractTitleConfig(titleConfig: TitleConfig<SignalRef>): {
+  titleMarkConfig: MarkConfig<SignalRef>;
+  subtitleMarkConfig: MarkConfig<SignalRef>;
+  nonMark: BaseTitleNoValueRefs<SignalRef>;
+  subtitle: BaseTitleNoValueRefs<SignalRef>;
 } {
   const {
     // These are non-mark title config that need to be hardcoded
@@ -80,23 +74,52 @@ export function extractTitleConfig(
     frame,
     offset,
     orient,
+
     // color needs to be redirect to fill
     color,
+
+    // subtitle properties
+    subtitleColor,
+    subtitleFont,
+    subtitleFontSize,
+    subtitleFontStyle,
+    subtitleFontWeight,
+    subtitleLineHeight,
+    subtitlePadding,
+
     // The rest are mark config.
-    ...titleMarkConfig
+    ...rest
   } = titleConfig;
 
-  const mark: BaseMarkConfig = {
-    ...titleMarkConfig,
+  const titleMarkConfig: MarkConfig<SignalRef> = {
+    ...rest,
     ...(color ? {fill: color} : {})
   };
 
-  const nonMark: BaseTitleNoSignals = {
+  // These are non-mark title config that need to be hardcoded
+  const nonMark: BaseTitleNoValueRefs<SignalRef> = {
     ...(anchor ? {anchor} : {}),
     ...(frame ? {frame} : {}),
     ...(offset ? {offset} : {}),
     ...(orient ? {orient} : {})
   };
 
-  return {mark, nonMark};
+  // subtitle part can stay in config.title since header titles do not use subtitle
+  const subtitle: BaseTitleNoValueRefs<SignalRef> = {
+    ...(subtitleColor ? {subtitleColor} : {}),
+    ...(subtitleFont ? {subtitleFont} : {}),
+    ...(subtitleFontSize ? {subtitleFontSize} : {}),
+    ...(subtitleFontStyle ? {subtitleFontStyle} : {}),
+    ...(subtitleFontWeight ? {subtitleFontWeight} : {}),
+    ...(subtitleLineHeight ? {subtitleLineHeight} : {}),
+    ...(subtitlePadding ? {subtitlePadding} : {})
+  };
+
+  const subtitleMarkConfig = pick(titleMarkConfig, ['align', 'baseline', 'dx', 'dy', 'limit']);
+
+  return {titleMarkConfig, subtitleMarkConfig, nonMark, subtitle};
+}
+
+export function isText(v: any): v is Text {
+  return isString(v) || (isArray(v) && isString(v[0]));
 }

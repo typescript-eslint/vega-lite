@@ -1,10 +1,10 @@
-import {SignalRef} from 'vega';
+import {Projection as VgProjection, SignalRef} from 'vega';
 import {contains} from '../../util';
-import {isSignalRef, VgProjection} from '../../vega.schema';
-import {isConcatModel, isLayerModel, isRepeatModel, Model} from '../model';
+import {isSignalRef} from '../../vega.schema';
+import {isConcatModel, isLayerModel, Model} from '../model';
 
 export function assembleProjections(model: Model): VgProjection[] {
-  if (isLayerModel(model) || isConcatModel(model) || isRepeatModel(model)) {
+  if (isLayerModel(model) || isConcatModel(model)) {
     return assembleProjectionsForModelAndChildren(model);
   } else {
     return assembleProjectionForModel(model);
@@ -24,7 +24,7 @@ export function assembleProjectionForModel(model: Model): VgProjection[] {
   }
 
   const projection = component.combine();
-  const {name, ...rest} = projection; // we need to extract name so that it is always present in the output and pass TS type validation
+  const {name} = projection; // we need to extract name so that it is always present in the output and pass TS type validation
 
   if (!component.data) {
     // generate custom projection, no automatic fitting
@@ -34,7 +34,7 @@ export function assembleProjectionForModel(model: Model): VgProjection[] {
         // translate to center by default
         ...{translate: {signal: '[width / 2, height / 2]'}},
         // parameters, overwrite default translate if specified
-        ...rest
+        ...projection
       }
     ];
   } else {
@@ -43,7 +43,7 @@ export function assembleProjectionForModel(model: Model): VgProjection[] {
       signal: `[${component.size.map(ref => ref.signal).join(', ')}]`
     };
 
-    const fit: string[] = component.data.reduce((sources, data) => {
+    const fits: string[] = component.data.reduce((sources, data) => {
       const source: string = isSignalRef(data) ? data.signal : `data('${model.lookupDataSource(data)}')`;
       if (!contains(sources, source)) {
         // build a unique list of sources
@@ -52,7 +52,7 @@ export function assembleProjectionForModel(model: Model): VgProjection[] {
       return sources;
     }, []);
 
-    if (fit.length <= 0) {
+    if (fits.length <= 0) {
       throw new Error("Projection's fit didn't find any data sources");
     }
 
@@ -61,9 +61,9 @@ export function assembleProjectionForModel(model: Model): VgProjection[] {
         name,
         size,
         fit: {
-          signal: fit.length > 1 ? `[${fit.join(', ')}]` : fit[0]
+          signal: fits.length > 1 ? `[${fits.join(', ')}]` : fits[0]
         },
-        ...rest
+        ...projection
       }
     ];
   }

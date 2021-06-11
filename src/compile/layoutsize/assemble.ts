@@ -1,15 +1,23 @@
-import {NewSignal} from 'vega';
+import {InitSignal, NewSignal} from 'vega';
+import {getViewConfigContinuousSize} from '../../config';
 import {hasDiscreteDomain} from '../../scale';
 import {getFirstDefined} from '../../util';
 import {isVgRangeStep, VgRangeStep} from '../../vega.schema';
+import {signalOrStringValue} from '../common';
 import {isFacetModel, Model} from '../model';
 import {ScaleComponent} from '../scale/component';
+import {LayoutSizeType} from './component';
 
 export function assembleLayoutSignals(model: Model): NewSignal[] {
-  return [...sizeSignals(model, 'width'), ...sizeSignals(model, 'height')];
+  return [
+    ...sizeSignals(model, 'width'),
+    ...sizeSignals(model, 'height'),
+    ...sizeSignals(model, 'childWidth'),
+    ...sizeSignals(model, 'childHeight')
+  ];
 }
 
-export function sizeSignals(model: Model, sizeType: 'width' | 'height'): NewSignal[] {
+export function sizeSignals(model: Model, sizeType: LayoutSizeType): (NewSignal | InitSignal)[] {
   const channel = sizeType === 'width' ? 'x' : 'y';
   const size = model.component.layoutSize.get(sizeType);
   if (!size || size === 'merged') {
@@ -19,7 +27,7 @@ export function sizeSignals(model: Model, sizeType: 'width' | 'height'): NewSign
   // Read size signal name from name map, just in case it is the top-level size signal that got renamed.
   const name = model.getSizeSignalRef(sizeType).signal;
 
-  if (size === 'range-step') {
+  if (size === 'step') {
     const scaleComponent = model.getScaleComponent(channel);
 
     if (scaleComponent) {
@@ -49,7 +57,13 @@ export function sizeSignals(model: Model, sizeType: 'width' | 'height'): NewSign
       }
     }
     /* istanbul ignore next: Condition should not happen -- only for warning in development. */
-    throw new Error('layout size is range step although there is no rangeStep.');
+    throw new Error('layout size is step although width/height is not step.');
+  } else if (size == 'container') {
+    const isWidth = name.endsWith('width');
+    const expr = isWidth ? 'containerSize()[0]' : 'containerSize()[1]';
+    const defaultValue = getViewConfigContinuousSize(model.config.view, isWidth ? 'width' : 'height');
+    const safeExpr = `isFinite(${expr}) ? ${expr} : ${defaultValue}`;
+    return [{name, init: safeExpr, on: [{update: safeExpr, events: 'window:resize'}]}];
   } else {
     return [
       {
@@ -62,7 +76,7 @@ export function sizeSignals(model: Model, sizeType: 'width' | 'height'): NewSign
 
 function stepSignal(scaleName: string, range: VgRangeStep): NewSignal {
   return {
-    name: scaleName + '_step',
+    name: `${scaleName}_step`,
     value: range.step
   };
 }
@@ -82,5 +96,7 @@ export function sizeExpr(scaleName: string, scaleComponent: ScaleComponent, card
       : // For point, as calculated in https://github.com/vega/vega-scale/blob/master/src/band.js#L128,
         // it's equivalent to have paddingInner = 1 since there is only n-1 steps between n points.
         1;
-  return `bandspace(${cardinality}, ${paddingInner}, ${paddingOuter}) * ${scaleName}_step`;
+  return `bandspace(${cardinality}, ${signalOrStringValue(paddingInner)}, ${signalOrStringValue(
+    paddingOuter
+  )}) * ${scaleName}_step`;
 }

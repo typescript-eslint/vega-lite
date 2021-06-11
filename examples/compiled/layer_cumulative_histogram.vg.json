@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -13,16 +13,16 @@
       "transform": [
         {
           "type": "extent",
-          "field": "IMDB_Rating",
+          "field": "IMDB Rating",
           "signal": "bin_maxbins_10_IMDB_Rating_extent"
         },
         {
           "type": "bin",
-          "field": "IMDB_Rating",
+          "field": "IMDB Rating",
           "as": ["bin_IMDB_Rating", "bin_IMDB_Rating_end"],
           "signal": "bin_maxbins_10_IMDB_Rating_bins",
-          "maxbins": 10,
-          "extent": {"signal": "bin_maxbins_10_IMDB_Rating_extent"}
+          "extent": {"signal": "bin_maxbins_10_IMDB_Rating_extent"},
+          "maxbins": 10
         },
         {
           "type": "aggregate",
@@ -35,7 +35,7 @@
         {
           "type": "window",
           "params": [null],
-          "as": ["cumulative_count"],
+          "as": ["Cumulative Count"],
           "ops": ["sum"],
           "fields": ["count"],
           "sort": {"field": ["bin_IMDB_Rating"], "order": ["ascending"]},
@@ -49,7 +49,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"bin_IMDB_Rating\"] !== null && !isNaN(datum[\"bin_IMDB_Rating\"]) && datum[\"cumulative_count\"] !== null && !isNaN(datum[\"cumulative_count\"])"
+          "expr": "isValid(datum[\"bin_IMDB_Rating\"]) && isFinite(+datum[\"bin_IMDB_Rating\"]) && isValid(datum[\"Cumulative Count\"]) && isFinite(+datum[\"Cumulative Count\"])"
         }
       ]
     },
@@ -59,7 +59,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"bin_IMDB_Rating\"] !== null && !isNaN(datum[\"bin_IMDB_Rating\"]) && datum[\"count\"] !== null && !isNaN(datum[\"count\"])"
+          "expr": "isValid(datum[\"bin_IMDB_Rating\"]) && isFinite(+datum[\"bin_IMDB_Rating\"]) && isValid(datum[\"count\"]) && isFinite(+datum[\"count\"])"
         }
       ]
     }
@@ -73,24 +73,25 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"IMDB Rating\": format(datum[\"bin_IMDB_Rating\"], \"\"), \"bin_IMDB_Rating_end\": format(datum[\"bin_IMDB_Rating_end\"], \"\"), \"cumulative_count\": format(datum[\"cumulative_count\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"IMDB Rating: \" + (format(datum[\"bin_IMDB_Rating\"], \"\")) + \"; bin_IMDB_Rating_end: \" + (format(datum[\"bin_IMDB_Rating_end\"], \"\")) + \"; Cumulative Count: \" + (format(datum[\"Cumulative Count\"], \"\"))"
           },
           "x": [
             {
-              "test": "datum[\"bin_IMDB_Rating\"] === null || isNaN(datum[\"bin_IMDB_Rating\"])",
+              "test": "!isValid(datum[\"bin_IMDB_Rating\"]) || !isFinite(+datum[\"bin_IMDB_Rating\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_IMDB_Rating"}
           ],
           "x2": [
             {
-              "test": "datum[\"bin_IMDB_Rating_end\"] === null || isNaN(datum[\"bin_IMDB_Rating_end\"])",
+              "test": "!isValid(datum[\"bin_IMDB_Rating_end\"]) || !isFinite(+datum[\"bin_IMDB_Rating_end\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_IMDB_Rating_end"}
           ],
-          "y": {"scale": "y", "field": "cumulative_count"},
+          "y": {"scale": "y", "field": "Cumulative Count"},
           "y2": {"scale": "y", "value": 0}
         }
       }
@@ -104,19 +105,20 @@
         "update": {
           "opacity": {"value": 0.5},
           "fill": {"value": "yellow"},
-          "tooltip": {
-            "signal": "{\"IMDB Rating\": format(datum[\"bin_IMDB_Rating\"], \"\"), \"bin_IMDB_Rating_end\": format(datum[\"bin_IMDB_Rating_end\"], \"\"), \"count\": format(datum[\"count\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"IMDB Rating: \" + (format(datum[\"bin_IMDB_Rating\"], \"\")) + \"; bin_IMDB_Rating_end: \" + (format(datum[\"bin_IMDB_Rating_end\"], \"\")) + \"; count: \" + (format(datum[\"count\"], \"\"))"
           },
           "x": [
             {
-              "test": "datum[\"bin_IMDB_Rating\"] === null || isNaN(datum[\"bin_IMDB_Rating\"])",
+              "test": "!isValid(datum[\"bin_IMDB_Rating\"]) || !isFinite(+datum[\"bin_IMDB_Rating\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_IMDB_Rating"}
           ],
           "x2": [
             {
-              "test": "datum[\"bin_IMDB_Rating_end\"] === null || isNaN(datum[\"bin_IMDB_Rating_end\"])",
+              "test": "!isValid(datum[\"bin_IMDB_Rating_end\"]) || !isFinite(+datum[\"bin_IMDB_Rating_end\"])",
               "value": 0
             },
             {"scale": "x", "field": "bin_IMDB_Rating_end"}
@@ -149,7 +151,7 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "cumulative_count"},
+          {"data": "data_0", "field": "Cumulative Count"},
           {"data": "data_1", "field": "count"}
         ]
       },
@@ -162,34 +164,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "IMDB Rating",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "cumulative_count, count",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -199,9 +183,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "IMDB Rating",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Cumulative Count, count",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

@@ -1,163 +1,233 @@
 import {AggregateOp} from 'vega';
-import {isArray} from 'vega-util';
+import {array, isArray} from 'vega-util';
 import {isArgmaxDef, isArgminDef} from './aggregate';
-import {isBinning} from './bin';
-import {Channel, CHANNELS, isChannel, isNonPositionScaleChannel, isSecondaryRangeChannel, supportMark} from './channel';
+import {isBinned, isBinning} from './bin';
+import {
+  ANGLE,
+  CHANNELS,
+  COLOR,
+  DESCRIPTION,
+  DETAIL,
+  FILL,
+  FILLOPACITY,
+  HREF,
+  isChannel,
+  isNonPositionScaleChannel,
+  isSecondaryRangeChannel,
+  isXorY,
+  KEY,
+  LATITUDE,
+  LATITUDE2,
+  LONGITUDE,
+  LONGITUDE2,
+  OPACITY,
+  ORDER,
+  RADIUS,
+  RADIUS2,
+  SHAPE,
+  SIZE,
+  STROKE,
+  STROKEDASH,
+  STROKEOPACITY,
+  STROKEWIDTH,
+  supportMark,
+  TEXT,
+  THETA,
+  THETA2,
+  TOOLTIP,
+  URL,
+  X,
+  X2,
+  Y,
+  Y2,
+  Channel
+} from './channel';
 import {
   binRequiresRange,
   ChannelDef,
-  ColorFieldDefWithCondition,
-  ColorValueDefWithCondition,
+  ColorDef,
   Field,
   FieldDef,
   FieldDefWithoutScale,
   getFieldDef,
   getGuide,
-  getTypedFieldDef,
   hasConditionalFieldDef,
+  initChannelDef,
+  initFieldDef,
   isConditionalDef,
+  isDatumDef,
   isFieldDef,
   isTypedFieldDef,
   isValueDef,
-  LatLongFieldDef,
-  normalize,
-  normalizeFieldDef,
-  NumericFieldDefWithCondition,
-  NumericValueDefWithCondition,
+  LatLongDef,
+  NumericArrayMarkPropDef,
+  NumericMarkPropDef,
   OrderFieldDef,
-  PositionFieldDef,
+  OrderValueDef,
+  PolarDef,
+  Position2Def,
+  PositionDef,
   SecondaryFieldDef,
-  ShapeFieldDefWithCondition,
-  ShapeValueDefWithCondition,
-  TextFieldDef,
-  TextFieldDefWithCondition,
-  TextValueDefWithCondition,
+  ShapeDef,
+  StringFieldDef,
+  StringFieldDefWithCondition,
+  StringValueDefWithCondition,
+  TextDef,
   title,
   TypedFieldDef,
-  ValueDef,
   vgField
 } from './channeldef';
 import {Config} from './config';
 import * as log from './log';
 import {Mark} from './mark';
 import {EncodingFacetMapping} from './spec/facet';
-import {getDateTimeComponents} from './timeunit';
 import {AggregatedFieldDef, BinTransform, TimeUnitTransform} from './transform';
-import {TEMPORAL} from './type';
+import {QUANTITATIVE, TEMPORAL} from './type';
 import {keys, some} from './util';
+import {isSignalRef} from './vega.schema';
 
 export interface Encoding<F extends Field> {
   /**
-   * X coordinates of the marks, or width of horizontal `"bar"` and `"area"` without `x2`.
+   * X coordinates of the marks, or width of horizontal `"bar"` and `"area"` without specified `x2` or `width`.
    *
-   * The `value` of this channel can be a number or a string `"width"`.
+   * The `value` of this channel can be a number or a string `"width"` for the width of the plot.
    */
-  x?: PositionFieldDef<F> | ValueDef<number | 'width'>;
+  x?: PositionDef<F>;
 
   /**
-   * Y coordinates of the marks, or height of vertical `"bar"` and `"area"` without `y2`
+   * Y coordinates of the marks, or height of vertical `"bar"` and `"area"` without specified `y2` or `height`.
    *
-   * The `value` of this channel can be a number or a string `"height"`.
+   * The `value` of this channel can be a number or a string `"height"` for the height of the plot.
    */
-  y?: PositionFieldDef<F> | ValueDef<number | 'height'>;
+  y?: PositionDef<F>;
 
   /**
    * X2 coordinates for ranged `"area"`, `"bar"`, `"rect"`, and  `"rule"`.
    *
-   * The `value` of this channel can be a number or a string `"width"`.
+   * The `value` of this channel can be a number or a string `"width"` for the width of the plot.
    */
   // TODO: Ham need to add default behavior
   // `x2` cannot have type as it should have the same type as `x`
-  x2?: SecondaryFieldDef<F> | ValueDef<number | 'width'>;
+  x2?: Position2Def<F>;
 
   /**
    * Y2 coordinates for ranged `"area"`, `"bar"`, `"rect"`, and  `"rule"`.
    *
-   * The `value` of this channel can be a number or a string `"height"`.
+   * The `value` of this channel can be a number or a string `"height"` for the height of the plot.
    */
   // TODO: Ham need to add default behavior
   // `y2` cannot have type as it should have the same type as `y`
-  y2?: SecondaryFieldDef<F> | ValueDef<number | 'height'>;
+  y2?: Position2Def<F>;
 
   /**
    * Longitude position of geographically projected marks.
    */
-  longitude?: LatLongFieldDef<F> | ValueDef<number>;
+  longitude?: LatLongDef<F>;
 
   /**
    * Latitude position of geographically projected marks.
    */
-  latitude?: LatLongFieldDef<F> | ValueDef<number>;
+  latitude?: LatLongDef<F>;
 
   /**
    * Longitude-2 position for geographically projected ranged `"area"`, `"bar"`, `"rect"`, and  `"rule"`.
    */
   // `longitude2` cannot have type as it should have the same type as `longitude`
-  longitude2?: SecondaryFieldDef<F> | ValueDef<number>;
+  longitude2?: Position2Def<F>;
 
   /**
    * Latitude-2 position for geographically projected ranged `"area"`, `"bar"`, `"rect"`, and  `"rule"`.
    */
   // `latitude2` cannot have type as it should have the same type as `latitude`
-  latitude2?: SecondaryFieldDef<F> | ValueDef<number>;
+  latitude2?: Position2Def<F>;
+
+  /**
+   * - For arc marks, the arc length in radians if theta2 is not specified, otherwise the start arc angle. (A value of 0 indicates up or “north”, increasing values proceed clockwise.)
+   *
+   * - For text marks, polar coordinate angle in radians.
+   */
+  theta?: PolarDef<F>;
+
+  /**
+   * The end angle of arc marks in radians. A value of 0 indicates up or “north”, increasing values proceed clockwise.
+   */
+  theta2?: Position2Def<F>;
+
+  /**
+   * The outer radius in pixels of arc marks.
+   */
+
+  radius?: PolarDef<F>;
+
+  /**
+   * The inner radius in pixels of arc marks.
+   */
+  radius2?: Position2Def<F>;
 
   /**
    * Color of the marks – either fill or stroke color based on  the `filled` property of mark definition.
    * By default, `color` represents fill color for `"area"`, `"bar"`, `"tick"`,
    * `"text"`, `"trail"`, `"circle"`, and `"square"` / stroke color for `"line"` and `"point"`.
    *
-   * __Default value:__ If undefined, the default color depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark)'s `color` property.
+   * __Default value:__ If undefined, the default color depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark-config)'s `color` property.
    *
    * _Note:_
-   * 1) For fine-grained control over both fill and stroke colors of the marks, please use the `fill` and `stroke` channels.  If either `fill` or `stroke` channel is specified, `color` channel will be ignored.
+   * 1) For fine-grained control over both fill and stroke colors of the marks, please use the `fill` and `stroke` channels. The `fill` or `stroke` encodings have higher precedence than `color`, thus may override the `color` encoding if conflicting encodings are specified.
    * 2) See the scale documentation for more information about customizing [color scheme](https://vega.github.io/vega-lite/docs/scale.html#scheme).
    */
-  color?: ColorFieldDefWithCondition<F> | ColorValueDefWithCondition<F>;
+  color?: ColorDef<F>;
 
   /**
    * Fill color of the marks.
-   * __Default value:__ If undefined, the default color depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark)'s `color` property.
+   * __Default value:__ If undefined, the default color depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark-config)'s `color` property.
    *
-   * _Note:_ When using `fill` channel, `color ` channel will be ignored. To customize both fill and stroke, please use `fill` and `stroke` channels (not `fill` and `color`).
+   * _Note:_ The `fill` encoding has higher precedence than `color`, thus may override the `color` encoding if conflicting encodings are specified.
    */
-  fill?: ColorFieldDefWithCondition<F> | ColorValueDefWithCondition<F>;
+  fill?: ColorDef<F>;
 
   /**
    * Stroke color of the marks.
-   * __Default value:__ If undefined, the default color depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark)'s `color` property.
+   * __Default value:__ If undefined, the default color depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark-config)'s `color` property.
    *
-   * _Note:_ When using `stroke` channel, `color ` channel will be ignored. To customize both stroke and fill, please use `stroke` and `fill` channels (not `stroke` and `color`).
+   * _Note:_ The `stroke` encoding has higher precedence than `color`, thus may override the `color` encoding if conflicting encodings are specified.
    */
 
-  stroke?: ColorFieldDefWithCondition<F> | ColorValueDefWithCondition<F>;
+  stroke?: ColorDef<F>;
 
   /**
    * Opacity of the marks.
    *
-   * __Default value:__ If undefined, the default opacity depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark)'s `opacity` property.
+   * __Default value:__ If undefined, the default opacity depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark-config)'s `opacity` property.
    */
-  opacity?: NumericFieldDefWithCondition<F> | NumericValueDefWithCondition<F>;
+  opacity?: NumericMarkPropDef<F>;
 
   /**
    * Fill opacity of the marks.
    *
-   * __Default value:__ If undefined, the default opacity depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark)'s `fillOpacity` property.
+   * __Default value:__ If undefined, the default opacity depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark-config)'s `fillOpacity` property.
    */
-  fillOpacity?: NumericFieldDefWithCondition<F> | NumericValueDefWithCondition<F>;
+  fillOpacity?: NumericMarkPropDef<F>;
 
   /**
    * Stroke opacity of the marks.
    *
-   * __Default value:__ If undefined, the default opacity depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark)'s `strokeOpacity` property.
+   * __Default value:__ If undefined, the default opacity depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark-config)'s `strokeOpacity` property.
    */
-  strokeOpacity?: NumericFieldDefWithCondition<F> | NumericValueDefWithCondition<F>;
+  strokeOpacity?: NumericMarkPropDef<F>;
 
   /**
    * Stroke width of the marks.
    *
-   * __Default value:__ If undefined, the default stroke width depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark)'s `strokeWidth` property.
+   * __Default value:__ If undefined, the default stroke width depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#mark-config)'s `strokeWidth` property.
    */
-  strokeWidth?: NumericFieldDefWithCondition<F> | NumericValueDefWithCondition<F>;
+  strokeWidth?: NumericMarkPropDef<F>;
+
+  /**
+   * Stroke dash of the marks.
+   *
+   * __Default value:__ `[1,0]` (No dash).
+   */
+  strokeDash?: NumericArrayMarkPropDef<F>;
 
   /**
    * Size of the mark.
@@ -166,7 +236,12 @@ export interface Encoding<F extends Field> {
    * - For `"text"` – the text's font size.
    * - Size is unsupported for `"line"`, `"area"`, and `"rect"`. (Use `"trail"` instead of line with varying size)
    */
-  size?: NumericFieldDefWithCondition<F> | NumericValueDefWithCondition<F>;
+  size?: NumericMarkPropDef<F>;
+
+  /**
+   * Rotation angle of point and text marks.
+   */
+  angle?: NumericMarkPropDef<F>;
 
   /**
    * Shape of the mark.
@@ -181,7 +256,7 @@ export interface Encoding<F extends Field> {
    *
    * __Default value:__ If undefined, the default shape depends on [mark config](https://vega.github.io/vega-lite/docs/config.html#point-config)'s `shape` property. (`"circle"` if unset.)
    */
-  shape?: ShapeFieldDefWithCondition<F> | ShapeValueDefWithCondition<F>;
+  shape?: ShapeDef<F>;
   /**
    * Additional levels of detail for grouping data in aggregate views and
    * in line, trail, and area marks without mapping data to a specific visual channel.
@@ -196,44 +271,59 @@ export interface Encoding<F extends Field> {
   /**
    * Text of the `text` mark.
    */
-  text?: TextFieldDefWithCondition<F> | TextValueDefWithCondition<F>;
+  text?: TextDef<F>;
 
   /**
-   * The tooltip text to show upon mouse hover.
+   * The tooltip text to show upon mouse hover. Specifying `tooltip` encoding overrides [the `tooltip` property in the mark definition](https://vega.github.io/vega-lite/docs/mark.html#mark-def).
+   *
+   * See the [`tooltip`](https://vega.github.io/vega-lite/docs/tooltip.html) documentation for a detailed discussion about tooltip in Vega-Lite.
    */
-  tooltip?: TextFieldDefWithCondition<F> | TextValueDefWithCondition<F> | TextFieldDef<F>[] | null;
+  tooltip?: StringFieldDefWithCondition<F> | StringValueDefWithCondition<F> | StringFieldDef<F>[] | null;
 
   /**
    * A URL to load upon mouse click.
    */
-  href?: TextFieldDefWithCondition<F> | TextValueDefWithCondition<F>;
+  href?: StringFieldDefWithCondition<F> | StringValueDefWithCondition<F>;
+
+  /**
+   * The URL of an image mark.
+   */
+  url?: StringFieldDefWithCondition<F> | StringValueDefWithCondition<F>;
+
+  /**
+   * A text description of this mark for ARIA accessibility (SVG output only). For SVG output the `"aria-label"` attribute will be set to this description.
+   */
+  description?: StringFieldDefWithCondition<F> | StringValueDefWithCondition<F>;
 
   /**
    * Order of the marks.
    * - For stacked marks, this `order` channel encodes [stack order](https://vega.github.io/vega-lite/docs/stack.html#order).
-   * - For line and trail marks, this `order` channel encodes order of data points in the lines. This can be useful for creating [a connected scatterplot](https://vega.github.io/vega-lite/examples/connected_scatterplot.html).  Setting `order` to `{"value": null}` makes the line marks use the original order in the data sources.
+   * - For line and trail marks, this `order` channel encodes order of data points in the lines. This can be useful for creating [a connected scatterplot](https://vega.github.io/vega-lite/examples/connected_scatterplot.html). Setting `order` to `{"value": null}` makes the line marks use the original order in the data sources.
    * - Otherwise, this `order` channel encodes layer order of the marks.
    *
    * __Note__: In aggregate plots, `order` field should be `aggregate`d to avoid creating additional aggregation grouping.
    */
-  order?: OrderFieldDef<F> | OrderFieldDef<F>[] | ValueDef<number>;
+  order?: OrderFieldDef<F> | OrderFieldDef<F>[] | OrderValueDef;
 }
 
 export interface EncodingWithFacet<F extends Field> extends Encoding<F>, EncodingFacetMapping<F> {}
 
-export function channelHasField<F extends Field>(encoding: EncodingWithFacet<F>, channel: Channel): boolean {
+export function channelHasField<F extends Field>(
+  encoding: EncodingWithFacet<F>,
+  channel: keyof EncodingWithFacet<F>
+): boolean {
   const channelDef = encoding && encoding[channel];
   if (channelDef) {
     if (isArray(channelDef)) {
       return some(channelDef, fieldDef => !!fieldDef.field);
     } else {
-      return isFieldDef(channelDef) || hasConditionalFieldDef(channelDef);
+      return isFieldDef(channelDef) || hasConditionalFieldDef<Field>(channelDef);
     }
   }
   return false;
 }
 
-export function isAggregate(encoding: EncodingWithFacet<Field>) {
+export function isAggregate(encoding: EncodingWithFacet<any>) {
   return some(CHANNELS, channel => {
     if (channelHasField(encoding, channel)) {
       const channelDef = encoding[channel];
@@ -247,7 +337,8 @@ export function isAggregate(encoding: EncodingWithFacet<Field>) {
     return false;
   });
 }
-export function extractTransformsFromEncoding(oldEncoding: Encoding<Field>, config: Config) {
+
+export function extractTransformsFromEncoding(oldEncoding: Encoding<any>, config: Config) {
   const groupby: string[] = [];
   const bins: BinTransform[] = [];
   const timeUnits: TimeUnitTransform[] = [];
@@ -257,10 +348,10 @@ export function extractTransformsFromEncoding(oldEncoding: Encoding<Field>, conf
   forEach(oldEncoding, (channelDef, channel) => {
     // Extract potential embedded transformations along with remaining properties
     if (isFieldDef(channelDef)) {
-      const {field, aggregate: aggOp, timeUnit, bin, ...remaining} = channelDef;
+      const {field, aggregate: aggOp, bin, timeUnit, ...remaining} = channelDef;
       if (aggOp || timeUnit || bin) {
         const guide = getGuide(channelDef);
-        const isTitleDefined = guide && guide.title;
+        const isTitleDefined = guide?.title;
         let newField = vgField(channelDef, {forAs: true});
         const newFieldDef: FieldDef<string> = {
           // Only add title if it doesn't exist
@@ -269,18 +360,17 @@ export function extractTransformsFromEncoding(oldEncoding: Encoding<Field>, conf
           // Always overwrite field
           field: newField
         };
-        const isPositionChannel: boolean = channel === 'x' || channel === 'y';
 
         if (aggOp) {
           let op: AggregateOp;
 
           if (isArgmaxDef(aggOp)) {
             op = 'argmax';
-            newField = vgField({aggregate: 'argmax', field: aggOp.argmax}, {forAs: true});
+            newField = vgField({op: 'argmax', field: aggOp.argmax}, {forAs: true});
             newFieldDef.field = `${newField}.${field}`;
           } else if (isArgminDef(aggOp)) {
             op = 'argmin';
-            newField = vgField({aggregate: 'argmin', field: aggOp.argmin}, {forAs: true});
+            newField = vgField({op: 'argmin', field: aggOp.argmin}, {forAs: true});
             newFieldDef.field = `${newField}.${field}`;
           } else if (aggOp !== 'boxplot' && aggOp !== 'errorbar' && aggOp !== 'errorband') {
             op = aggOp;
@@ -296,53 +386,62 @@ export function extractTransformsFromEncoding(oldEncoding: Encoding<Field>, conf
             }
             aggregate.push(aggregateEntry);
           }
-        } else if (isTypedFieldDef(channelDef) && isBinning(bin)) {
-          bins.push({bin, field, as: newField});
-          // Add additional groupbys for range and end of bins
-          groupby.push(vgField(channelDef, {binSuffix: 'end'}));
-          if (binRequiresRange(channelDef, channel)) {
-            groupby.push(vgField(channelDef, {binSuffix: 'range'}));
-          }
-          // Create accompanying 'x2' or 'y2' field if channel is 'x' or 'y' respectively
-          if (isPositionChannel) {
-            const secondaryChannel: SecondaryFieldDef<string> = {
-              field: newField + '_end'
-            };
-            encoding[channel + '2'] = secondaryChannel;
-          }
-          newFieldDef.bin = 'binned';
-          if (!isSecondaryRangeChannel(channel)) {
-            newFieldDef['type'] = 'quantitative';
-          }
-        } else if (timeUnit) {
-          timeUnits.push({timeUnit, field, as: newField});
-
-          // Add formatting to appropriate property based on the type of channel we're processing
-          const format = getDateTimeComponents(timeUnit, config.axis.shortTimeLabels).join(' ');
-          const formatType = isTypedFieldDef(channelDef) && channelDef.type !== TEMPORAL && 'time';
-          if (channel === 'text' || channel === 'tooltip') {
-            newFieldDef['format'] = newFieldDef['format'] || format;
-            if (formatType) {
-              newFieldDef['formatType'] = formatType;
-            }
-          } else if (isNonPositionScaleChannel(channel)) {
-            newFieldDef['legend'] = {format, ...(formatType ? {formatType} : {}), ...newFieldDef['legend']};
-          } else if (isPositionChannel) {
-            newFieldDef['axis'] = {format, ...(formatType ? {formatType} : {}), ...newFieldDef['axis']};
-          }
-        }
-        if (!aggOp) {
+        } else {
           groupby.push(newField);
+          if (isTypedFieldDef(channelDef) && isBinning(bin)) {
+            bins.push({bin, field, as: newField});
+            // Add additional groupbys for range and end of bins
+            groupby.push(vgField(channelDef, {binSuffix: 'end'}));
+            if (binRequiresRange(channelDef, channel)) {
+              groupby.push(vgField(channelDef, {binSuffix: 'range'}));
+            }
+            // Create accompanying 'x2' or 'y2' field if channel is 'x' or 'y' respectively
+            if (isXorY(channel)) {
+              const secondaryChannel: SecondaryFieldDef<string> = {
+                field: `${newField}_end`
+              };
+              encoding[`${channel}2`] = secondaryChannel;
+            }
+            newFieldDef.bin = 'binned';
+            if (!isSecondaryRangeChannel(channel)) {
+              newFieldDef['type'] = QUANTITATIVE;
+            }
+          } else if (timeUnit) {
+            timeUnits.push({
+              timeUnit,
+              field,
+              as: newField
+            });
+
+            // define the format type for later compilation
+            const formatType = isTypedFieldDef(channelDef) && channelDef.type !== TEMPORAL && 'time';
+            if (formatType) {
+              if (channel === TEXT || channel === TOOLTIP) {
+                newFieldDef['formatType'] = formatType;
+              } else if (isNonPositionScaleChannel(channel)) {
+                newFieldDef['legend'] = {
+                  formatType,
+                  ...newFieldDef['legend']
+                };
+              } else if (isXorY(channel)) {
+                newFieldDef['axis'] = {
+                  formatType,
+                  ...newFieldDef['axis']
+                };
+              }
+            }
+          }
         }
+
         // now the field should refer to post-transformed field instead
-        encoding[channel] = newFieldDef;
+        encoding[channel as any] = newFieldDef;
       } else {
         groupby.push(field);
-        encoding[channel] = oldEncoding[channel];
+        encoding[channel as any] = oldEncoding[channel];
       }
     } else {
-      // For value def, just copy
-      encoding[channel] = oldEncoding[channel];
+      // For value def / signal ref / datum def, just copy
+      encoding[channel as any] = oldEncoding[channel];
     }
   });
 
@@ -360,11 +459,11 @@ export function markChannelCompatible(encoding: Encoding<string>, channel: Chann
   if (!markSupported) {
     return false;
   } else if (markSupported === 'binned') {
-    const primaryFieldDef = encoding[channel === 'x2' ? 'x' : 'y'];
+    const primaryFieldDef = encoding[channel === X2 ? X : Y];
 
     // circle, point, square and tick only support x2/y2 when their corresponding x/y fieldDef
     // has "binned" data and thus need x2/y2 to specify the bin-end field.
-    if (isFieldDef(primaryFieldDef) && isFieldDef(encoding[channel]) && primaryFieldDef.bin === 'binned') {
+    if (isFieldDef(primaryFieldDef) && isFieldDef(encoding[channel]) && isBinned(primaryFieldDef.bin)) {
       return true;
     } else {
       return false;
@@ -373,12 +472,23 @@ export function markChannelCompatible(encoding: Encoding<string>, channel: Chann
   return true;
 }
 
-export function normalizeEncoding(encoding: Encoding<string>, mark: Mark): Encoding<string> {
-  return keys(encoding).reduce((normalizedEncoding: Encoding<string>, channel: Channel | string) => {
+export function initEncoding(
+  encoding: Encoding<string>,
+  mark: Mark,
+  filled: boolean,
+  config: Config
+): Encoding<string> {
+  return keys(encoding).reduce((normalizedEncoding: Encoding<string>, channel: Channel) => {
     if (!isChannel(channel)) {
       // Drop invalid channel
       log.warn(log.message.invalidEncodingChannel(channel));
       return normalizedEncoding;
+    }
+
+    const channelDef = encoding[channel];
+    if (channel === 'angle' && mark === 'arc' && !encoding.theta) {
+      log.warn(log.message.REPLACE_ANGLE_WITH_THETA);
+      channel = THETA;
     }
 
     if (!markChannelCompatible(encoding, channel, mark)) {
@@ -388,34 +498,33 @@ export function normalizeEncoding(encoding: Encoding<string>, mark: Mark): Encod
     }
 
     // Drop line's size if the field is aggregated.
-    if (channel === 'size' && mark === 'line') {
-      const fieldDef = getTypedFieldDef(encoding[channel]);
-      if (fieldDef && fieldDef.aggregate) {
+    if (channel === SIZE && mark === 'line') {
+      const fieldDef = getFieldDef(encoding[channel]);
+      if (fieldDef?.aggregate) {
         log.warn(log.message.LINE_WITH_VARYING_SIZE);
         return normalizedEncoding;
       }
     }
-
     // Drop color if either fill or stroke is specified
-    if (channel === 'color' && ('fill' in encoding || 'stroke' in encoding)) {
+
+    if (channel === COLOR && (filled ? 'fill' in encoding : 'stroke' in encoding)) {
       log.warn(log.message.droppingColor('encoding', {fill: 'fill' in encoding, stroke: 'stroke' in encoding}));
       return normalizedEncoding;
     }
 
-    const channelDef = encoding[channel];
     if (
-      channel === 'detail' ||
-      (channel === 'order' && !isArray(channelDef) && !isValueDef(channelDef)) ||
-      (channel === 'tooltip' && isArray(channelDef))
+      channel === DETAIL ||
+      (channel === ORDER && !isArray(channelDef) && !isValueDef(channelDef)) ||
+      (channel === TOOLTIP && isArray(channelDef))
     ) {
       if (channelDef) {
         // Array of fieldDefs for detail channel (or production rule)
-        normalizedEncoding[channel] = (isArray(channelDef) ? channelDef : [channelDef]).reduce(
+        (normalizedEncoding[channel] as any) = array(channelDef).reduce(
           (defs: FieldDef<string>[], fieldDef: FieldDef<string>) => {
             if (!isFieldDef(fieldDef)) {
               log.warn(log.message.emptyFieldDef(fieldDef, channel));
             } else {
-              defs.push(normalizeFieldDef(fieldDef, channel));
+              defs.push(initFieldDef(fieldDef, channel));
             }
             return defs;
           },
@@ -423,21 +532,38 @@ export function normalizeEncoding(encoding: Encoding<string>, mark: Mark): Encod
         );
       }
     } else {
-      if (channel === 'tooltip' && channelDef === null) {
+      if (channel === TOOLTIP && channelDef === null) {
         // Preserve null so we can use it to disable tooltip
         normalizedEncoding[channel] = null;
-      } else if (!isFieldDef(channelDef) && !isValueDef(channelDef) && !isConditionalDef(channelDef)) {
+      } else if (
+        !isFieldDef(channelDef) &&
+        !isDatumDef(channelDef) &&
+        !isValueDef(channelDef) &&
+        !isConditionalDef(channelDef) &&
+        !isSignalRef(channelDef)
+      ) {
         log.warn(log.message.emptyFieldDef(channelDef, channel));
         return normalizedEncoding;
       }
-      normalizedEncoding[channel] = normalize(channelDef as ChannelDef, channel);
+
+      normalizedEncoding[channel as any] = initChannelDef(channelDef as ChannelDef, channel, config);
     }
     return normalizedEncoding;
   }, {});
 }
 
-export function isRanged(encoding: EncodingWithFacet<any>) {
-  return encoding && ((!!encoding.x && !!encoding.x2) || (!!encoding.y && !!encoding.y2));
+/**
+ * For composite marks, we have to call initChannelDef during init so we can infer types earlier.
+ */
+export function normalizeEncoding(encoding: Encoding<string>, config: Config): Encoding<string> {
+  const normalizedEncoding: Encoding<string> = {};
+
+  for (const channel of keys(encoding)) {
+    const newChannelDef = initChannelDef(encoding[channel], channel, config, {compositeMark: true});
+    normalizedEncoding[channel as any] = newChannelDef;
+  }
+
+  return normalizedEncoding;
 }
 
 export function fieldDefs<F extends Field>(encoding: EncodingWithFacet<F>): FieldDef<F>[] {
@@ -445,21 +571,22 @@ export function fieldDefs<F extends Field>(encoding: EncodingWithFacet<F>): Fiel
   for (const channel of keys(encoding)) {
     if (channelHasField(encoding, channel)) {
       const channelDef = encoding[channel];
-      (isArray(channelDef) ? channelDef : [channelDef]).forEach(def => {
+      const channelDefArray = array(channelDef);
+      for (const def of channelDefArray) {
         if (isFieldDef(def)) {
           arr.push(def);
-        } else if (hasConditionalFieldDef(def)) {
+        } else if (hasConditionalFieldDef<F>(def)) {
           arr.push(def.condition);
         }
-      });
+      }
     }
   }
   return arr;
 }
 
-export function forEach<U extends {[k in Channel]?: any}>(
+export function forEach<U extends Record<any, any>>(
   mapping: U,
-  f: (cd: ChannelDef, c: Channel) => void,
+  f: (cd: ChannelDef, c: keyof U) => void,
   thisArg?: any
 ) {
   if (!mapping) {
@@ -469,18 +596,18 @@ export function forEach<U extends {[k in Channel]?: any}>(
   for (const channel of keys(mapping)) {
     const el = mapping[channel];
     if (isArray(el)) {
-      el.forEach((channelDef: ChannelDef) => {
+      for (const channelDef of el as unknown[]) {
         f.call(thisArg, channelDef, channel);
-      });
+      }
     } else {
       f.call(thisArg, el, channel);
     }
   }
 }
 
-export function reduce<T, U extends {[k in Channel]?: any}>(
+export function reduce<T, U extends Record<any, any>>(
   mapping: U,
-  f: (acc: any, fd: TypedFieldDef<string>, c: Channel) => U,
+  f: (acc: any, fd: TypedFieldDef<string>, c: keyof U) => U,
   init: T,
   thisArg?: any
 ) {
@@ -498,4 +625,89 @@ export function reduce<T, U extends {[k in Channel]?: any}>(
       return f.call(thisArg, r, map, channel);
     }
   }, init);
+}
+
+/**
+ * Returns list of path grouping fields for the given encoding
+ */
+export function pathGroupingFields(mark: Mark, encoding: Encoding<string>): string[] {
+  return keys(encoding).reduce((details, channel) => {
+    switch (channel) {
+      // x, y, x2, y2, lat, long, lat1, long2, order, tooltip, href, aria label, cursor should not cause lines to group
+      case X:
+      case Y:
+      case HREF:
+      case DESCRIPTION:
+      case URL:
+      case X2:
+      case Y2:
+      case THETA:
+      case THETA2:
+      case RADIUS:
+      case RADIUS2:
+      // falls through
+
+      case LATITUDE:
+      case LONGITUDE:
+      case LATITUDE2:
+      case LONGITUDE2:
+      // TODO: case 'cursor':
+
+      // text, shape, shouldn't be a part of line/trail/area [falls through]
+      case TEXT:
+      case SHAPE:
+      case ANGLE:
+      // falls through
+
+      // tooltip fields should not be added to group by [falls through]
+      case TOOLTIP:
+        return details;
+
+      case ORDER:
+        // order should not group line / trail
+        if (mark === 'line' || mark === 'trail') {
+          return details;
+        }
+      // but order should group area for stacking (falls through)
+
+      case DETAIL:
+      case KEY: {
+        const channelDef = encoding[channel];
+        if (isArray(channelDef) || isFieldDef(channelDef)) {
+          for (const fieldDef of array(channelDef)) {
+            if (!fieldDef.aggregate) {
+              details.push(vgField(fieldDef, {}));
+            }
+          }
+        }
+        return details;
+      }
+
+      case SIZE:
+        if (mark === 'trail') {
+          // For trail, size should not group trail lines.
+          return details;
+        }
+      // For line, size should group lines.
+
+      // falls through
+      case COLOR:
+      case FILL:
+      case STROKE:
+      case OPACITY:
+      case FILLOPACITY:
+      case STROKEOPACITY:
+      case STROKEDASH:
+      case STROKEWIDTH: {
+        // TODO strokeDashOffset:
+        // falls through
+
+        const fieldDef = getFieldDef<string>(encoding[channel]);
+        if (fieldDef && !fieldDef.aggregate) {
+          details.push(vgField(fieldDef, {}));
+        }
+        return details;
+      }
+    }
+  }, []);
 }

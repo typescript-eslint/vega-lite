@@ -1,7 +1,6 @@
-/* tslint:disable:quotemark */
 import * as log from '../../src/log';
 import {isMarkDef} from '../../src/mark';
-import {normalize} from '../../src/normalize/index';
+import {normalize} from '../../src/normalize';
 import {isLayerSpec, isUnitSpec} from '../../src/spec';
 import {every, some} from '../../src/util';
 import {defaultConfig} from '.././../src/config';
@@ -51,7 +50,8 @@ describe('normalizeErrorBand', () => {
           mark: {
             opacity: 0.3,
             type: 'area',
-            style: 'errorband-band'
+            style: 'errorband-band',
+            ariaRoleDescription: 'errorband'
           },
           encoding: {
             y: {
@@ -60,8 +60,7 @@ describe('normalizeErrorBand', () => {
               title: 'people'
             },
             y2: {
-              field: 'upper_people',
-              type: 'quantitative'
+              field: 'upper_people'
             },
             x: {
               field: 'age',
@@ -161,29 +160,29 @@ describe('normalizeErrorBand', () => {
     }
   });
 
-  it('should produce correct layered specs with out interpolation in 1D error band', () => {
-    const outputSpec = normalize(
-      {
-        data: {url: 'data/population.json'},
-        mark: {type: 'errorband', interpolate: 'bundle', tension: 1},
-        encoding: {
-          y: {field: 'people', type: 'quantitative'}
-        }
-      },
-      defaultConfig
-    );
+  it(
+    'should produce correct layered specs without interpolation in 1D error band',
+    log.wrap(localLogger => {
+      const outputSpec = normalize(
+        {
+          data: {url: 'data/population.json'},
+          mark: {type: 'errorband', interpolate: 'bundle', tension: 1},
+          encoding: {
+            y: {field: 'people', type: 'quantitative'}
+          }
+        },
+        defaultConfig
+      );
 
-    const layer = isLayerSpec(outputSpec) && outputSpec.layer;
-    if (layer) {
+      const layer = isLayerSpec(outputSpec) && outputSpec.layer;
       expect(
         every(layer, unitSpec => {
           return isUnitSpec(unitSpec) && isMarkDef(unitSpec.mark) && !unitSpec.mark.interpolate;
         })
       ).toBe(true);
-    } else {
-      expect(false).toBe(true);
-    }
-  });
+      expect(localLogger.warns[0]).toEqual(log.message.errorBand1DNotSupport('interpolate'));
+    })
+  );
 
   it(
     'should produce a warning 1D error band has interpolate property',

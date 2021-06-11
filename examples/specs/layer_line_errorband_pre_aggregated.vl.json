@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": {
     "values": [
       {
@@ -41,7 +41,6 @@
         "y2": {"field": "ci0"},
         "x": {
           "field": "Year",
-          "type": "temporal",
           "timeUnit": "year"
         }
       }
@@ -55,7 +54,6 @@
         },
         "x": {
           "field": "Year",
-          "type": "temporal",
           "timeUnit": "year"
         }
       }

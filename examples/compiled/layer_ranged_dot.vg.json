@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A ranged dot plot that uses 'layer' to convey changing life expectancy for the five most populous countries (between 1955 and 2000).",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -30,7 +30,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"life_expect\"] !== null && !isNaN(datum[\"life_expect\"])"
+          "expr": "isValid(datum[\"life_expect\"]) && isFinite(+datum[\"life_expect\"])"
         }
       ]
     }
@@ -64,18 +64,18 @@
           "name": "layer_0_marks",
           "type": "line",
           "style": ["line"],
-          "sort": {"field": "datum[\"country\"]", "order": "descending"},
+          "sort": {"field": "datum[\"country\"]"},
           "from": {"data": "faceted_path_layer_0_main"},
           "encode": {
             "update": {
               "stroke": {"value": "#db646f"},
-              "tooltip": {
-                "signal": "{\"Life Expectancy (years)\": format(datum[\"life_expect\"], \"\"), \"Country\": ''+datum[\"country\"], \"country\": ''+datum[\"country\"]}"
+              "description": {
+                "signal": "\"Life Expectancy (years): \" + (format(datum[\"life_expect\"], \"\")) + \"; Country: \" + (isValid(datum[\"country\"]) ? datum[\"country\"] : \"\"+datum[\"country\"]) + \"; country: \" + (isValid(datum[\"country\"]) ? datum[\"country\"] : \"\"+datum[\"country\"])"
               },
               "x": {"scale": "x", "field": "life_expect"},
               "y": {"scale": "y", "field": "country"},
               "defined": {
-                "signal": "datum[\"life_expect\"] !== null && !isNaN(datum[\"life_expect\"])"
+                "signal": "isValid(datum[\"life_expect\"]) && isFinite(+datum[\"life_expect\"])"
               }
             }
           }
@@ -91,8 +91,9 @@
         "update": {
           "opacity": {"value": 1},
           "fill": {"scale": "color", "field": "year"},
-          "tooltip": {
-            "signal": "{\"Life Expectancy (years)\": format(datum[\"life_expect\"], \"\"), \"Country\": ''+datum[\"country\"], \"Year\": ''+datum[\"year\"]}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"Life Expectancy (years): \" + (format(datum[\"life_expect\"], \"\")) + \"; Country: \" + (isValid(datum[\"country\"]) ? datum[\"country\"] : \"\"+datum[\"country\"]) + \"; Year: \" + (isValid(datum[\"year\"]) ? datum[\"year\"] : \"\"+datum[\"year\"])"
           },
           "x": {"scale": "x", "field": "life_expect"},
           "y": {"scale": "y", "field": "country"},
@@ -140,24 +141,25 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Life Expectancy (years)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Life Expectancy (years)",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
       "zindex": 0
     },
     {
@@ -169,14 +171,13 @@
       "minExtent": 70,
       "offset": 5,
       "ticks": false,
-      "zindex": 1
+      "zindex": 0
     }
   ],
   "legends": [
     {
       "title": "Year",
       "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "encode": {"symbols": {"update": {"opacity": {"value": 1}}}}
     }

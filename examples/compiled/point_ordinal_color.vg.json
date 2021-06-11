@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -23,7 +23,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"x\"] !== null && !isNaN(datum[\"x\"]) && datum[\"y\"] !== null && !isNaN(datum[\"y\"])"
+          "expr": "isValid(datum[\"x\"]) && isFinite(+datum[\"x\"]) && isValid(datum[\"y\"]) && isFinite(+datum[\"y\"])"
         }
       ]
     }
@@ -39,8 +39,9 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"scale": "color", "field": "a"},
-          "tooltip": {
-            "signal": "{\"x\": format(datum[\"x\"], \"\"), \"y\": format(datum[\"y\"], \"\"), \"a\": ''+datum[\"a\"]}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"x: \" + (format(datum[\"x\"], \"\")) + \"; y: \" + (format(datum[\"y\"], \"\")) + \"; a: \" + (isValid(datum[\"a\"]) ? datum[\"a\"] : \"\"+datum[\"a\"])"
           },
           "x": {"scale": "x", "field": "x"},
           "y": {"scale": "y", "field": "y"}
@@ -77,34 +78,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "x",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "y",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -114,16 +97,35 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "x",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "y",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
   "legends": [
     {
       "stroke": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "a",
       "encode": {

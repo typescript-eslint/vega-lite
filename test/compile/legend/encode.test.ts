@@ -1,11 +1,8 @@
-/* tslint:disable:quotemark */
-
-import {SignalRef} from 'vega';
 import {COLOR, SIZE} from '../../../src/channel';
 import {LegendComponent} from '../../../src/compile/legend/component';
 import * as encode from '../../../src/compile/legend/encode';
-import {TimeUnit} from '../../../src/timeunit';
-import {TEMPORAL} from '../../../src/type';
+import {getLegendType} from '../../../src/compile/legend/properties';
+import {Encoding} from '../../../src/encoding';
 import {parseUnitModelWithScale} from '../../util';
 
 describe('compile/legend', () => {
@@ -14,148 +11,159 @@ describe('compile/legend', () => {
 
   describe('encode.symbols', () => {
     it('should not have fill, strokeDash, or strokeDashOffset', () => {
+      const legendType = getLegendType({legend: {}, channel: COLOR, scaleType: 'ordinal'});
       const symbol = encode.symbols(
-        {field: 'a', type: 'nominal'},
         {},
-        parseUnitModelWithScale({
-          mark: 'point',
-          encoding: {
-            x: {field: 'a', type: 'nominal'},
-            color: {field: 'a', type: 'nominal'}
-          }
-        }),
-        COLOR,
-        symbolLegend
+        {
+          fieldOrDatumDef: {field: 'a', type: 'nominal'},
+          model: parseUnitModelWithScale({
+            mark: 'point',
+            encoding: {
+              x: {field: 'a', type: 'nominal'},
+              color: {field: 'a', type: 'nominal'}
+            }
+          }),
+          channel: COLOR,
+          legendCmpt: symbolLegend,
+          legendType
+        }
       );
       expect(symbol.fill).toEqual({value: 'transparent'});
-      expect((symbol || {}).strokeDash).not.toBeDefined();
-      expect((symbol || {}).strokeDashOffset).not.toBeDefined();
+      expect((symbol ?? {}).strokeDash).toBeUndefined();
+      expect((symbol ?? {}).strokeDashOffset).toBeUndefined();
     });
 
     it('should have fill if a color encoding exists', () => {
+      const legendType = getLegendType({legend: {}, channel: COLOR, scaleType: 'ordinal'});
       const symbol = encode.symbols(
-        {field: 'a', type: 'quantitative'},
         {},
-        parseUnitModelWithScale({
-          mark: {
-            type: 'circle',
-            opacity: 0.3
-          },
-          encoding: {
-            x: {field: 'a', type: 'nominal'},
-            color: {field: 'a', type: 'nominal'},
-            size: {field: 'a', type: 'quantitative'}
-          }
-        }),
-        SIZE,
-        symbolLegend
+        {
+          fieldOrDatumDef: {field: 'a', type: 'quantitative'},
+          model: parseUnitModelWithScale({
+            mark: {
+              type: 'circle',
+              opacity: 0.3
+            },
+            encoding: {
+              x: {field: 'a', type: 'nominal'},
+              color: {field: 'a', type: 'nominal'},
+              size: {field: 'a', type: 'quantitative'}
+            }
+          }),
+          channel: SIZE,
+          legendCmpt: symbolLegend,
+          legendType
+        }
       );
       expect(symbol.fill).toEqual({value: 'black'});
       expect(symbol.fillOpacity).toEqual({value: 0.3});
     });
 
-    it('should return specific symbols.shape.value if user has specified', () => {
+    it('should have default opacity', () => {
+      const legendType = getLegendType({legend: {}, channel: COLOR, scaleType: 'ordinal'});
       const symbol = encode.symbols(
-        {field: 'a', type: 'nominal'},
         {},
-        parseUnitModelWithScale({
-          mark: 'point',
-          encoding: {
-            color: {field: 'a', type: 'nominal'},
-            shape: {value: 'square'}
-          }
-        }),
-        COLOR,
-        symbolLegend
+        {
+          fieldOrDatumDef: {field: 'a', type: 'nominal'},
+          model: parseUnitModelWithScale({
+            mark: 'point',
+            encoding: {
+              color: {field: 'a', type: 'nominal'}
+            }
+          }),
+          channel: COLOR,
+          legendCmpt: symbolLegend,
+          legendType
+        }
       );
-      expect(symbol.shape['value']).toBe('square');
+      expect(symbol.opacity['value']).toBe(0.7); // default opacity is 0.7.
     });
 
-    it('should have default opacity', () => {
+    it('should use symbolOpacity when set', () => {
+      const symbolLegendWithProps = new LegendComponent({type: 'symbol', symbolOpacity: 0.9});
+      const legendType = getLegendType({legend: {}, channel: COLOR, scaleType: 'ordinal'});
       const symbol = encode.symbols(
-        {field: 'a', type: 'nominal'},
         {},
-        parseUnitModelWithScale({
-          mark: 'point',
-          encoding: {
-            color: {field: 'a', type: 'nominal'}
-          }
-        }),
-        COLOR,
-        symbolLegend
+        {
+          fieldOrDatumDef: {field: 'a', type: 'nominal'},
+          model: parseUnitModelWithScale({
+            mark: 'point',
+            encoding: {
+              color: {field: 'a', type: 'nominal'}
+            }
+          }),
+          channel: COLOR,
+          legendCmpt: symbolLegendWithProps,
+          legendType
+        }
       );
-      expect(symbol.opacity['value']).toEqual(0.7); // default opacity is 0.7.
+      expect(symbol.opacity).toBeUndefined();
     });
 
     it('should return the maximum value when there is a condition', () => {
+      const legendType = getLegendType({legend: {}, channel: COLOR, scaleType: 'ordinal'});
       const symbol = encode.symbols(
-        {field: 'a', type: 'nominal'},
         {},
-        parseUnitModelWithScale({
-          mark: 'point',
-          encoding: {
-            color: {field: 'a', type: 'nominal'},
-            opacity: {
-              condition: {selection: 'brush', value: 1},
-              value: 0
+        {
+          fieldOrDatumDef: {field: 'a', type: 'nominal'},
+          model: parseUnitModelWithScale({
+            mark: 'point',
+            encoding: {
+              color: {field: 'a', type: 'nominal'},
+              opacity: {
+                condition: {param: 'brush', value: 1},
+                value: 0
+              }
             }
-          }
-        }),
-        COLOR,
-        symbolLegend
+          }),
+          channel: COLOR,
+          legendCmpt: symbolLegend,
+          legendType
+        }
       );
-      expect(symbol.opacity['value']).toEqual(1);
+      expect(symbol.opacity['value']).toBe(1);
     });
   });
 
   describe('encode.gradient', () => {
     it('should have default opacity', () => {
       const gradient = encode.gradient(
-        {field: 'a', type: 'quantitative'},
         {},
-        parseUnitModelWithScale({
-          mark: 'point',
-          encoding: {
-            color: {field: 'a', type: 'nominal'}
-          }
-        }),
-        COLOR,
-        gradientLegend
+        {
+          fieldOrDatumDef: {field: 'a', type: 'quantitative'},
+          model: parseUnitModelWithScale({
+            mark: 'point',
+            encoding: {
+              color: {field: 'a', type: 'nominal'}
+            }
+          }),
+          channel: COLOR,
+          legendCmpt: gradientLegend,
+          legendType: 'gradient'
+        }
       );
 
-      expect(gradient.opacity['value']).toEqual(0.7); // default opacity is 0.7.
+      expect(gradient.opacity['value']).toBe(0.7); // default opacity is 0.7.
     });
   });
 
   describe('encode.labels', () => {
-    it('should return correct expression for the timeUnit: TimeUnit.MONTH', () => {
+    it('returns correct expression for custom format Type', () => {
+      const fieldDef: Encoding<string>['color'] = {
+        field: 'a',
+        type: 'temporal',
+        legend: {format: 'abc', formatType: 'customDateFormat'}
+      };
       const model = parseUnitModelWithScale({
         mark: 'point',
-        encoding: {
-          x: {field: 'a', type: 'temporal'},
-          color: {field: 'a', type: 'temporal', timeUnit: 'month'}
-        }
+        encoding: {color: fieldDef},
+        config: {customFormatTypes: true}
       });
-
-      const fieldDef = {field: 'a', type: TEMPORAL, timeUnit: TimeUnit.MONTH};
-      const label = encode.labels(fieldDef, {}, model, COLOR, gradientLegend);
-      const expected = `timeFormat(datum.value, '%b')`;
-      expect((label.text as SignalRef).signal).toEqual(expected);
-    });
-
-    it('should return correct expression for the timeUnit: TimeUnit.QUARTER', () => {
-      const model = parseUnitModelWithScale({
-        mark: 'point',
-        encoding: {
-          x: {field: 'a', type: 'temporal'},
-          color: {field: 'a', type: 'temporal', timeUnit: 'quarter'}
-        }
-      });
-
-      const fieldDef = {field: 'a', type: TEMPORAL, timeUnit: TimeUnit.QUARTER};
-      const label = encode.labels(fieldDef, {}, model, COLOR, gradientLegend);
-      const expected = `'Q' + quarter(datum.value)`;
-      expect((label.text as SignalRef).signal).toEqual(expected);
+      const label = encode.labels(
+        {},
+        {fieldOrDatumDef: fieldDef, model, channel: COLOR, legendCmpt: symbolLegend, legendType: 'symbol'}
+      );
+      expect(label.text).toEqual({signal: 'customDateFormat(datum.value, "abc")'});
     });
   });
 });

@@ -16,13 +16,14 @@ permalink: /docs/trail.html
 
 The `trail` mark represents the data points stored in a field with a line connecting all of these points. Trail is similar to the `line` mark but a trail can have variable widths determined by backing data. Unlike lines, trails do not support different interpolation methods and use `fill` (not `stroke`) for their color. Trail marks are useful if you want to draw lines with changing size to reflect the underlying data.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -50,6 +51,10 @@ A trail mark definition can contain any [standard mark properties](mark.html#mar
 ### A Line Chart with varying size using `trail` mark
 
 <span class="vl-example" data-name="trail_color"></span>
+
+### A Comet Chart showing changes between two states
+
+<span class="vl-example" data-name="trail_comet"></span>
 
 {:#config}
 

@@ -11,13 +11,14 @@ By default, Vega-Lite automatically creates headers with default properties for 
 
 In addition to the `header` property of a row- or column-field definition, users can also set default header properties for all headers with the configuration object's ([`config`](config.html)) [header configuration](#config) (`config: {header: {...}}`).
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 ## Header Properties
 
@@ -71,13 +72,13 @@ To customize header, a `header` definiton in row- or column-[field definitions](
 
 ### Labels
 
-{% include table.html props="format,formatType,labelAlign,labelAnchor,labelAngle,labelColor,labelFont,labelFontSize,labelLimit,labelOrient,labelPadding" source= "Header" %}
+{% include table.html props="format,formatType,labelAlign,labelAnchor,labelAngle,labelBaseline,labelColor,labelExpr,labelFont,labelFontSize,labelFontStyle,labelFontWeight,labelLimit,labelLineHeight,labelOrient,labelPadding" source= "Header" %}
 
 {:#title}
 
 ### Title
 
-{% include table.html props="titleAlign,titleAnchor,titleAngle,titleBaseline,titleColor,titleFont,titleFontWeight,titleFontSize,titleLimit,titleOrient,titlePadding" source="Header" %}
+{% include table.html props="titleAlign,titleAnchor,titleAngle,titleBaseline,titleColor,titleFont,titleFontWeight,titleFontSize,titleFontStyle,titleFontWeight,titleLimit,titleLineHeight,titleOrient,titlePadding" source="Header" %}
 
 ### Example
 

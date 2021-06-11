@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -19,7 +19,7 @@
         {"type": "flatten", "fields": ["foo", "bar"], "as": ["foo", "bar"]},
         {
           "type": "filter",
-          "expr": "datum[\"foo\"] !== null && !isNaN(datum[\"foo\"])"
+          "expr": "isValid(datum[\"foo\"]) && isFinite(+datum[\"foo\"])"
         }
       ]
     }
@@ -41,8 +41,9 @@
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"scale": "color", "field": "key"},
-          "tooltip": {
-            "signal": "{\"foo\": format(datum[\"foo\"], \"\"), \"bar\": ''+datum[\"bar\"], \"key\": ''+datum[\"key\"]}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"foo: \" + (format(datum[\"foo\"], \"\")) + \"; bar: \" + (isValid(datum[\"bar\"]) ? datum[\"bar\"] : \"\"+datum[\"bar\"]) + \"; key: \" + (isValid(datum[\"key\"]) ? datum[\"key\"] : \"\"+datum[\"key\"])"
           },
           "x": {"scale": "x", "field": "foo"},
           "y": {"scale": "y", "field": "bar"},
@@ -78,39 +79,35 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "foo",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
     },
-    {"scale": "y", "orient": "left", "grid": false, "title": "bar", "zindex": 1}
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "foo",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {"scale": "y", "orient": "left", "grid": false, "title": "bar", "zindex": 0}
   ],
   "legends": [
     {
       "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "key",
-      "encode": {
-        "symbols": {
-          "update": {"shape": {"value": "circle"}, "opacity": {"value": 0.7}}
-        }
-      }
+      "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}}
     }
   ]
 }

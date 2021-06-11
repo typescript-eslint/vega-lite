@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {
@@ -64,7 +64,9 @@
       "from": {"data": "row_domain"},
       "sort": {"field": "datum[\"country\"]", "order": "ascending"},
       "title": {
-        "text": {"signal": "''+parent[\"country\"]"},
+        "text": {
+          "signal": "isValid(parent[\"country\"]) ? parent[\"country\"] : \"\"+parent[\"country\"]"
+        },
         "orient": "left",
         "style": "guide-label",
         "frame": "group",
@@ -96,8 +98,9 @@
             "update": {
               "opacity": {"value": 1},
               "fill": {"scale": "color", "field": "animal"},
-              "tooltip": {
-                "signal": "{\"col\": ''+datum[\"col\"], \"animal\": ''+datum[\"animal\"]}"
+              "ariaRoleDescription": {"value": "point"},
+              "description": {
+                "signal": "\"col: \" + (isValid(datum[\"col\"]) ? datum[\"col\"] : \"\"+datum[\"col\"]) + \"; animal: \" + (isValid(datum[\"animal\"]) ? datum[\"animal\"] : \"\"+datum[\"animal\"])"
               },
               "x": {"scale": "x", "field": "col"},
               "y": {"scale": "y", "field": "animal"},

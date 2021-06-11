@@ -1,25 +1,26 @@
-import {
-  differArray,
-  entries,
-  fieldIntersection,
-  fill,
-  flatAccessWithDatum,
-  hasIntersection,
-  isEqual,
-  isNumeric,
-  prefixGenerator,
-  setEqual,
-  unique,
-  uniqueId
-} from '../src/util';
-
+import {splitAccessPath} from 'vega-util';
+import {FilterNode} from '../src/compile/data/filter';
+import {PivotTransformNode} from '../src/compile/data/pivot';
 import {
   accessPathDepth,
   accessPathWithDatum,
   deleteNestedProperty,
+  entries,
+  fieldIntersection,
+  flatAccessWithDatum,
   hash,
+  hasIntersection,
+  isEqual,
+  isNumeric,
+  keys,
+  prefixGenerator,
+  replaceAll,
   replacePathInField,
+  setEqual,
   stringify,
+  unique,
+  uniqueId,
+  vals,
   varName
 } from '../src/util';
 
@@ -69,6 +70,7 @@ describe('util', () => {
       expect(hash({foo: 42})).toBe('{"foo":42}');
     });
   });
+
   describe('deleteNestedProperty', () => {
     it('removes a property from an object', () => {
       const originalObject = {
@@ -114,6 +116,12 @@ describe('util', () => {
     });
   });
 
+  describe('splitAccessPath', () => {
+    it('should support escaping', () => {
+      expect(splitAccessPath('y\\[foo\\]')).toEqual(['y[foo]']);
+    });
+  });
+
   describe('accessPathWithDatum', () => {
     it('should parse foo', () => {
       expect(accessPathWithDatum('foo')).toBe('datum["foo"]');
@@ -123,8 +131,12 @@ describe('util', () => {
       expect(accessPathWithDatum('foo.bar')).toBe('datum["foo"] && datum["foo"]["bar"]');
     });
 
-    it('should support cusotom datum', () => {
+    it('should support custom datum', () => {
       expect(accessPathWithDatum('foo', 'parent')).toBe('parent["foo"]');
+    });
+
+    it('should support escaped brackets', () => {
+      expect(accessPathWithDatum('y\\[foo\\]')).toBe('datum["y[foo]"]');
     });
   });
 
@@ -137,8 +149,12 @@ describe('util', () => {
       expect(flatAccessWithDatum('foo["bar"].baz')).toBe('datum["foo.bar.baz"]');
     });
 
-    it('should support cusotom datum', () => {
+    it('should support custom datum', () => {
       expect(flatAccessWithDatum('foo', 'parent')).toBe('parent["foo"]');
+    });
+
+    it('should support escaped brackets', () => {
+      expect(flatAccessWithDatum('y\\[foo\\]')).toBe('datum["y[foo]"]');
     });
   });
 
@@ -154,6 +170,10 @@ describe('util', () => {
     it('should return 2 for foo.bar', () => {
       expect(accessPathDepth('foo.bar')).toBe(2);
     });
+
+    it('should return 1 for y\\[foo\\]', () => {
+      expect(accessPathDepth('y\\[foo\\]')).toBe(1);
+    });
   });
 
   describe('removePathFromField', () => {
@@ -163,6 +183,18 @@ describe('util', () => {
 
     it('should keep \\.', () => {
       expect(replacePathInField('foo\\.bar')).toBe('foo\\.bar');
+    });
+
+    it('should keep escaped brackets', () => {
+      expect(replacePathInField('y\\[foo\\]')).toBe('y\\[foo\\]');
+    });
+
+    it('should keep escaped single quotes', () => {
+      expect(replacePathInField("foo\\'")).toBe("foo\\'");
+    });
+
+    it('should keep escaped double quotes', () => {
+      expect(replacePathInField('foo\\"')).toBe('foo\\"');
     });
   });
 
@@ -210,10 +242,24 @@ describe('util', () => {
     });
     it('should return the correct value for 2 nested but different string sets', () => {
       expect(fieldIntersection(new Set(['a.b.c']), new Set(['a.b.d']))).toBe(true);
+      expect(fieldIntersection(new Set(['a.b.c']), new Set(['z.b.c']))).toBe(false);
     });
 
-    it('should return the correct value for 2 nested but different string sets', () => {
-      expect(fieldIntersection(new Set(['a.b.c']), new Set(['z.b.c']))).toBe(false);
+    it('should return true if one input is undefined', () => {
+      expect(fieldIntersection(undefined, new Set(['a']))).toBe(true);
+      expect(fieldIntersection(new Set(['a']), undefined)).toBe(true);
+      expect(fieldIntersection(undefined, undefined)).toBe(true);
+    });
+
+    it('should return the correct value for 2 nodes', () => {
+      const filterNode = new FilterNode(null, null, 'datum.foo > 1');
+      const pivotNode = new PivotTransformNode(null, {
+        pivot: 'a',
+        value: 'b'
+      });
+      expect(fieldIntersection(filterNode.producedFields(), filterNode.dependentFields())).toBe(false);
+      expect(fieldIntersection(pivotNode.producedFields(), filterNode.dependentFields())).toBe(true);
+      expect(fieldIntersection(filterNode.producedFields(), pivotNode.dependentFields())).toBe(false);
     });
   });
 
@@ -226,9 +272,24 @@ describe('util', () => {
     });
   });
 
+  describe('keys', () => {
+    it('should return keys', () => {
+      expect(keys({a: 12, b: 42})).toEqual(['a', 'b']);
+    });
+  });
+
+  describe('vals', () => {
+    it('should return values', () => {
+      expect(vals({a: 12, b: 42})).toEqual([12, 42]);
+    });
+  });
+
   describe('entries', () => {
     it('should return entries', () => {
-      expect(entries({a: 12, b: 42})).toEqual([{key: 'a', value: 12}, {key: 'b', value: 42}]);
+      expect(entries({a: 12, b: 42})).toEqual([
+        ['a', 12],
+        ['b', 42]
+      ]);
     });
   });
 
@@ -238,13 +299,6 @@ describe('util', () => {
     });
   });
 
-  describe('fill', () => {
-    it('should return array of right length and filled with the right values', () => {
-      const arr = fill(42, 5);
-      expect(arr).toHaveLength(5);
-      expect(arr).toEqual([42, 42, 42, 42, 42]);
-    });
-  });
   describe('isEqual', () => {
     it('should return false when dict is a subset of other', () => {
       expect(isEqual({a: 1}, {a: 1, b: 2})).toBe(false);
@@ -259,35 +313,32 @@ describe('util', () => {
       expect(isEqual({a: 1}, {a: 2})).toBe(false);
     });
   });
-  describe('differArray', () => {
-    it('should return false when both arrays are empty', () => {
-      expect(differArray([], [])).toBe(false);
+
+  describe('replaceAll', () => {
+    it('should replace all ocurrences', () => {
+      expect(replaceAll('abababa', 'a', 'c')).toBe('cbcbcbc');
     });
-    it('should return true when lengths differ', () => {
-      const a = [1, 2, 3];
-      const b = [1, 2];
-      expect(differArray(a, b)).toBe(true);
-    });
-    it('should return false when arrays are same sorted', () => {
-      const a = [3, 2, 1];
-      const b = [1, 2, 3];
-      expect(differArray(a, b)).toBe(false);
+    it('should work with special characters', () => {
+      expect(replaceAll('a/c', '/', 'b')).toBe('abc');
+      expect(replaceAll('a\\c', '\\', 'b')).toBe('abc');
+      expect(replaceAll('a[c', '[', 'b')).toBe('abc');
     });
   });
+
   describe('isNumeric', () => {
-    it('should return true for integers', () => {
-      expect(isNumeric(1)).toBe(true);
-      expect(isNumeric(-1)).toBe(true);
+    it('should accept numbers', () => {
+      expect(isNumeric('12')).toBe(true);
+      expect(isNumeric('0')).toBe(true);
+      expect(isNumeric('1.2')).toBe(true);
+      expect(isNumeric('1e2')).toBe(true);
     });
-    it('should be true for real numbers', () => {
-      expect(isNumeric(0.0)).toBe(true);
-      expect(isNumeric(3.14)).toBe(true);
-    });
-    it('should return false for NaN', () => {
-      expect(isNumeric(NaN)).toBe(false);
-    });
-    it('should return false for text', () => {
+    it('should reject other variables', () => {
+      expect(isNumeric('')).toBe(false);
       expect(isNumeric('foo')).toBe(false);
+      expect(isNumeric('0a')).toBe(false);
+      expect(isNumeric('a0')).toBe(false);
+      expect(isNumeric('true')).toBe(false);
+      expect(isNumeric('1.2.3')).toBe(false);
     });
   });
 });

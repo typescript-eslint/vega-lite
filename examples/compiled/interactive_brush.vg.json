@@ -1,13 +1,25 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Drag out a rectangular brush to highlight points.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
   "style": "cell",
   "data": [
-    {"name": "brush_store"},
+    {
+      "name": "brush_store",
+      "values": [
+        {
+          "unit": "",
+          "fields": [
+            {"field": "Horsepower", "channel": "x", "type": "R"},
+            {"field": "Miles_per_Gallon", "channel": "y", "type": "R"}
+          ],
+          "values": [[55, 160], [13, 37]]
+        }
+      ]
+    },
     {
       "name": "source_0",
       "url": "data/cars.json",
@@ -15,7 +27,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"Horsepower\"] !== null && !isNaN(datum[\"Horsepower\"]) && datum[\"Miles_per_Gallon\"] !== null && !isNaN(datum[\"Miles_per_Gallon\"])"
+          "expr": "isValid(datum[\"Horsepower\"]) && isFinite(+datum[\"Horsepower\"]) && isValid(datum[\"Miles_per_Gallon\"]) && isFinite(+datum[\"Miles_per_Gallon\"])"
         }
       ]
     }
@@ -28,7 +40,10 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "brush", "update": "vlSelectionResolve(\"brush_store\")"},
+    {
+      "name": "brush",
+      "update": "vlSelectionResolve(\"brush_store\", \"union\")"
+    },
     {
       "name": "brush_x",
       "init": "[scale(\"x\", 55), scale(\"x\", 160)]",
@@ -66,16 +81,16 @@
           "update": "[scale(\"x\", brush_Horsepower[0]), scale(\"x\", brush_Horsepower[1])]"
         },
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "brush_translate_delta"},
           "update": "clampRange(panLinear(brush_translate_anchor.extent_x, brush_translate_delta.x / span(brush_translate_anchor.extent_x)), 0, width)"
         },
         {
           "events": {"signal": "brush_zoom_delta"},
           "update": "clampRange(zoomLinear(brush_x, brush_zoom_anchor.x, brush_zoom_delta), 0, width)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -126,16 +141,16 @@
           "update": "[scale(\"y\", brush_Miles_per_Gallon[0]), scale(\"y\", brush_Miles_per_Gallon[1])]"
         },
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "brush_translate_delta"},
           "update": "clampRange(panLinear(brush_translate_anchor.extent_y, brush_translate_delta.y / span(brush_translate_anchor.extent_y)), 0, height)"
         },
         {
           "events": {"signal": "brush_zoom_delta"},
           "update": "clampRange(zoomLinear(brush_y, brush_zoom_anchor.y, brush_zoom_delta), 0, height)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -247,7 +262,12 @@
     },
     {
       "name": "brush_modify",
-      "update": "modify(\"brush_store\", brush_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "brush_tuple"},
+          "update": "modify(\"brush_store\", brush_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -293,6 +313,7 @@
       "name": "marks",
       "type": "symbol",
       "style": ["point"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
@@ -300,14 +321,15 @@
           "fill": {"value": "transparent"},
           "stroke": [
             {
-              "test": "!(length(data(\"brush_store\"))) || (vlSelectionTest(\"brush_store\", datum))",
+              "test": "!length(data(\"brush_store\")) || vlSelectionTest(\"brush_store\", datum)",
               "scale": "color",
               "field": "Cylinders"
             },
             {"value": "grey"}
           ],
-          "tooltip": {
-            "signal": "{\"Horsepower\": format(datum[\"Horsepower\"], \"\"), \"Miles_per_Gallon\": format(datum[\"Miles_per_Gallon\"], \"\"), \"Cylinders\": ''+datum[\"Cylinders\"]}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"Horsepower: \" + (format(datum[\"Horsepower\"], \"\")) + \"; Miles_per_Gallon: \" + (format(datum[\"Miles_per_Gallon\"], \"\")) + \"; Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"])"
           },
           "x": {"scale": "x", "field": "Horsepower"},
           "y": {"scale": "y", "field": "Miles_per_Gallon"}
@@ -389,34 +411,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Horsepower",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Miles_per_Gallon",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -426,16 +430,35 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Horsepower",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Miles_per_Gallon",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
   "legends": [
     {
       "stroke": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "Cylinders",
       "encode": {

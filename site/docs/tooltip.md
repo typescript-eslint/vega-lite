@@ -9,21 +9,24 @@ Tooltips can provide details of a particular data point on demand. Tooltips for 
 
 By default, the renderer will generate tooltips via native HTML ["title" attribute](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/title). The [Vega Tooltip plugin](#plugin) can generate nice HTML tooltips.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#encoding}
 
 ## Tooltip Based on Encoding
 
-By default, Vega-Lite generates tooltips based on all fields specified in the `encoding`.
+Setting the `tooltip` property of the [mark definition]({{site.baseurl}}/docs/mark.html#mark-def) (or config) to `true` enables the default tooltip, which is based on all fields specified in the `encoding`.
 
-<div class="vl-example" data-name="point_2d"></div>
+<div class="vl-example" data-name="point_2d_tooltip"></div>
+
+**Note:** This is equivalent to setting the `tooltip` property of the mark definition to `{"content": "encoding"}`.
 
 {:#data}
 
@@ -37,7 +40,7 @@ Setting mark's `tooltip` to `{"content": "data"}` will produce tooltips based on
 
 ## Tooltip channel
 
-To create a tooltip, Vega-Lite's [`tooltip`]({{site.baseurl}}/docs/encoding.html#mark-properties-channels) channel can be mapped to a data field. For example, this bar chart supports tooltips for field `b`. Hover over the bar and notice the simple tooltip that displays the value of field `b` for each bar.
+To create a tooltip, Vega-Lite's [`tooltip`](encoding.html#mark-properties-channels) channel can be mapped to a data field. For example, this bar chart supports tooltips for field `b`. Hover over the bar and notice the simple tooltip that displays the value of field `b` for each bar.
 
 <div class="vl-example" data-name="bar_tooltip"></div>
 
@@ -46,6 +49,20 @@ To show more than one field, you can provide an array of field definitions. [Veg
 <div class="vl-example" data-name="bar_tooltip_multi"></div>
 
 Alternatively, you can [calculate](calculate.html) a new field that concatenates multiple fields (and use a single field definition).
+
+To give the fields in the tooltip a label that is different from the field name, set the `title` parameter.
+
+<div class="vl-example" data-name="bar_tooltip_title"></div>
+
+Note that encoding a field without an [aggregate](aggregate.html) as a tooltip means that the field will be used to group aggregates by.
+
+In the example below, adding the tooltip for b means that b becomes part of the fields to group by. Therefore, there is one tick per unique date value.
+
+<div class="vl-example" data-name="bar_tooltip_groupby"></div>
+
+To avoid that the tooltips groups the data, add an aggregate to the tooltip encoding.
+
+<div class="vl-example" data-name="bar_tooltip_aggregate"></div>
 
 ## Disable tooltips
 
@@ -85,7 +102,7 @@ To disable all tooltips, disable it in the [config](config.html) with
 
 You can further customize the tooltip by specifying a custom event handler via [`tooltipHandler`](https://vega.github.io/vega/docs/api/view/#view_tooltipHandler) of the [`Vega View API`](https://vega.github.io/vega/docs/api/view/). Vega invokes the handler every time a tooltip is shown.
 
-We provide [Vega Tooltip](https://github.com/vega/vega-tooltip/), a tooltip handler that creates a customizable HTML tooltip. Below is an example of Vega-lite visualization with [Vega Tooltip](https://github.com/vega/vega-tooltip/) plugin. Vega Tooltip comes with [Vega Embed](https://github.com/vega/vega-embed) so you might already be using it.
+We provide [Vega Tooltip](https://github.com/vega/vega-tooltip/), a tooltip handler that creates a customizable HTML tooltip. Below is an example of Vega-Lite visualization with [Vega Tooltip](https://github.com/vega/vega-tooltip/) plugin. Vega Tooltip comes with [Vega Embed](https://github.com/vega/vega-embed) so you might already be using it.
 
 <div class="vl-example" data-name="bar_tooltip"></div>
 

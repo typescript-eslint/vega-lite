@@ -17,13 +17,14 @@ permalink: /docs/area.html
 
 `area` represent multiple data element as a single area shape. Area marks are often used to show change over time, using either a single area or stacked areas.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -42,9 +43,11 @@ permalink: /docs/area.html
 }
 ```
 
+<span class="vl-example" data-name="area_params" figure-only=true></span>
+
 An area mark definition can contain any [standard mark properties](mark.html#mark-def) and the following line interpolation as well as line and point overlay properties:
 
-{% include table.html props="orient,interpolate,tension,line,point" source="MarkDef" %}
+{% include table.html props="align,baseline,orient,interpolate,tension,line,point" source="MarkDef" %}
 
 ## Examples
 
@@ -59,6 +62,10 @@ Using `area` mark with one temporal or ordinal field (typically on `x`) and one 
 By setting the `line` and `point` properties of the mark definition to `true` or an object defining a property of the overlaying point marks, we can overlay line and point markers on top of area.
 
 <span class="vl-example" data-name="area_overlay"></span>
+
+Instead of using a single color as the fill color of the area, we can set it to a [gradient]({{site.baseurl}}/docs/types.html#gradient). In this example, we are also customizing the overlay.
+
+<span class="vl-example" data-name="area_gradient"></span>
 
 ### Stacked Area Chart
 

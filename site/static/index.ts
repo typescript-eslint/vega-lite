@@ -1,5 +1,6 @@
+import {select, selectAll, Selection} from 'd3-selection';
 // @ts-ignore
-import hljs from 'highlight.js/lib/highlight';
+import hljs from 'highlight.js/lib/core';
 // @ts-ignore
 import css from 'highlight.js/lib/languages/css';
 // @ts-ignore
@@ -9,9 +10,9 @@ import javascript from 'highlight.js/lib/languages/javascript';
 // @ts-ignore
 import json from 'highlight.js/lib/languages/json';
 // @ts-ignore
+import typescript from 'highlight.js/lib/languages/typescript';
+// @ts-ignore
 import xml from 'highlight.js/lib/languages/xml';
-
-import {event, select, selectAll, Selection} from 'd3-selection';
 import compactStringify from 'json-stringify-pretty-compact';
 import * as vega from 'vega';
 import {Handler} from 'vega-tooltip';
@@ -23,13 +24,14 @@ window['runStreamingExample'] = runStreamingExample;
 window['embedExample'] = embedExample;
 
 hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
 hljs.registerLanguage('json', json);
 hljs.registerLanguage('html', xml);
 hljs.registerLanguage('css', css);
 hljs.registerLanguage('diff', diff);
 
 // highlight jekyll code blocks
-hljs.initHighlightingOnLoad();
+hljs.highlightAll();
 
 declare const BASEURL: string;
 
@@ -39,34 +41,33 @@ const loader = vega.loader({
 
 const editorURL = 'https://vega.github.io/editor/';
 
-function trim(str: string) {
-  return str.replace(/^\s+|\s+$/g, '');
-}
-
 /* Anchors */
-selectAll('h2, h3, h4, h5, h6').each(function(this: d3.BaseType) {
+selectAll('h2, h3, h4, h5, h6').each(function (this: d3.BaseType) {
   const sel = select(this);
   const name = sel.attr('id');
-  const title = sel.text();
-  sel.html('<a href="#' + name + '" class="anchor"><span class="octicon octicon-link"></span></a>' + trim(title));
+  const title = sel.html();
+  sel.html(`<a href="#${name}" class="anchor"><span class="octicon octicon-link"></span></a>${title.trim()}`);
 });
 
 /* Documentation */
-function renderExample($target: Selection<any, any, any, any>, specText: string) {
+function renderExample($target: Selection<any, any, any, any>, specText: string, figureOnly: boolean) {
   $target.classed('example', true);
   $target.text('');
 
   const vis = $target.append('div').attr('class', 'example-vis');
 
   // Decrease visual noise by removing $schema and description from code examples.
-  const textClean = specText.replace(/(\s)+\"(\$schema|description)\": \".*?\",/g, '');
-  const code = $target
-    .append('pre')
-    .attr('class', 'example-code')
-    .append('code')
-    .attr('class', 'json')
-    .text(textClean);
-  hljs.highlightBlock(code.node() as any);
+  const textClean = specText.replace(/(\s)+"(\$schema|description)": ".*?",/g, '');
+
+  if (!figureOnly) {
+    const code = $target
+      .append('pre')
+      .attr('class', 'example-code')
+      .append('code')
+      .attr('class', 'json')
+      .text(textClean);
+    hljs.highlightElement(code.node());
+  }
 
   const spec = JSON.parse(specText);
 
@@ -74,7 +75,7 @@ function renderExample($target: Selection<any, any, any, any>, specText: string)
 }
 
 export function embedExample($target: any, spec: TopLevelSpec, actions = true, tooltip = true) {
-  const vgSpec = compile(spec).spec;
+  const {spec: vgSpec} = compile(spec);
 
   const view = new vega.View(vega.parse(vgSpec), {loader: loader}).renderer('svg').initialize($target);
 
@@ -92,15 +93,15 @@ export function embedExample($target: any, spec: TopLevelSpec, actions = true, t
       .append('a')
       .text('Open in Vega Editor')
       .attr('href', '#')
-      // tslint:disable-next-line
-      .on('click', function() {
+      .on('click', event => {
         post(window, editorURL, {
           mode: 'vega-lite',
           spec: compactStringify(spec),
           config: vgSpec.config,
           renderer: 'svg'
         });
-        event.preventDefault();
+        // remove as any when d3 typings are updated
+        (event as any).preventDefault();
       });
   }
 
@@ -110,16 +111,17 @@ export function embedExample($target: any, spec: TopLevelSpec, actions = true, t
 function getSpec(el: d3.BaseType) {
   const sel = select(el);
   const name = sel.attr('data-name');
+  const figureOnly = !!sel.attr('figure-only');
   if (name) {
     const dir = sel.attr('data-dir');
-    const fullUrl = BASEURL + '/examples/specs/' + (dir ? dir + '/' : '') + name + '.vl.json';
+    const fullUrl = `${BASEURL}/examples/${dir ? `${dir}/` : ''}${name}.vl.json`;
 
     fetch(fullUrl)
       .then(response => {
         response
           .text()
           .then(spec => {
-            renderExample(sel, spec);
+            renderExample(sel, spec, figureOnly);
           })
           .catch(console.error);
       })
@@ -136,22 +138,22 @@ window['changeSpec'] = (elId: string, newSpec: string) => {
 };
 
 window['buildSpecOpts'] = (id: string, baseName: string) => {
-  const oldName = select('#' + id).attr('data-name');
-  const prefixSel = select('select[name=' + id + ']');
-  const inputsSel = selectAll('input[name=' + id + ']:checked');
+  const oldName = select(`#${id}`).attr('data-name');
+  const prefixSel = select(`select[name=${id}]`);
+  const inputsSel = selectAll(`input[name=${id}]:checked`);
   const prefix = prefixSel.empty() ? id : prefixSel.property('value');
   const values = inputsSel
     .nodes()
     .map((n: any) => n.value)
     .sort()
     .join('_');
-  const newName = baseName + prefix + (values ? '_' + values : '');
+  const newName = baseName + prefix + (values ? `_${values}` : '');
   if (oldName !== newName) {
     window['changeSpec'](id, newName);
   }
 };
 
-selectAll('.vl-example').each(function(this: d3.BaseType) {
+selectAll('.vl-example').each(function (this: d3.BaseType) {
   getSpec(this);
 });
 
@@ -196,8 +198,8 @@ function setSlide(
 ) {
   return () => {
     // Reset all slides
-    for (let i = 0; i < indicators.length; i++) {
-      indicators[i].setAttribute('data-state', '');
+    for (const [i, indicator] of indicators.entries()) {
+      indicator.setAttribute('data-state', '');
       slides[i].setAttribute('data-state', '');
       carouselHide(slides, indicators, links, i);
     }
@@ -222,17 +224,12 @@ if (carousel) {
   const indicators = carousel.querySelectorAll('.indicator');
   const links = carousel.querySelectorAll('.slide-nav');
 
-  // tslint:disable-next-line:prefer-for-of
-  for (let i = 0; i < indicators.length; i++) {
-    indicators[i].addEventListener(
-      'click',
-      setSlide(slides, indicators, links, +indicators[i].getAttribute('data-slide'))
-    );
+  for (const indicator of indicators) {
+    indicator.addEventListener('click', setSlide(slides, indicators, links, +indicator.getAttribute('data-slide')));
   }
 
-  // tslint:disable-next-line:prefer-for-of
-  for (let i = 0; i < links.length; i++) {
-    links[i].addEventListener('click', setSlide(slides, indicators, links, +links[i].getAttribute('data-slide')));
+  for (const link of links) {
+    link.addEventListener('click', setSlide(slides, indicators, links, +link.getAttribute('data-slide')));
   }
 
   carousel.querySelector('.next-slide').addEventListener('click', () => {

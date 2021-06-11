@@ -1,5 +1,3 @@
-/* tslint:disable quotemark */
-
 import {COLOR, SHAPE, SIZE, X, Y} from '../../../src/channel';
 import {circle, point, square} from '../../../src/compile/mark/point';
 import {Config} from '../../../src/config';
@@ -19,7 +17,7 @@ describe('Mark: Point', () => {
         ...moreEncoding
       },
       data: {url: 'data/barley.json'},
-      config: {invalidValues: null, ...moreConfig}
+      config: {mark: {invalid: null}, ...moreConfig}
     };
   }
 
@@ -44,17 +42,32 @@ describe('Mark: Point', () => {
     });
   });
 
+  it('with offset includes offset on y', () => {
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      mark: {
+        type: 'point',
+        size: 250,
+        y: 'height',
+        yOffset: 25
+      },
+      data: {url: 'data/barley.json'}
+    });
+
+    const props = point.encodeEntry(model);
+
+    expect(props.y).toEqual({field: {group: 'height'}, offset: 25});
+  });
+
   describe('with stacked x', () => {
     // This is a simplified example for stacked point.
     // In reality this will be used as stacked's overlayed marker
     const model = parseUnitModelWithScaleAndLayoutSize({
       mark: 'point',
       encoding: {
-        x: {aggregate: 'sum', field: 'a', type: 'quantitative'},
+        x: {aggregate: 'sum', field: 'a', type: 'quantitative', stack: 'zero'},
         color: {field: 'b', type: 'ordinal'}
       },
-      data: {url: 'data/barley.json'},
-      config: {stack: 'zero'}
+      data: {url: 'data/barley.json'}
     });
 
     const props = point.encodeEntry(model);
@@ -62,6 +75,91 @@ describe('Mark: Point', () => {
     it('should use stack_end on x', () => {
       expect(props.x).toEqual({scale: X, field: 'sum_a_end'});
     });
+  });
+
+  it('interpolate stacked x with band = 0.5', () => {
+    // This is a simplified example for stacked point.
+    // In reality this will be used as stacked's overlayed marker
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      mark: 'point',
+      encoding: {
+        x: {field: 'a', type: 'quantitative', bandPosition: 0.5, stack: 'zero'},
+        color: {field: 'b', type: 'ordinal'}
+      },
+      data: {url: 'data/barley.json'}
+    });
+
+    const props = point.encodeEntry(model);
+
+    expect(props.x).toEqual({signal: 'scale("x", 0.5 * datum["a_start"] + 0.5 * datum["a_end"])'});
+  });
+
+  it('interpolates binned x with band = 0.6', () => {
+    // This is a simplified example for stacked point.
+    // In reality this will be used as stacked's overlayed marker
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      mark: 'point',
+      encoding: {
+        x: {bin: true, field: 'a', type: 'quantitative', bandPosition: 0.6}
+      },
+      data: {url: 'data/barley.json'}
+    });
+
+    const props = point.encodeEntry(model);
+
+    expect(props.x).toEqual([
+      {test: '!isValid(datum["bin_maxbins_10_a"]) || !isFinite(+datum["bin_maxbins_10_a"])', value: 0},
+      {signal: 'scale("x", 0.6 * datum["bin_maxbins_10_a"] + 0.4 * datum["bin_maxbins_10_a_end"])'}
+    ]);
+  });
+  it('interpolates x timeUnit with timeUnitBand = 0.5', () => {
+    // This is a simplified example for stacked point.
+    // In reality this will be used as stacked's overlayed marker
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/barley.json'},
+      mark: 'point',
+      encoding: {
+        x: {timeUnit: 'year', field: 'a'}
+      },
+      config: {
+        point: {timeUnitBandPosition: 0.5}
+      }
+    });
+
+    const props = point.encodeEntry(model);
+    expect(props.x).toEqual({signal: 'scale("x", 0.5 * datum["year_a"] + 0.5 * datum["year_a_end"])'});
+  });
+
+  it('interpolates nominal x on a band scale with band = 0.6', () => {
+    // This is a simplified example for stacked point.
+    // In reality this will be used as stacked's overlayed marker
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      mark: 'point',
+      encoding: {
+        x: {field: 'a', type: 'nominal', bandPosition: 0.6, scale: {type: 'band'}}
+      },
+      data: {url: 'data/barley.json'}
+    });
+
+    const props = point.encodeEntry(model);
+
+    expect(props.x).toEqual({scale: 'x', field: 'a', band: 0.6});
+  });
+
+  it('supports encoding with expression', () => {
+    // This is a simplified example for stacked point.
+    // In reality this will be used as stacked's overlayed marker
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      mark: 'point',
+      encoding: {
+        x: {value: {expr: 'a'}}
+      },
+      data: {url: 'data/barley.json'}
+    });
+
+    const props = point.encodeEntry(model);
+
+    expect(props.x).toEqual({signal: 'a'});
   });
 
   describe('with y', () => {
@@ -91,11 +189,10 @@ describe('Mark: Point', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
       mark: 'point',
       encoding: {
-        y: {aggregate: 'sum', field: 'a', type: 'quantitative'},
+        y: {aggregate: 'sum', field: 'a', type: 'quantitative', stack: 'zero'},
         color: {field: 'b', type: 'ordinal'}
       },
-      data: {url: 'data/barley.json'},
-      config: {stack: 'zero'}
+      data: {url: 'data/barley.json'}
     });
 
     const props = point.encodeEntry(model);
@@ -167,9 +264,9 @@ describe('Mark: Point', () => {
   describe('with x, y, and condition-only color', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
       ...pointXY({
-        color: {condition: {selection: 'test', field: 'yield', type: 'quantitative'}}
+        color: {condition: {param: 'test', field: 'yield', type: 'quantitative'}}
       }),
-      selection: {test: {type: 'single'}}
+      params: [{name: 'test', select: 'point'}]
     });
     model.parseSelections();
     const props = point.encodeEntry(model);
@@ -182,7 +279,7 @@ describe('Mark: Point', () => {
     });
   });
 
-  describe('with x, y, and condition-only color', () => {
+  describe('with x, y, and condition-only color and explicit test value', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
       ...pointXY({
         color: {condition: {test: 'true', field: 'yield', type: 'quantitative'}}
@@ -338,5 +435,33 @@ describe('Mark: Circle', () => {
 
     expect(filledCircleProps.stroke['value']).toBe('blue');
     expect(filledCircleProps.fill['value']).toBe('transparent');
+  });
+
+  it('converts expression in mark properties to signal', () => {
+    const filledCircleModel = parseUnitModelWithScaleAndLayoutSize({
+      mark: {type: 'circle', stroke: {expr: "'red'"}},
+      config: {
+        mark: {
+          filled: false
+        }
+      }
+    });
+
+    const filledCircleProps = circle.encodeEntry(filledCircleModel);
+
+    expect(filledCircleProps.stroke).toEqual({signal: "'red'"});
+  });
+
+  it('converts expression in encoding into signal', () => {
+    const filledCircleModel = parseUnitModelWithScaleAndLayoutSize({
+      mark: {type: 'circle'},
+      encoding: {
+        x: {datum: {expr: 'myX'}, type: 'quantitative'}
+      }
+    });
+
+    const filledCircleProps = circle.encodeEntry(filledCircleModel);
+
+    expect(filledCircleProps.x).toEqual({scale: 'x', signal: 'myX'});
   });
 });

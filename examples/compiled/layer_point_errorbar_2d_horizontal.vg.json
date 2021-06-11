@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -24,6 +24,16 @@
       "source": "source_0",
       "transform": [
         {
+          "type": "filter",
+          "expr": "isValid(datum[\"mean_yield\"]) && isFinite(+datum[\"mean_yield\"])"
+        }
+      ]
+    },
+    {
+      "name": "data_1",
+      "source": "source_0",
+      "transform": [
+        {
           "type": "formula",
           "expr": "datum[\"center_yield\"] + datum[\"extent_yield\"]",
           "as": "upper_yield"
@@ -35,7 +45,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"lower_yield\"] !== null && !isNaN(datum[\"lower_yield\"])"
+          "expr": "isValid(datum[\"lower_yield\"]) && isFinite(+datum[\"lower_yield\"])"
         }
       ]
     }
@@ -46,31 +56,35 @@
   ],
   "marks": [
     {
-      "name": "layer_0_layer_0_marks",
+      "name": "layer_0_marks",
       "type": "rule",
       "style": ["rule", "errorbar-rule"],
-      "from": {"data": "data_0"},
+      "from": {"data": "data_1"},
       "encode": {
         "update": {
+          "ariaRoleDescription": {"value": "errorbar"},
           "stroke": {"value": "black"},
           "tooltip": {
-            "signal": "{\"Mean of yield\": format(datum[\"center_yield\"], \"\"), \"Mean + stderr of yield\": format(datum[\"upper_yield\"], \"\"), \"Mean - stderr of yield\": format(datum[\"lower_yield\"], \"\"), \"variety\": ''+datum[\"variety\"]}"
+            "signal": "{\"Mean of yield\": format(datum[\"center_yield\"], \"\"), \"Mean + stderr of yield\": format(datum[\"upper_yield\"], \"\"), \"Mean - stderr of yield\": format(datum[\"lower_yield\"], \"\"), \"variety\": isValid(datum[\"variety\"]) ? datum[\"variety\"] : \"\"+datum[\"variety\"]}"
+          },
+          "description": {
+            "signal": "\"yield: \" + (format(datum[\"lower_yield\"], \"\")) + \"; upper_yield: \" + (format(datum[\"upper_yield\"], \"\")) + \"; variety: \" + (isValid(datum[\"variety\"]) ? datum[\"variety\"] : \"\"+datum[\"variety\"]) + \"; Mean of yield: \" + (format(datum[\"center_yield\"], \"\")) + \"; Mean + stderr of yield: \" + (format(datum[\"upper_yield\"], \"\")) + \"; Mean - stderr of yield: \" + (format(datum[\"lower_yield\"], \"\"))"
           },
           "x": [
             {
-              "test": "datum[\"lower_yield\"] === null || isNaN(datum[\"lower_yield\"])",
+              "test": "!isValid(datum[\"lower_yield\"]) || !isFinite(+datum[\"lower_yield\"])",
               "value": 0
             },
             {"scale": "x", "field": "lower_yield"}
           ],
-          "y": {"scale": "y", "field": "variety", "band": 0.5},
           "x2": [
             {
-              "test": "datum[\"upper_yield\"] === null || isNaN(datum[\"upper_yield\"])",
+              "test": "!isValid(datum[\"upper_yield\"]) || !isFinite(+datum[\"upper_yield\"])",
               "value": 0
             },
             {"scale": "x", "field": "upper_yield"}
-          ]
+          ],
+          "y": {"scale": "y", "field": "variety", "band": 0.5}
         }
       }
     },
@@ -78,16 +92,17 @@
       "name": "layer_1_marks",
       "type": "symbol",
       "style": ["point"],
-      "from": {"data": "source_0"},
+      "from": {"data": "data_0"},
       "encode": {
         "update": {
           "fill": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"Mean of yield\": format(datum[\"mean_yield\"], \"\"), \"variety\": ''+datum[\"variety\"]}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"Mean of yield: \" + (format(datum[\"mean_yield\"], \"\")) + \"; variety: \" + (isValid(datum[\"variety\"]) ? datum[\"variety\"] : \"\"+datum[\"variety\"])"
           },
           "x": [
             {
-              "test": "datum[\"mean_yield\"] === null || isNaN(datum[\"mean_yield\"])",
+              "test": "!isValid(datum[\"mean_yield\"]) || !isFinite(+datum[\"mean_yield\"])",
               "value": 0
             },
             {"scale": "x", "field": "mean_yield"}
@@ -103,9 +118,9 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "lower_yield"},
-          {"data": "data_0", "field": "upper_yield"},
-          {"data": "source_0", "field": "mean_yield"}
+          {"data": "data_1", "field": "lower_yield"},
+          {"data": "data_1", "field": "upper_yield"},
+          {"data": "data_0", "field": "mean_yield"}
         ]
       },
       "range": [0, {"signal": "width"}],
@@ -117,8 +132,8 @@
       "type": "band",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "variety"},
-          {"data": "source_0", "field": "variety"}
+          {"data": "data_1", "field": "variety"},
+          {"data": "data_0", "field": "variety"}
         ],
         "sort": true
       },
@@ -131,24 +146,25 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "yield",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "yield",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
       "zindex": 0
     },
     {
@@ -156,8 +172,7 @@
       "orient": "left",
       "grid": false,
       "title": "variety",
-      "labelOverlap": true,
-      "zindex": 1
+      "zindex": 0
     }
   ]
 }

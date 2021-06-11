@@ -1,22 +1,47 @@
-import {AnchorValue, Axis as VgAxis, Legend as VgLegend, NewSignal, SignalRef, Title as VgTitle} from 'vega';
-import {isString} from 'vega-util';
-import {Channel, FACET_CHANNELS, isChannel, isScaleChannel, ScaleChannel, SingleDefChannel} from '../channel';
+import {
+  AnchorValue,
+  Axis as VgAxis,
+  Legend as VgLegend,
+  NewSignal,
+  Projection as VgProjection,
+  Signal,
+  SignalRef,
+  Title as VgTitle
+} from 'vega';
+import {
+  Channel,
+  ExtendedChannel,
+  FACET_CHANNELS,
+  getPositionScaleChannel,
+  isChannel,
+  isScaleChannel,
+  ScaleChannel,
+  SingleDefChannel
+} from '../channel';
 import {ChannelDef, FieldDef, FieldRefOption, getFieldDef, vgField} from '../channeldef';
 import {Config} from '../config';
 import {Data, DataSourceType} from '../data';
 import {forEach, reduce} from '../encoding';
+import {ExprRef, replaceExprRef} from '../expr';
 import * as log from '../log';
 import {Resolve} from '../resolve';
 import {hasDiscreteDomain} from '../scale';
-import {isFacetSpec, isLayerSpec, isUnitSpec} from '../spec';
-import {extractCompositionLayout, GenericCompositionLayoutWithColumns, SpecType, ViewBackground} from '../spec/base';
+import {isFacetSpec} from '../spec';
+import {
+  extractCompositionLayout,
+  GenericCompositionLayoutWithColumns,
+  LayoutSizeMixins,
+  SpecType,
+  ViewBackground
+} from '../spec/base';
 import {NormalizedSpec} from '../spec/index';
-import {extractTitleConfig, TitleParams} from '../title';
+import {extractTitleConfig, isText, TitleParams} from '../title';
 import {normalizeTransform, Transform} from '../transform';
-import {contains, Dict, duplicate, keys, varName} from '../util';
-import {isVgRangeStep, VgData, VgEncodeEntry, VgLayout, VgMarkGroup, VgProjection} from '../vega.schema';
+import {contains, Dict, duplicate, isEmpty, keys, varName} from '../util';
+import {isVgRangeStep, VgData, VgEncodeEntry, VgLayout, VgMarkGroup} from '../vega.schema';
 import {assembleAxes} from './axis/assemble';
 import {AxisComponentIndex} from './axis/component';
+import {signalOrValueRef} from './common';
 import {ConcatModel} from './concat';
 import {DataComponent} from './data';
 import {FacetModel} from './facet';
@@ -24,15 +49,18 @@ import {assembleHeaderGroups, assembleLayoutTitleBand, assembleTitleGroup} from 
 import {HEADER_CHANNELS, LayoutHeaderComponent} from './header/component';
 import {LayerModel} from './layer';
 import {sizeExpr} from './layoutsize/assemble';
-import {LayoutSizeComponent, LayoutSizeIndex} from './layoutsize/component';
+import {
+  getSizeTypeFromLayoutSizeType,
+  LayoutSizeComponent,
+  LayoutSizeIndex,
+  LayoutSizeType
+} from './layoutsize/component';
 import {assembleLegends} from './legend/assemble';
 import {LegendComponentIndex} from './legend/component';
 import {parseLegend} from './legend/parse';
 import {assembleProjections} from './projection/assemble';
 import {ProjectionComponent} from './projection/component';
 import {parseProjection} from './projection/parse';
-import {RepeatModel} from './repeat';
-import {RepeaterValue} from './repeater';
 import {assembleScales} from './scale/assemble';
 import {ScaleComponent, ScaleComponentIndex} from './scale/component';
 import {assembleDomain, getFieldFromDomain} from './scale/domain';
@@ -43,7 +71,7 @@ import {UnitModel} from './unit';
 
 /**
  * Composable Components that are intermediate results of the parsing phase of the
- * compilations.  The components represents parts of the specification in a form that
+ * compilations. The components represents parts of the specification in a form that
  * can be easily merged (during parsing for composite specs).
  * In addition, these components are easily transformed into Vega specifications
  * during the "assemble" phase, which is the last phase of the compilation step.
@@ -116,32 +144,30 @@ export class NameMap implements NameMapInterface {
 */
 
 export function isUnitModel(model: Model): model is UnitModel {
-  return model && model.type === 'unit';
+  return model?.type === 'unit';
 }
 
 export function isFacetModel(model: Model): model is FacetModel {
-  return model && model.type === 'facet';
-}
-
-export function isRepeatModel(model: Model): model is RepeatModel {
-  return model && model.type === 'repeat';
+  return model?.type === 'facet';
 }
 
 export function isConcatModel(model: Model): model is ConcatModel {
-  return model && model.type === 'concat';
+  return model?.type === 'concat';
 }
 
 export function isLayerModel(model: Model): model is LayerModel {
-  return model && model.type === 'layer';
+  return model?.type === 'layer';
 }
 
 export abstract class Model {
   public readonly name: string;
 
-  public readonly title: TitleParams;
+  public size: LayoutSizeMixins;
+
+  public readonly title: TitleParams<SignalRef>;
   public readonly description: string;
 
-  public readonly data: Data;
+  public readonly data: Data | null;
   public readonly transforms: Transform[];
   public readonly layout: GenericCompositionLayoutWithColumns;
 
@@ -156,6 +182,8 @@ export abstract class Model {
 
   public readonly component: Component;
 
+  public readonly view?: ViewBackground<SignalRef>;
+
   public abstract readonly children: Model[] = [];
 
   constructor(
@@ -163,18 +191,17 @@ export abstract class Model {
     public readonly type: SpecType,
     public readonly parent: Model,
     parentGivenName: string,
-    public readonly config: Config,
-    public readonly repeater: RepeaterValue,
+    public readonly config: Config<SignalRef>,
     resolve: Resolve,
-    public readonly view?: ViewBackground
+    view?: ViewBackground<ExprRef | SignalRef>
   ) {
     this.parent = parent;
     this.config = config;
-    this.repeater = repeater;
+    this.view = replaceExprRef(view);
 
     // If name is not provided, always use parent's givenName to avoid name conflicts.
-    this.name = spec.name || parentGivenName;
-    this.title = isString(spec.title) ? {text: spec.title} : spec.title;
+    this.name = spec.name ?? parentGivenName;
+    this.title = isText(spec.title) ? {text: spec.title} : spec.title ? replaceExprRef(spec.title) : undefined;
 
     // Shared name maps
     this.scaleNameMap = parent ? parent.scaleNameMap : new NameMap();
@@ -184,16 +211,16 @@ export abstract class Model {
     this.data = spec.data;
 
     this.description = spec.description;
-    this.transforms = normalizeTransform(spec.transform || []);
-    this.layout = isUnitSpec(spec) || isLayerSpec(spec) ? {} : extractCompositionLayout(spec, type, config);
+    this.transforms = normalizeTransform(spec.transform ?? []);
+    this.layout = type === 'layer' || type === 'unit' ? {} : extractCompositionLayout(spec, type, config);
 
     this.component = {
       data: {
         sources: parent ? parent.component.data.sources : [],
         outputNodes: parent ? parent.component.data.outputNodes : {},
         outputNodeRefCounts: parent ? parent.component.data.outputNodeRefCounts : {},
-        // data is faceted if the spec is a facet spec or the parent has faceted data and no data is defined
-        isFaceted: isFacetSpec(spec) || (parent && parent.component.data.isFaceted && !spec.data)
+        // data is faceted if the spec is a facet spec or the parent has faceted data and data is undefined
+        isFaceted: isFacetSpec(spec) || (parent && parent.component.data.isFaceted && spec.data === undefined)
       },
       layoutSize: new Split<LayoutSizeIndex>(),
       layoutHeaders: {row: {}, column: {}, facet: {}},
@@ -218,17 +245,6 @@ export abstract class Model {
 
   public get height(): SignalRef {
     return this.getSizeSignalRef('height');
-  }
-
-  protected initSize(size: LayoutSizeIndex) {
-    const {width, height} = size;
-    if (width) {
-      this.component.layoutSize.set('width', width, true);
-    }
-
-    if (height) {
-      this.component.layoutSize.set('height', height, true);
-    }
   }
 
   public parse() {
@@ -284,49 +300,54 @@ export abstract class Model {
   public abstract assembleSelectionTopLevelSignals(signals: NewSignal[]): NewSignal[];
   public abstract assembleSignals(): NewSignal[];
 
-  public abstract assembleSelectionData(data: VgData[]): VgData[];
+  public abstract assembleSelectionData(data: readonly VgData[]): readonly VgData[];
 
-  public assembleGroupStyle(): string {
+  public assembleGroupStyle(): string | string[] {
     if (this.type === 'unit' || this.type === 'layer') {
-      return (this.view && this.view.style) || 'cell';
+      return this.view?.style ?? 'cell';
     }
     return undefined;
   }
 
-  private assembleEncodeFromView(view: ViewBackground): VgEncodeEntry {
+  private assembleEncodeFromView(view: ViewBackground<SignalRef>): VgEncodeEntry {
     // Exclude "style"
     const {style: _, ...baseView} = view;
 
-    const e = {};
-    for (const property in baseView) {
-      if (baseView.hasOwnProperty(property)) {
-        const value = baseView[property];
-        if (value !== undefined) {
-          e[property] = {value};
-        }
+    const e: VgEncodeEntry = {};
+    for (const property of keys(baseView)) {
+      const value = baseView[property];
+      if (value !== undefined) {
+        e[property] = signalOrValueRef(value);
       }
     }
+
     return e;
   }
 
   public assembleGroupEncodeEntry(isTopLevel: boolean): VgEncodeEntry {
-    let encodeEntry: VgEncodeEntry = undefined;
+    let encodeEntry: VgEncodeEntry = {};
     if (this.view) {
       encodeEntry = this.assembleEncodeFromView(this.view);
     }
+
     if (!isTopLevel) {
+      // Descriptions are already added to the top-level description so we only need to add them to the inner views.
+      if (this.description) {
+        encodeEntry['description'] = signalOrValueRef(this.description);
+      }
+
       // For top-level spec, we can set the global width and height signal to adjust the group size.
       // For other child specs, we have to manually set width and height in the encode entry.
       if (this.type === 'unit' || this.type === 'layer') {
         return {
           width: this.getSizeSignalRef('width'),
           height: this.getSizeSignalRef('height'),
-          ...(encodeEntry || {})
+          ...(encodeEntry ?? {})
         };
       }
     }
 
-    return encodeEntry;
+    return isEmpty(encodeEntry) ? undefined : encodeEntry;
   }
 
   public assembleLayout(): VgLayout {
@@ -384,7 +405,7 @@ export abstract class Model {
   }
 
   public assembleTitle(): VgTitle {
-    const {encoding, ...titleNoEncoding} = this.title || ({} as TitleParams);
+    const {encoding, ...titleNoEncoding} = this.title ?? ({} as TitleParams<SignalRef>);
 
     const title: VgTitle = {
       ...extractTitleConfig(this.config.title).nonMark,
@@ -396,25 +417,25 @@ export abstract class Model {
       if (contains(['unit', 'layer'], this.type)) {
         // Unit/Layer
         if (contains<AnchorValue>(['middle', undefined], title.anchor)) {
-          title.frame = title.frame || 'group';
+          title.frame ??= 'group';
         }
       } else {
         // composition with Vega layout
 
         // Set title = "start" by default for composition as "middle" does not look nice
         // https://github.com/vega/vega/issues/960#issuecomment-471360328
-        title.anchor = title.anchor || 'start';
+        title.anchor ??= 'start';
       }
 
-      return keys(title).length > 0 ? title : undefined;
+      return isEmpty(title) ? undefined : title;
     }
     return undefined;
   }
 
   /**
-   * Assemble the mark group for this model.  We accept optional `signals` so that we can include concat top-level signals with the top-level model's local signals.
+   * Assemble the mark group for this model. We accept optional `signals` so that we can include concat top-level signals with the top-level model's local signals.
    */
-  public assembleGroup(signals: NewSignal[] = []) {
+  public assembleGroup(signals: Signal[] = []) {
     const group: VgMarkGroup = {};
 
     signals = signals.concat(this.assembleSignals());
@@ -450,30 +471,21 @@ export abstract class Model {
     return group;
   }
 
-  public hasDescendantWithFieldOnChannel(channel: Channel) {
-    for (const child of this.children) {
-      if (isUnitModel(child)) {
-        if (child.channelHasField(channel)) {
-          return true;
-        }
-      } else {
-        if (child.hasDescendantWithFieldOnChannel(channel)) {
-          return true;
-        }
-      }
-    }
-    return false;
+  public getName(text: string) {
+    return varName((this.name ? `${this.name}_` : '') + text);
   }
 
-  public getName(text: string) {
-    return varName((this.name ? this.name + '_' : '') + text);
+  public getDataName(type: DataSourceType) {
+    return this.getName(DataSourceType[type].toLowerCase());
   }
 
   /**
-   * Request a data source name for the given data source type and mark that data source as required. This method should be called in parse, so that all used data source can be correctly instantiated in assembleData().
+   * Request a data source name for the given data source type and mark that data source as required.
+   * This method should be called in parse, so that all used data source can be correctly instantiated in assembleData().
+   * You can lookup the correct dataset name in assemble with `lookupDataSource`.
    */
   public requestDataName(name: DataSourceType) {
-    const fullName = this.getName(name);
+    const fullName = this.getDataName(name);
 
     // Increase ref count. This is critical because otherwise we won't create a data source.
     // We also increase the ref counts on OutputNode.getSource() calls.
@@ -483,9 +495,10 @@ export abstract class Model {
     return fullName;
   }
 
-  public getSizeSignalRef(sizeType: 'width' | 'height'): SignalRef {
+  public getSizeSignalRef(layoutSizeType: LayoutSizeType): SignalRef {
     if (isFacetModel(this.parent)) {
-      const channel = sizeType === 'width' ? 'x' : 'y';
+      const sizeType = getSizeTypeFromLayoutSizeType(layoutSizeType);
+      const channel = getPositionScaleChannel(sizeType);
       const scaleComponent = this.component.scales[channel];
 
       if (scaleComponent && !scaleComponent.merged) {
@@ -503,7 +516,7 @@ export abstract class Model {
               signal: sizeExpr(scaleName, scaleComponent, fieldRef)
             };
           } else {
-            log.warn('Unknown field for ${channel}.  Cannot calculate view size.');
+            log.warn(log.message.unknownField(channel));
             return null;
           }
         }
@@ -511,7 +524,7 @@ export abstract class Model {
     }
 
     return {
-      signal: this.signalNameMap.get(this.getName(sizeType))
+      signal: this.signalNameMap.get(this.getName(layoutSizeType))
     };
   }
 
@@ -549,7 +562,7 @@ export abstract class Model {
   /**
    * @return scale name for a given channel after the scale has been parsed and named.
    */
-  public scaleName(originalScaleName: Channel | string, parse?: boolean): string {
+  public scaleName(originalScaleName: ScaleChannel | string, parse?: boolean): string {
     if (parse) {
       // During the parse phase always return a value
       // No need to refer to rename map because a scale can't be renamed
@@ -597,12 +610,12 @@ export abstract class Model {
     // TODO: make this correct
 
     // for normal data references
-    if (mark.from && mark.from.data) {
+    if (mark.from?.data) {
       mark.from.data = this.lookupDataSource(mark.from.data);
     }
 
     // for access to facet data
-    if (mark.from && mark.from.facet && mark.from.facet.data) {
+    if (mark.from?.facet?.data) {
       mark.from.facet.data = this.lookupDataSource(mark.from.facet.data);
     }
 
@@ -616,7 +629,7 @@ export abstract class Model {
     /* istanbul ignore next: This is warning for debugging test */
     if (!this.component.scales) {
       throw new Error(
-        'getScaleComponent cannot be called before parseScale().  Make sure you have called parseScale or use parseUnitModelWithScale().'
+        'getScaleComponent cannot be called before parseScale(). Make sure you have called parseScale or use parseUnitModelWithScale().'
       );
     }
 
@@ -640,9 +653,19 @@ export abstract class Model {
     }
     return sel;
   }
+
+  /**
+   * Returns true if the model has a signalRef for an axis orient.
+   */
+  public hasAxisOrientSignalRef() {
+    return (
+      this.component.axes.x?.some(a => a.hasOrientSignalRef()) ||
+      this.component.axes.y?.some(a => a.hasOrientSignalRef())
+    );
+  }
 }
 
-/** Abstract class for UnitModel and FacetModel.  Both of which can contain fieldDefs as a part of its own specification. */
+/** Abstract class for UnitModel and FacetModel. Both of which can contain fieldDefs as a part of its own specification. */
 export abstract class ModelWithField extends Model {
   public abstract fieldDef(channel: SingleDefChannel): FieldDef<any>;
 
@@ -657,9 +680,9 @@ export abstract class ModelWithField extends Model {
     return vgField(fieldDef, opt);
   }
 
-  protected abstract getMapping(): {[key in Channel]?: any};
+  protected abstract getMapping(): Partial<Record<ExtendedChannel, any>>;
 
-  public reduceFieldDef<T, U>(f: (acc: U, fd: FieldDef<string>, c: Channel) => U, init: T, t?: any) {
+  public reduceFieldDef<T, U>(f: (acc: U, fd: FieldDef<string>, c: Channel) => U, init: T): T {
     return reduce(
       this.getMapping(),
       (acc: U, cd: ChannelDef, c: Channel) => {
@@ -669,15 +692,14 @@ export abstract class ModelWithField extends Model {
         }
         return acc;
       },
-      init,
-      t
+      init
     );
   }
 
-  public forEachFieldDef(f: (fd: FieldDef<string>, c: Channel) => void, t?: any) {
+  public forEachFieldDef(f: (fd: FieldDef<string>, c: ExtendedChannel) => void, t?: any) {
     forEach(
       this.getMapping(),
-      (cd: ChannelDef, c: Channel) => {
+      (cd, c) => {
         const fieldDef = getFieldDef(cd);
         if (fieldDef) {
           f(fieldDef, c);
@@ -686,5 +708,6 @@ export abstract class ModelWithField extends Model {
       t
     );
   }
+
   public abstract channelHasField(channel: Channel): boolean;
 }

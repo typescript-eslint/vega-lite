@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -22,8 +22,9 @@
       "from": {"data": "source_0"},
       "encode": {
         "update": {
+          "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "fill": {"value": "transparent"}
+          "ariaRoleDescription": {"value": "geoshape"}
         }
       },
       "transform": [{"type": "geoshape", "projection": "projection"}]

@@ -1,5 +1,3 @@
-/* tslint:disable:quotemark */
-
 import * as encode from '../../../src/compile/axis/encode';
 import {parseUnitModelWithScale} from '../../util';
 
@@ -12,8 +10,8 @@ describe('compile/axis/encode', () => {
           x: {field: 'a', type: 'temporal', timeUnit: 'month'}
         }
       });
-      const labels = encode.labels(model, 'x', {}, 'bottom');
-      expect(labels.angle).toBeUndefined();
+      const labels = encode.labels(model, 'x', {});
+      expect(labels?.angle).toBeUndefined();
     });
 
     it('should do not rotate label for temporal field if labelAngle is specified in axis config', () => {
@@ -24,32 +22,32 @@ describe('compile/axis/encode', () => {
         },
         config: {axisX: {labelAngle: 90}}
       });
-      const labels = encode.labels(model, 'x', {}, 'bottom');
-      expect(labels.angle).toBeUndefined();
+      const labels = encode.labels(model, 'x', {});
+      expect(labels?.angle).toBeUndefined();
     });
 
-    it('should have correct text.signal for quarter timeUnits', () => {
+    it('applies custom format type', () => {
       const model = parseUnitModelWithScale({
         mark: 'point',
         encoding: {
-          x: {field: 'a', type: 'temporal', timeUnit: 'quarter'}
-        }
+          x: {field: 'a', type: 'quantitative', axis: {format: 'abc', formatType: 'customNumberFormat'}}
+        },
+        config: {customFormatTypes: true}
       });
-      const labels = encode.labels(model, 'x', {}, 'bottom');
-      const expected = "'Q' + quarter(datum.value)";
-      expect(labels.text.signal).toEqual(expected);
+      const labels = encode.labels(model, 'x', {});
+      expect(labels.text.signal).toEqual('customNumberFormat(datum.value, "abc")');
     });
 
-    it('should have correct text.signal for yearquartermonth timeUnits', () => {
+    it('applies custom format type without format', () => {
       const model = parseUnitModelWithScale({
         mark: 'point',
         encoding: {
-          x: {field: 'a', type: 'temporal', timeUnit: 'yearquartermonth'}
-        }
+          x: {field: 'a', type: 'quantitative', axis: {formatType: 'customNumberFormat'}}
+        },
+        config: {customFormatTypes: true}
       });
-      const labels = encode.labels(model, 'x', {}, 'bottom');
-      const expected = "'Q' + quarter(datum.value) + ' ' + timeFormat(datum.value, '%b %Y')";
-      expect(labels.text.signal).toEqual(expected);
+      const labels = encode.labels(model, 'x', {});
+      expect(labels.text.signal).toEqual('customNumberFormat(datum.value)');
     });
   });
 });

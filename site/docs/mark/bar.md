@@ -17,13 +17,14 @@ permalink: /docs/bar.html
 
 Bar marks are useful in many visualizations, including bar charts, [stacked bar charts](#stack), and [timelines](#ranged).
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -42,9 +43,11 @@ Bar marks are useful in many visualizations, including bar charts, [stacked bar 
 }
 ```
 
+<span class="vl-example" data-name="bar_params_bound" figure-only=true></span>
+
 A bar mark definition can contain any [standard mark properties](mark.html#mark-def) and the following special properties:
 
-{% include table.html props="orient,binSpacing,cornerRadius" source="MarkDef" %}
+{% include table.html props="width,height,orient,align,baseline,binSpacing,cornerRadius,cornerRadiusEnd,cornerRadiusTopLeft,cornerRadiusTopRight,cornerRadiusBottomRight,cornerRadiusBottomLeft" source="MarkDef" %}
 
 ## Examples
 
@@ -56,17 +59,41 @@ Mapping a quantitative field to either `x` or `y` of the `bar` mark produces a s
 
 ### Bar Chart
 
-If we map a different discrete field to the `y` channel, we can produce a horizontal bar chart. Specifying `scale.rangeStep` of the discrete field will adjust the [band and point scale's range step](scale.html#band).
+If we map a different discrete field to the `y` channel, we can produce a horizontal bar chart. Specifying `"height": {"step": 17}` will adjust the bar's height per discrete step.
 
 <span class="vl-example" data-name="bar_aggregate"></span>
+
+### Bar Chart with a Temporal Axis
 
 While the `bar` mark typically uses the x and y channels to encode a pair of discrete and continuous fields, it can also be used with continuous fields on both channels. For example, given a bar chart with a temporal field on x, we can see that the x-scale is a continuous scale. By default, the size of bars on continuous scales will be set based on the [`continuousBandSize` config](#config).
 
 <span class="vl-example" data-name="bar_month_temporal"></span>
 
+{.#bar-width}
+
+### Relative Bar Width
+
+To adjust the bar to be smaller than the time unit step, you can adjust the bar's width to be a proportion of band. For example, the following chart sets the width to be 70% of the x band width.
+
+<span class="vl-example" data-name="bar_month_band"></span>
+
+### Bar Chart with a Discrete Temporal Axis
+
 If you want to use a discrete scale instead, you can cast the field to have an `"ordinal"` type. This casting strategy can be useful for time units with low cardinality such as `"month"`.
 
 <span class="vl-example" data-name="bar_month"></span>
+
+### Bar Chart with Rounded Corners
+
+We can also adjust corner radius of the bar with various corner radius properties. For example, we can use `cornerRadiusEnd` to create a bar chart with rounded corners at the end of the bars.
+
+<span class="vl-example" data-name="bar_corner_radius_end"></span>
+
+### Bar Chart with Negative Values and Zero Baseline
+
+When there are negative values, you may want to hide domain the axis domain line, and instead use a conditional grid color to draw a zero baseline.
+
+<span class="vl-example" data-name="bar_negative"></span>
 
 ### Histogram
 

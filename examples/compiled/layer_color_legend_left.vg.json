@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Stock price over time with color legend orient = left.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -18,7 +18,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"date\"] !== null && !isNaN(datum[\"date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+          "expr": "(isDate(datum[\"date\"]) || (isValid(datum[\"date\"]) && isFinite(+datum[\"date\"]))) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
         }
       ]
     }
@@ -45,18 +45,18 @@
           "name": "layer_0_marks",
           "type": "line",
           "style": ["line"],
-          "sort": {"field": "datum[\"date\"]", "order": "descending"},
+          "sort": {"field": "datum[\"date\"]"},
           "from": {"data": "faceted_path_layer_0_main"},
           "encode": {
             "update": {
               "stroke": {"scale": "color", "field": "symbol"},
-              "tooltip": {
-                "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y'), \"price\": format(datum[\"price\"], \"\"), \"symbol\": ''+datum[\"symbol\"]}"
+              "description": {
+                "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y')) + \"; price: \" + (format(datum[\"price\"], \"\")) + \"; symbol: \" + (isValid(datum[\"symbol\"]) ? datum[\"symbol\"] : \"\"+datum[\"symbol\"])"
               },
               "x": {"scale": "x", "field": "date"},
               "y": {"scale": "y", "field": "price"},
               "defined": {
-                "signal": "datum[\"date\"] !== null && !isNaN(datum[\"date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+                "signal": "isValid(datum[\"date\"]) && isFinite(+datum[\"date\"]) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
               }
             }
           }
@@ -72,8 +72,9 @@
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"scale": "color", "field": "symbol"},
-          "tooltip": {
-            "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y'), \"price\": format(datum[\"price\"], \"\"), \"symbol\": ''+datum[\"symbol\"]}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y')) + \"; price: \" + (format(datum[\"price\"], \"\")) + \"; symbol: \" + (isValid(datum[\"symbol\"]) ? datum[\"symbol\"] : \"\"+datum[\"symbol\"])"
           },
           "x": {"scale": "x", "field": "date"},
           "y": {"scale": "y", "field": "price"}
@@ -123,34 +124,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "price",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -160,9 +143,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "price",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
@@ -170,7 +173,6 @@
     {
       "orient": "left",
       "stroke": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "symbol",
       "fill": "color",

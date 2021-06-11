@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -43,7 +43,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"x\"] !== null && !isNaN(datum[\"x\"]) && datum[\"y\"] !== null && !isNaN(datum[\"y\"]) && datum[\"Cylinders\"] !== null && !isNaN(datum[\"Cylinders\"])"
+          "expr": "isValid(datum[\"x\"]) && isFinite(+datum[\"x\"]) && isValid(datum[\"y\"]) && isFinite(+datum[\"y\"]) && isValid(datum[\"Cylinders\"]) && isFinite(+datum[\"Cylinders\"])"
         }
       ]
     }
@@ -59,7 +59,10 @@
           "fill": {"scale": "color", "field": "Origin"},
           "opacity": {"scale": "opacity", "field": "Cylinders"},
           "tooltip": {
-            "signal": "{\"Origin\": ''+datum[\"Origin\"], \"Cylinders\": format(datum[\"Cylinders\"], \"\")}"
+            "signal": "{\"Origin\": isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"], \"Cylinders\": format(datum[\"Cylinders\"], \"\")}"
+          },
+          "description": {
+            "signal": "\"x: \" + (format(datum[\"x\"], \"\")) + \"; x2: \" + (format(datum[\"x2\"], \"\")) + \"; y: \" + (format(datum[\"y\"], \"\")) + \"; y2: \" + (format(datum[\"y2\"], \"\")) + \"; Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"]) + \"; Cylinders: \" + (format(datum[\"Cylinders\"], \"\"))"
           },
           "x": {"scale": "x", "field": "x"},
           "x2": {"scale": "x", "field": "x2"},
@@ -100,12 +103,5 @@
       "zero": false
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "Origin"
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "square", "title": "Origin"}]
 }

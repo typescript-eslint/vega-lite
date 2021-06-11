@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -15,7 +15,7 @@
         {"type": "identifier", "as": "_vgsid_"},
         {
           "type": "filter",
-          "expr": "datum[\"Horsepower\"] !== null && !isNaN(datum[\"Horsepower\"]) && datum[\"Miles_per_Gallon\"] !== null && !isNaN(datum[\"Miles_per_Gallon\"])"
+          "expr": "isValid(datum[\"Horsepower\"]) && isFinite(+datum[\"Horsepower\"]) && isValid(datum[\"Miles_per_Gallon\"]) && isFinite(+datum[\"Miles_per_Gallon\"])"
         }
       ]
     }
@@ -30,7 +30,7 @@
     },
     {
       "name": "paintbrush",
-      "update": "vlSelectionResolve(\"paintbrush_store\")"
+      "update": "vlSelectionResolve(\"paintbrush_store\", \"union\", true, true)"
     },
     {
       "name": "paintbrush_tuple",
@@ -40,7 +40,7 @@
           "update": "datum && item().mark.marktype !== 'group' ? {unit: \"\", fields: paintbrush_tuple_fields, values: [(item().isVoronoi ? datum.datum : datum)[\"_vgsid_\"]]} : null",
           "force": true
         },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"}
       ]
     },
     {
@@ -49,7 +49,12 @@
     },
     {
       "name": "paintbrush_modify",
-      "update": "modify(\"paintbrush_store\", paintbrush_tuple, null)"
+      "on": [
+        {
+          "events": {"signal": "paintbrush_tuple"},
+          "update": "modify(\"paintbrush_store\", paintbrush_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -57,20 +62,22 @@
       "name": "marks",
       "type": "symbol",
       "style": ["circle"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "fill": [
             {
-              "test": "!(length(data(\"paintbrush_store\"))) || (vlSelectionTest(\"paintbrush_store\", datum))",
+              "test": "!length(data(\"paintbrush_store\")) || vlSelectionTest(\"paintbrush_store\", datum)",
               "scale": "color",
               "field": "Cylinders"
             },
             {"value": "grey"}
           ],
-          "tooltip": {
-            "signal": "{\"Horsepower\": format(datum[\"Horsepower\"], \"\"), \"Miles_per_Gallon\": format(datum[\"Miles_per_Gallon\"], \"\"), \"Cylinders\": ''+datum[\"Cylinders\"]}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"Horsepower: \" + (format(datum[\"Horsepower\"], \"\")) + \"; Miles_per_Gallon: \" + (format(datum[\"Miles_per_Gallon\"], \"\")) + \"; Cylinders: \" + (isValid(datum[\"Cylinders\"]) ? datum[\"Cylinders\"] : \"\"+datum[\"Cylinders\"])"
           },
           "x": {"scale": "x", "field": "Horsepower"},
           "y": {"scale": "y", "field": "Miles_per_Gallon"},
@@ -109,34 +116,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Horsepower",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Miles_per_Gallon",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -146,23 +135,38 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Horsepower",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Miles_per_Gallon",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
   "legends": [
     {
       "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "Cylinders",
-      "encode": {
-        "symbols": {
-          "update": {"shape": {"value": "circle"}, "opacity": {"value": 0.7}}
-        }
-      }
+      "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}}
     }
   ]
 }

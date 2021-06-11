@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "A diverging stacked bar chart for sentiments towards a set of eight questions, displayed as percentages with neutral responses straddling the 0% mark",
   "data": {
     "values": [
@@ -73,16 +73,14 @@
     "x": {
       "field": "nx",
       "type": "quantitative",
-      "axis": {
-        "title": "Percentage"
-      }
+      "title": "Percentage"
     },
     "x2": {"field": "nx2"},
     "y": {
       "field": "question",
       "type": "nominal",
+      "title": "Question",
       "axis": {
-        "title": "Question",
         "offset": 5,
         "ticks": false,
         "minExtent": 60,
@@ -92,9 +90,7 @@
     "color": {
       "field": "type",
       "type": "nominal",
-      "legend": {
-        "title": "Response"
-      },
+      "title": "Response",
       "scale": {
         "domain": ["Strongly disagree", "Disagree", "Neither agree nor disagree", "Agree", "Strongly agree"],
         "range": ["#c30d24", "#f3a583", "#cccccc", "#94c6da", "#1770ab"],

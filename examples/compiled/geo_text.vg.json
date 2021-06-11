@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 800,
   "height": 500,
@@ -68,7 +68,11 @@
       "style": ["geoshape"],
       "from": {"data": "source_0"},
       "encode": {
-        "update": {"fill": {"value": "lightgray"}, "stroke": {"value": "white"}}
+        "update": {
+          "fill": {"value": "lightgray"},
+          "stroke": {"value": "white"},
+          "ariaRoleDescription": {"value": "geoshape"}
+        }
       },
       "transform": [{"type": "geoshape", "projection": "projection"}]
     },
@@ -81,8 +85,9 @@
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"value": "orange"},
-          "tooltip": {
-            "signal": "{\"lon\": format(datum[\"lon\"], \"\"), \"lat\": format(datum[\"lat\"], \"\")}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"lon: \" + (format(datum[\"lon\"], \"\")) + \"; lat: \" + (format(datum[\"lat\"], \"\"))"
           },
           "x": {"field": "layer_1_layer_0_x"},
           "y": {"field": "layer_1_layer_0_y"},
@@ -99,12 +104,14 @@
         "update": {
           "dy": {"value": -10},
           "fill": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"lon\": format(datum[\"lon\"], \"\"), \"lat\": format(datum[\"lat\"], \"\"), \"city\": ''+datum[\"city\"]}"
+          "description": {
+            "signal": "\"lon: \" + (format(datum[\"lon\"], \"\")) + \"; lat: \" + (format(datum[\"lat\"], \"\")) + \"; city: \" + (isValid(datum[\"city\"]) ? datum[\"city\"] : \"\"+datum[\"city\"])"
           },
           "x": {"field": "layer_1_layer_1_x"},
           "y": {"field": "layer_1_layer_1_y"},
-          "text": {"signal": "''+datum[\"city\"]"},
+          "text": {
+            "signal": "isValid(datum[\"city\"]) ? datum[\"city\"] : \"\"+datum[\"city\"]"
+          },
           "align": {"value": "center"},
           "baseline": {"value": "middle"}
         }

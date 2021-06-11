@@ -1,3 +1,4 @@
+import {FormulaTransform as VgFormulaTransform} from 'vega';
 import {SingleDefChannel} from '../../channel';
 import {FieldRefOption, isScaleFieldDef, TypedFieldDef, vgField} from '../../channeldef';
 import {DateTime} from '../../datetime';
@@ -5,14 +6,9 @@ import {fieldFilterExpression} from '../../predicate';
 import {isSortArray} from '../../sort';
 import {CalculateTransform} from '../../transform';
 import {duplicate, hash} from '../../util';
-import {VgFormulaTransform} from '../../vega.schema';
 import {ModelWithField} from '../model';
 import {DataFlowNode} from './dataflow';
 import {getDependentFields} from './expressions';
-
-/**
- * We don't know what a calculate node depends on so we should never move it beyond anything that produces fields.
- */
 
 export class CalculateNode extends DataFlowNode {
   private _dependentFields: Set<string>;
@@ -75,5 +71,5 @@ export class CalculateNode extends DataFlowNode {
 }
 
 export function sortArrayIndexField(fieldDef: TypedFieldDef<string>, channel: SingleDefChannel, opt?: FieldRefOption) {
-  return vgField(fieldDef, {prefix: channel, suffix: 'sort_index', ...(opt || {})});
+  return vgField(fieldDef, {prefix: channel, suffix: 'sort_index', ...(opt ?? {})});
 }

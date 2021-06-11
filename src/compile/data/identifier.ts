@@ -1,5 +1,5 @@
 import {SELECTION_ID} from '../../selection';
-import {VgIdentifierTransform} from '../../vega.schema';
+import {IdentifierTransform as VgIdentifierTransform} from 'vega';
 import {DataFlowNode} from './dataflow';
 
 export class IdentifierNode extends DataFlowNode {
@@ -9,6 +9,10 @@ export class IdentifierNode extends DataFlowNode {
 
   constructor(parent: DataFlowNode) {
     super(parent);
+  }
+
+  public dependentFields() {
+    return new Set<string>();
   }
 
   public producedFields() {

@@ -1,5 +1,5 @@
 import * as log from '../log';
-import {duplicate, getFirstDefined, keys, stringify} from '../util';
+import {deepEqual, duplicate, getFirstDefined, keys} from '../util';
 
 /**
  * Generic class for storing properties that are explicitly specified
@@ -7,6 +7,7 @@ import {duplicate, getFirstDefined, keys, stringify} from '../util';
  * This is important for scale/axis/legend merging as
  * we want to prioritize properties that users explicitly specified.
  */
+// eslint-disable-next-line @typescript-eslint/ban-types
 export class Split<T extends object> {
   constructor(public readonly explicit: Partial<T> = {}, public readonly implicit: Partial<T> = {}) {}
 
@@ -15,11 +16,9 @@ export class Split<T extends object> {
   }
 
   public combine(): Partial<T> {
-    // FIXME remove "as any".
-    // Add "as any" to avoid an error "Spread types may only be created from object types".
     return {
-      ...(this.explicit as any), // Explicit properties comes first
-      ...(this.implicit as any)
+      ...this.explicit, // Explicit properties comes first
+      ...this.implicit
     };
   }
 
@@ -38,9 +37,9 @@ export class Split<T extends object> {
     return {explicit: false, value: undefined};
   }
 
-  public setWithExplicit<K extends keyof T>(key: K, value: Explicit<T[K]>) {
-    if (value.value !== undefined) {
-      this.set(key, value.value, value.explicit);
+  public setWithExplicit<K extends keyof T>(key: K, {value, explicit}: Explicit<T[K]>) {
+    if (value !== undefined) {
+      this.set(key, value, explicit);
     }
   }
 
@@ -50,15 +49,15 @@ export class Split<T extends object> {
     return this;
   }
 
-  public copyKeyFromSplit<S extends T>(key: keyof T, s: Split<S>) {
+  public copyKeyFromSplit<S extends T>(key: keyof T, {explicit, implicit}: Split<S>) {
     // Explicit has higher precedence
-    if (s.explicit[key] !== undefined) {
-      this.set(key, s.explicit[key], true);
-    } else if (s.implicit[key] !== undefined) {
-      this.set(key, s.implicit[key], false);
+    if (explicit[key] !== undefined) {
+      this.set(key, explicit[key], true);
+    } else if (implicit[key] !== undefined) {
+      this.set(key, implicit[key], false);
     }
   }
-  public copyKeyFromObject<S extends Partial<T>>(key: keyof T, s: S) {
+  public copyKeyFromObject<S extends T>(key: keyof T, s: Partial<S>) {
     // Explicit has higher precedence
     if (s[key] !== undefined) {
       this.set(key, s[key], true);
@@ -96,12 +95,14 @@ export function makeImplicit<T>(value: T): Explicit<T> {
   };
 }
 
+export type SplitParentProperty = 'scale' | 'axis' | 'legend' | '';
+
 export function tieBreakByComparing<S, T>(compare: (v1: T, v2: T) => number) {
   return (
     v1: Explicit<T>,
     v2: Explicit<T>,
     property: keyof S | never,
-    propertyOf: string | number | symbol
+    propertyOf: SplitParentProperty
   ): Explicit<T> => {
     const diff = compare(v1.value, v2.value);
     if (diff > 0) {
@@ -117,7 +118,7 @@ export function defaultTieBreaker<S, T>(
   v1: Explicit<T>,
   v2: Explicit<T>,
   property: keyof S,
-  propertyOf: string | number | symbol
+  propertyOf: SplitParentProperty
 ) {
   if (v1.explicit && v2.explicit) {
     log.warn(log.message.mergeConflictingProperty(property, propertyOf, v1.value, v2.value));
@@ -130,7 +131,7 @@ export function mergeValuesWithExplicit<S, T>(
   v1: Explicit<T>,
   v2: Explicit<T>,
   property: keyof S,
-  propertyOf: 'scale' | 'axis' | 'legend' | '',
+  propertyOf: SplitParentProperty,
   tieBreaker: (
     v1: Explicit<T>,
     v2: Explicit<T>,
@@ -147,7 +148,7 @@ export function mergeValuesWithExplicit<S, T>(
     return v1;
   } else if (v2.explicit && !v1.explicit) {
     return v2;
-  } else if (stringify(v1.value) === stringify(v2.value)) {
+  } else if (deepEqual(v1.value, v2.value)) {
     return v1;
   } else {
     return tieBreaker(v1, v2, property, propertyOf);

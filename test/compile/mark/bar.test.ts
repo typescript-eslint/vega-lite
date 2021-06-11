@@ -1,11 +1,8 @@
-/* tslint:disable quotemark */
-
 import {PositionFieldDef, SecondaryFieldDef} from '../../../src/channeldef';
 import {bar} from '../../../src/compile/mark/bar';
-import {fieldInvalidPredicate, fieldInvalidTestValueRef} from '../../../src/compile/mark/valueref';
-import * as log from '../../../src/log';
+import {fieldInvalidPredicate, fieldInvalidTestValueRef} from '../../../src/compile/mark/encode/valueref';
+import {DEFAULT_STEP} from '../../../src/config';
 import {defaultBarConfig} from '../../../src/mark';
-import {defaultScaleConfig} from '../../../src/scale';
 import {parseUnitModelWithScaleAndLayoutSize} from '../../util';
 
 describe('Mark: Bar', () => {
@@ -20,9 +17,9 @@ describe('Mark: Bar', () => {
     });
     const props = bar.encodeEntry(model);
 
-    it('should draw bar, with y from zero to field value and with band value for x/width ', () => {
+    it('should draw bar, with y from zero to field value and with band value for x/width', () => {
       expect(props.x).toEqual({scale: 'x', field: 'Origin'});
-      expect(props.width).toEqual({scale: 'x', band: true});
+      expect(props.width).toEqual({scale: 'x', band: 1});
       expect(props.y).toEqual({scale: 'y', field: 'mean_Acceleration'});
       expect(props.y2).toEqual({scale: 'y', value: 0});
       expect(props.height).toBeUndefined();
@@ -42,8 +39,14 @@ describe('Mark: Bar', () => {
       }
     });
     const props = bar.encodeEntry(model);
-    expect(props.x).toEqual([{test: fieldInvalidPredicate(x), value: 0}, {scale: 'x', field: 'bin_start'}]);
-    expect(props.x2).toEqual([{test: fieldInvalidPredicate(x2), value: 0}, {scale: 'x', field: 'bin_end'}]);
+    expect(props.x).toEqual([
+      {test: fieldInvalidPredicate(x), value: 0},
+      {scale: 'x', field: 'bin_start'}
+    ]);
+    expect(props.x2).toEqual([
+      {test: fieldInvalidPredicate(x2), value: 0},
+      {scale: 'x', field: 'bin_end'}
+    ]);
     expect(props.y).toEqual({scale: 'y', field: 'Acceleration'});
     expect(props.y2).toEqual({scale: 'y', value: 0});
     expect(props.height).toBeUndefined();
@@ -61,89 +64,74 @@ describe('Mark: Bar', () => {
     const props = bar.encodeEntry(model);
 
     expect(props.x).toEqual({scale: 'x', field: 'Origin'});
-    expect(props.width).toEqual({scale: 'x', band: true});
+    expect(props.width).toEqual({scale: 'x', band: 1});
     expect(props.y).toEqual({scale: 'y', field: 'mean_Acceleration'});
     expect(props.y2).toEqual({scale: 'y', value: 0});
     expect(props.height).toBeUndefined();
   });
 
-  it(
-    'should draw vertical bar, with y from "group: height" to field value when domain that excludes zero is specified',
-    log.wrap(logger => {
-      const y: PositionFieldDef<string> = {
-        type: 'quantitative',
-        field: 'Acceleration',
-        aggregate: 'mean',
-        scale: {domain: [1, 2]}
-      };
-      const model = parseUnitModelWithScaleAndLayoutSize({
-        data: {url: 'data/cars.json'},
-        mark: 'bar',
-        encoding: {
-          x: {field: 'Origin', type: 'nominal'},
-          y
-        }
-      });
-      const props = bar.encodeEntry(model);
+  it('should draw vertical bar, with y from "group: height" to field value when domain that excludes zero is specified', () => {
+    const y: PositionFieldDef<string> = {
+      type: 'quantitative',
+      field: 'Acceleration',
+      aggregate: 'mean',
+      scale: {domain: [1, 2]}
+    };
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/cars.json'},
+      mark: 'bar',
+      encoding: {
+        x: {field: 'Origin', type: 'nominal'},
+        y
+      }
+    });
+    const props = bar.encodeEntry(model);
 
-      expect(props.y).toEqual([fieldInvalidTestValueRef(y, 'y'), {scale: 'y', field: 'mean_Acceleration'}]);
-      expect(props.y2).toEqual({field: {group: 'height'}});
-      expect(props.height).toBeUndefined();
+    expect(props.y).toEqual([fieldInvalidTestValueRef(y, 'y'), {scale: 'y', field: 'mean_Acceleration'}]);
+    expect(props.y2).toEqual({field: {group: 'height'}});
+    expect(props.height).toBeUndefined();
+  });
 
-      expect(logger.warns[0]).toEqual(log.message.nonZeroScaleUsedWithLengthMark('bar', 'y', {zeroFalse: false}));
-    })
-  );
+  it('should draw vertical bar, with y from "group: height" to field value when zero=false for y-scale', () => {
+    const y: PositionFieldDef<string> = {
+      type: 'quantitative',
+      field: 'Acceleration',
+      aggregate: 'mean',
+      scale: {zero: false}
+    };
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/cars.json'},
+      mark: 'bar',
+      encoding: {
+        x: {field: 'Origin', type: 'nominal'},
+        y
+      }
+    });
+    const props = bar.encodeEntry(model);
 
-  it(
-    'should draw vertical bar, with y from "group: height" to field value when zero=false for y-scale',
-    log.wrap(logger => {
-      const y: PositionFieldDef<string> = {
-        type: 'quantitative',
-        field: 'Acceleration',
-        aggregate: 'mean',
-        scale: {zero: false}
-      };
-      const model = parseUnitModelWithScaleAndLayoutSize({
-        data: {url: 'data/cars.json'},
-        mark: 'bar',
-        encoding: {
-          x: {field: 'Origin', type: 'nominal'},
-          y
-        }
-      });
-      const props = bar.encodeEntry(model);
+    expect(props.y).toEqual([
+      {test: fieldInvalidPredicate(y), field: {group: 'height'}},
+      {scale: 'y', field: 'mean_Acceleration'}
+    ]);
+    expect(props.y2).toEqual({field: {group: 'height'}});
+    expect(props.height).toBeUndefined();
+  });
 
-      expect(props.y).toEqual([
-        {test: fieldInvalidPredicate(y), field: {group: 'height'}},
-        {scale: 'y', field: 'mean_Acceleration'}
-      ]);
-      expect(props.y2).toEqual({field: {group: 'height'}});
-      expect(props.height).toBeUndefined();
+  it('should draw vertical bar, with y from "group: height" to field value when y-scale type is log', () => {
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/cars.json'},
+      mark: 'bar',
+      encoding: {
+        x: {field: 'Origin', type: 'nominal'},
+        y: {type: 'quantitative', field: 'Acceleration', aggregate: 'mean', scale: {type: 'log'}}
+      }
+    });
+    const props = bar.encodeEntry(model);
 
-      expect(logger.warns[0]).toEqual(log.message.nonZeroScaleUsedWithLengthMark('bar', 'y', {zeroFalse: true}));
-    })
-  );
-
-  it(
-    'should draw vertical bar, with y from "group: height" to field value when y-scale type is log',
-    log.wrap(logger => {
-      const model = parseUnitModelWithScaleAndLayoutSize({
-        data: {url: 'data/cars.json'},
-        mark: 'bar',
-        encoding: {
-          x: {field: 'Origin', type: 'nominal'},
-          y: {type: 'quantitative', field: 'Acceleration', aggregate: 'mean', scale: {type: 'log'}}
-        }
-      });
-      const props = bar.encodeEntry(model);
-
-      expect(props.y).toEqual({scale: 'y', field: 'mean_Acceleration'});
-      expect(props.y2).toEqual({field: {group: 'height'}});
-      expect(props.height).toBeUndefined();
-
-      expect(logger.warns[0]).toEqual(log.message.nonZeroScaleUsedWithLengthMark('bar', 'y', {scaleType: 'log'}));
-    })
-  );
+    expect(props.y).toEqual({scale: 'y', field: 'mean_Acceleration'});
+    expect(props.y2).toEqual({field: {group: 'height'}});
+    expect(props.height).toBeUndefined();
+  });
 
   describe('simple horizontal', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
@@ -158,7 +146,27 @@ describe('Mark: Bar', () => {
 
     it('should draw bar from zero to field value and with band value for x/width', () => {
       expect(props.y).toEqual({scale: 'y', field: 'Origin'});
-      expect(props.height).toEqual({scale: 'y', band: true});
+      expect(props.height).toEqual({scale: 'y', band: 1});
+      expect(props.x).toEqual({scale: 'x', field: 'mean_Acceleration'});
+      expect(props.x2).toEqual({scale: 'x', value: 0});
+      expect(props.width).toBeUndefined();
+    });
+  });
+
+  describe('simple horizontal with height band', () => {
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/cars.json'},
+      mark: {type: 'bar', height: {band: 0.6}},
+      encoding: {
+        y: {field: 'Origin', type: 'nominal'},
+        x: {aggregate: 'mean', field: 'Acceleration', type: 'quantitative'}
+      }
+    });
+    const props = bar.encodeEntry(model);
+
+    it('should draw bar from zero to field value and with band value for x/width', () => {
+      expect(props.y).toEqual({scale: 'y', field: 'Origin', band: 0.2});
+      expect(props.height).toEqual({scale: 'y', band: 0.6});
       expect(props.x).toEqual({scale: 'x', field: 'mean_Acceleration'});
       expect(props.x2).toEqual({scale: 'x', value: 0});
       expect(props.width).toBeUndefined();
@@ -167,7 +175,7 @@ describe('Mark: Bar', () => {
 
   it('should draw horizontal bar, with y from zero to field value and bar with quantitative x, x2, and y', () => {
     const y: PositionFieldDef<string> = {field: 'bin_start', type: 'quantitative'};
-    const y2: PositionFieldDef<string> = {field: 'bin_end', type: 'quantitative'};
+    const y2: SecondaryFieldDef<string> = {field: 'bin_end'};
     const model = parseUnitModelWithScaleAndLayoutSize({
       data: {url: 'data/cars.json'},
       mark: 'bar',
@@ -202,9 +210,9 @@ describe('Mark: Bar', () => {
     });
     const props = bar.encodeEntry(model);
 
-    it('should draw bar from zero to field value and y with center position and height = rangeStep - 1', () => {
+    it('should draw bar from zero to field value and y with center position and height = discreteHeight - 2', () => {
       expect(props.yc).toEqual({scale: 'y', field: 'Origin'});
-      expect(props.height).toEqual({value: defaultScaleConfig.rangeStep - 1});
+      expect(props.height).toEqual({value: DEFAULT_STEP - 2});
       expect(props.x).toEqual({scale: 'x', field: 'mean_Acceleration'});
       expect(props.x2).toEqual({scale: 'x', value: 0});
       expect(props.width).toBeUndefined();
@@ -258,7 +266,7 @@ describe('Mark: Bar', () => {
     });
     const props = bar.encodeEntry(model);
 
-    it('should draw bar from zero to field value and with band value for x/width', () => {
+    it('should draw bar from zero to field value and with band value for yc/height', () => {
       expect(props.yc).toEqual({scale: 'y', field: 'Origin', band: 0.5});
       expect(props.height).toEqual({scale: 'size', field: 'mean_Horsepower'});
       expect(props.x).toEqual({scale: 'x', field: 'mean_Acceleration'});
@@ -287,6 +295,66 @@ describe('Mark: Bar', () => {
           scale: 'y',
           field: 'bin_maxbins_10_Horsepower_end',
           offset: defaultBarConfig.binSpacing
+        }
+      ]);
+      expect(props.height).toBeUndefined();
+    });
+  });
+
+  describe('horizontal binned with offset', () => {
+    const y: PositionFieldDef<string> = {bin: true, field: 'Horsepower', type: 'quantitative'};
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/cars.json'},
+      mark: {type: 'bar', yOffset: 5},
+      encoding: {
+        y,
+        x: {aggregate: 'mean', field: 'Acceleration', type: 'quantitative'}
+      }
+    });
+    const props = bar.encodeEntry(model);
+
+    it('should draw bar with y and y2', () => {
+      expect(props.y2).toEqual([
+        fieldInvalidTestValueRef(y, 'y'),
+        {scale: 'y', field: 'bin_maxbins_10_Horsepower', offset: 5}
+      ]);
+      expect(props.y).toEqual([
+        fieldInvalidTestValueRef(y, 'y'),
+        {
+          scale: 'y',
+          field: 'bin_maxbins_10_Horsepower_end',
+          offset: defaultBarConfig.binSpacing + 5
+        }
+      ]);
+      expect(props.height).toBeUndefined();
+    });
+  });
+
+  describe('horizontal binned with offset signal', () => {
+    const y: PositionFieldDef<string> = {bin: true, field: 'Horsepower', type: 'quantitative'};
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/cars.json'},
+      mark: {type: 'bar', yOffset: {signal: 'a'}},
+      encoding: {
+        y,
+        x: {aggregate: 'mean', field: 'Acceleration', type: 'quantitative'}
+      }
+    });
+    const props = bar.encodeEntry(model);
+
+    it('should draw bar with y and y2', () => {
+      expect(props.y2).toEqual([
+        fieldInvalidTestValueRef(y, 'y'),
+        {scale: 'y', field: 'bin_maxbins_10_Horsepower', offset: {signal: '0.5 + (a + -0.5)'}}
+      ]);
+      expect(props.y).toEqual([
+        fieldInvalidTestValueRef(y, 'y'),
+        {
+          scale: 'y',
+          field: 'bin_maxbins_10_Horsepower_end',
+          offset: {
+            signal: '0.5 + (a + 0.5)'
+          }
         }
       ]);
       expect(props.height).toBeUndefined();
@@ -360,6 +428,30 @@ describe('Mark: Bar', () => {
     });
   });
 
+  describe('vertical binned, with width', () => {
+    const x: PositionFieldDef<string> = {bin: true, field: 'Horsepower', type: 'quantitative'};
+
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      data: {url: 'data/cars.json'},
+      mark: {type: 'bar', width: 5},
+      encoding: {
+        x,
+        y: {aggregate: 'mean', field: 'Acceleration', type: 'quantitative'}
+      }
+    });
+    const props = bar.encodeEntry(model);
+
+    it('should draw bar with xc and width', () => {
+      expect(props.xc).toEqual([
+        fieldInvalidTestValueRef(x, 'x'),
+        {
+          signal: 'scale("x", 0.5 * datum["bin_maxbins_10_Horsepower"] + 0.5 * datum["bin_maxbins_10_Horsepower_end"])'
+        }
+      ]);
+      expect(props.width).toEqual({value: 5});
+    });
+  });
+
   describe('vertical binned, sort descending', () => {
     const x: PositionFieldDef<string> = {bin: true, field: 'Horsepower', type: 'quantitative', sort: 'descending'};
     const model = parseUnitModelWithScaleAndLayoutSize({
@@ -399,7 +491,7 @@ describe('Mark: Bar', () => {
 
     it('should draw bar with y', () => {
       expect(props.y).toEqual({scale: 'y', field: 'bin_maxbins_10_Horsepower_range'});
-      expect(props.height).toEqual({scale: 'y', band: true});
+      expect(props.height).toEqual({scale: 'y', band: 1});
     });
   });
 
@@ -416,7 +508,7 @@ describe('Mark: Bar', () => {
 
     it('should draw bar with y', () => {
       expect(props.x).toEqual({scale: 'x', field: 'bin_maxbins_10_Horsepower_range'});
-      expect(props.width).toEqual({scale: 'x', band: true});
+      expect(props.width).toEqual({scale: 'x', band: 1});
     });
   });
 
@@ -434,8 +526,14 @@ describe('Mark: Bar', () => {
     const props = bar.encodeEntry(model);
 
     it('should draw bar with y and y2', () => {
-      expect(props.y2).toEqual([fieldInvalidTestValueRef(y, 'y'), {scale: 'y', field: 'bin_maxbins_10_Horsepower'}]);
-      expect(props.y).toEqual([fieldInvalidTestValueRef(y, 'y'), {scale: 'y', field: 'bin_maxbins_10_Horsepower_end'}]);
+      expect(props.y2).toEqual([
+        fieldInvalidTestValueRef(y, 'y'),
+        {scale: 'y', field: 'bin_maxbins_10_Horsepower', offset: 0.5}
+      ]);
+      expect(props.y).toEqual([
+        fieldInvalidTestValueRef(y, 'y'),
+        {scale: 'y', field: 'bin_maxbins_10_Horsepower_end', offset: 0.5}
+      ]);
       expect(props.height).toBeUndefined();
     });
   });
@@ -454,8 +552,14 @@ describe('Mark: Bar', () => {
     const props = bar.encodeEntry(model);
 
     it('should draw bar with x and x2', () => {
-      expect(props.x2).toEqual([fieldInvalidTestValueRef(x, 'x'), {scale: 'x', field: 'bin_maxbins_10_Horsepower'}]);
-      expect(props.x).toEqual([fieldInvalidTestValueRef(x, 'x'), {scale: 'x', field: 'bin_maxbins_10_Horsepower_end'}]);
+      expect(props.x2).toEqual([
+        fieldInvalidTestValueRef(x, 'x'),
+        {scale: 'x', field: 'bin_maxbins_10_Horsepower', offset: 0.5}
+      ]);
+      expect(props.x).toEqual([
+        fieldInvalidTestValueRef(x, 'x'),
+        {scale: 'x', field: 'bin_maxbins_10_Horsepower_end', offset: 0.5}
+      ]);
       expect(props.width).toBeUndefined();
     });
   });
@@ -480,7 +584,7 @@ describe('Mark: Bar', () => {
           field: {group: 'height'}
         },
         {
-          signal: 'scale("y", (datum["bin_maxbins_10_Horsepower"] + datum["bin_maxbins_10_Horsepower_end"]) / 2)'
+          signal: 'scale("y", 0.5 * datum["bin_maxbins_10_Horsepower"] + 0.5 * datum["bin_maxbins_10_Horsepower_end"])'
         }
       ]);
       expect(props.height).toEqual({scale: 'size', field: 'mean_Acceleration'});
@@ -507,7 +611,7 @@ describe('Mark: Bar', () => {
           value: 0
         },
         {
-          signal: 'scale("x", (datum["bin_maxbins_10_Horsepower"] + datum["bin_maxbins_10_Horsepower_end"]) / 2)'
+          signal: 'scale("x", 0.5 * datum["bin_maxbins_10_Horsepower"] + 0.5 * datum["bin_maxbins_10_Horsepower_end"])'
         }
       ]);
       expect(props.width).toEqual({scale: 'size', field: 'mean_Acceleration'});
@@ -569,7 +673,7 @@ describe('Mark: Bar', () => {
       });
       expect(props.width).toEqual({
         scale: 'x',
-        band: true
+        band: 1
       });
     });
   });
@@ -594,7 +698,7 @@ describe('Mark: Bar', () => {
       });
       expect(props.height).toEqual({
         scale: 'y',
-        band: true
+        band: 1
       });
     });
   });
@@ -635,20 +739,22 @@ describe('Mark: Bar', () => {
 
   describe('1D vertical', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
-      mark: 'bar',
-      encoding: {y: {type: 'quantitative', field: 'US_Gross', aggregate: 'sum'}},
-      data: {url: 'data/movies.json'}
+      data: {url: 'data/cars.json'},
+      mark: {type: 'bar', width: {band: 0.5}},
+      encoding: {
+        y: {type: 'quantitative', field: 'Acceleration', aggregate: 'mean'}
+      }
     });
     const props = bar.encodeEntry(model);
-
     it('should have y end on axis, have no-height and have x-offset', () => {
-      expect(props.y).toEqual({scale: 'y', field: 'sum_US_Gross'});
+      expect(props.y).toEqual({scale: 'y', field: 'mean_Acceleration'});
       expect(props.y2).toEqual({scale: 'y', value: 0});
       expect(props.height).toBeUndefined();
       expect(props.xc).toEqual({
         mult: 0.5,
         signal: 'width'
       });
+      expect(props.width).toEqual({mult: 0.5, field: {group: 'width'}});
     });
   });
 
@@ -682,7 +788,7 @@ describe('Mark: Bar', () => {
     const props = bar.encodeEntry(model);
 
     it('should not use config.mark.size', () => {
-      expect(props.width).toEqual({value: 19});
+      expect(props.width).toEqual({value: 18});
     });
   });
 
@@ -844,7 +950,10 @@ describe('Mark: Bar', () => {
     const props = bar.encodeEntry(model);
 
     it('should produce horizontal bar using x, x2', () => {
-      expect(props.xc).toEqual([{test: fieldInvalidPredicate(x), value: 0}, {scale: 'x', field: 'Acceleration'}]);
+      expect(props.xc).toEqual([
+        {test: fieldInvalidPredicate(x), value: 0},
+        {scale: 'x', field: 'Acceleration'}
+      ]);
       expect(props.width).toEqual({value: defaultBarConfig.continuousBandSize});
       expect(props.y).toEqual({scale: 'y', field: 'Horsepower'});
       expect(props.y2).toEqual({scale: 'y', value: 0});
@@ -866,9 +975,9 @@ describe('Mark: Bar', () => {
       const props = bar.encodeEntry(model);
 
       expect(props.x).toEqual({scale: 'x', field: 'Origin'});
-      expect(props.width).toEqual({scale: 'x', band: true});
+      expect(props.width).toEqual({scale: 'x', band: 1});
       expect(props.y).toEqual({scale: 'y', field: 'Cylinders'});
-      expect(props.height).toEqual({scale: 'y', band: true});
+      expect(props.height).toEqual({scale: 'y', band: 1});
     });
   });
 
@@ -884,7 +993,7 @@ describe('Mark: Bar', () => {
         encoding: {
           x: {field: 'age', type: 'ordinal'},
           y: {field: 'people', aggregate: 'q1', type: 'quantitative'},
-          y2: {field: 'people', aggregate: 'q3', type: 'quantitative'}
+          y2: {field: 'people', aggregate: 'q3'}
         }
       });
 
@@ -901,7 +1010,7 @@ describe('Mark: Bar', () => {
         encoding: {
           y: {field: 'age', type: 'ordinal'},
           x: {field: 'people', aggregate: 'q1', type: 'quantitative'},
-          x2: {field: 'people', aggregate: 'q3', type: 'quantitative'}
+          x2: {field: 'people', aggregate: 'q3'}
         }
       });
 
@@ -926,8 +1035,7 @@ describe('Mark: Bar', () => {
             }
           },
           x2: {
-            field: 'bin_end',
-            type: 'quantitative'
+            field: 'bin_end'
           },
           y: {
             field: 'count',
@@ -959,8 +1067,7 @@ describe('Mark: Bar', () => {
             }
           },
           x2: {
-            field: 'bin_end',
-            type: 'quantitative'
+            field: 'bin_end'
           },
           y: {
             field: 'count',
@@ -971,8 +1078,8 @@ describe('Mark: Bar', () => {
       const props = bar.encodeEntry(model);
 
       it('should draw bar with x and x2', () => {
-        expect(props.x2).toEqual({scale: 'x', field: 'bin_start', offset: 10});
-        expect(props.x).toEqual({scale: 'x', field: 'bin_end'});
+        expect(props.x2).toEqual({scale: 'x', field: 'bin_start', offset: 5.5});
+        expect(props.x).toEqual({scale: 'x', field: 'bin_end', offset: -4.5});
         expect(props.y).toEqual({scale: 'y', field: 'count'});
         expect(props.y2).toEqual({scale: 'y', value: 0});
         expect(props.width).toBeUndefined();
@@ -994,8 +1101,7 @@ describe('Mark: Bar', () => {
             }
           },
           y2: {
-            field: 'bin_end',
-            type: 'quantitative'
+            field: 'bin_end'
           },
           x: {
             field: 'count',
@@ -1027,8 +1133,7 @@ describe('Mark: Bar', () => {
             }
           },
           y2: {
-            field: 'bin_end',
-            type: 'quantitative'
+            field: 'bin_end'
           },
           x: {
             field: 'count',
@@ -1039,8 +1144,8 @@ describe('Mark: Bar', () => {
       const props = bar.encodeEntry(model);
 
       it('should draw bar with y and y2', () => {
-        expect(props.y2).toEqual({scale: 'y', field: 'bin_start'});
-        expect(props.y).toEqual({scale: 'y', field: 'bin_end', offset: 10});
+        expect(props.y2).toEqual({scale: 'y', field: 'bin_start', offset: -4.5});
+        expect(props.y).toEqual({scale: 'y', field: 'bin_end', offset: 5.5});
         expect(props.x).toEqual({scale: 'x', field: 'count'});
         expect(props.x2).toEqual({scale: 'x', value: 0});
         expect(props.width).toBeUndefined();

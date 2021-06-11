@@ -16,13 +16,14 @@ permalink: /docs/point.html
 
 `point` mark represents each data point with a symbol. Point marks are commonly used in visualizations like scatterplots.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -40,6 +41,8 @@ permalink: /docs/point.html
   ...
 }
 ```
+
+<span class="vl-example" data-name="point_params" figure-only=true></span>
 
 A point mark definition can contain any [standard mark properties](mark.html#mark-def) and the following special properties:
 
@@ -76,6 +79,12 @@ By mapping a third field to the `size` channel in the [scatter plot](#scatter), 
 Fields can also be encoded in the [scatter plot](#scatter) using the `color` or `shape` channels. For example, this specification encodes the field `Origin` with both `color` and `shape`.
 
 <span class="vl-example" data-name="point_color_with_shape"></span>
+
+### Wind Vector Map
+
+We can also use point mark with angle encoding to create a wind vector map.
+
+<span class="vl-example" data-name="point_angle_windvector"></span>
 
 ### Geo Point
 

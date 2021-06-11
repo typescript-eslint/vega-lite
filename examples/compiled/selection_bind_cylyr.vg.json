@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -15,7 +15,7 @@
         {"type": "formula", "expr": "year(datum.Year)", "as": "Year"},
         {
           "type": "filter",
-          "expr": "datum[\"Horsepower\"] !== null && !isNaN(datum[\"Horsepower\"]) && datum[\"Miles_per_Gallon\"] !== null && !isNaN(datum[\"Miles_per_Gallon\"])"
+          "expr": "isValid(datum[\"Horsepower\"]) && isFinite(+datum[\"Horsepower\"]) && isValid(datum[\"Miles_per_Gallon\"]) && isFinite(+datum[\"Miles_per_Gallon\"])"
         }
       ]
     }
@@ -31,28 +31,17 @@
     {
       "name": "CylYr_Year",
       "value": null,
-      "on": [
-        {
-          "events": [{"source": "scope", "type": "click"}],
-          "update": "datum && item().mark.marktype !== 'group' ? datum[\"Year\"] : null"
-        },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
-      ],
       "bind": {"input": "range", "min": 1969, "max": 1981, "step": 1}
     },
     {
       "name": "CylYr_Cylinders",
       "value": null,
-      "on": [
-        {
-          "events": [{"source": "scope", "type": "click"}],
-          "update": "datum && item().mark.marktype !== 'group' ? datum[\"Cylinders\"] : null"
-        },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
-      ],
       "bind": {"input": "range", "min": 3, "max": 8, "step": 1}
     },
-    {"name": "CylYr", "update": "vlSelectionResolve(\"CylYr_store\")"},
+    {
+      "name": "CylYr",
+      "update": "vlSelectionResolve(\"CylYr_store\", \"union\", true, true)"
+    },
     {
       "name": "CylYr_tuple",
       "update": "CylYr_Cylinders !== null && CylYr_Year !== null ? {fields: CylYr_tuple_fields, values: [CylYr_Cylinders, CylYr_Year]} : null"
@@ -66,7 +55,12 @@
     },
     {
       "name": "CylYr_modify",
-      "update": "modify(\"CylYr_store\", CylYr_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "CylYr_tuple"},
+          "update": "modify(\"CylYr_store\", CylYr_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -74,26 +68,28 @@
       "name": "marks",
       "type": "symbol",
       "style": ["circle"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "fill": [
             {
-              "test": "!(length(data(\"CylYr_store\"))) || (vlSelectionTest(\"CylYr_store\", datum))",
+              "test": "!length(data(\"CylYr_store\")) || vlSelectionTest(\"CylYr_store\", datum)",
               "scale": "color",
               "field": "Origin"
             },
             {"value": "grey"}
           ],
-          "tooltip": {
-            "signal": "{\"Horsepower\": format(datum[\"Horsepower\"], \"\"), \"Miles_per_Gallon\": format(datum[\"Miles_per_Gallon\"], \"\"), \"Origin\": ''+datum[\"Origin\"]}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"Horsepower: \" + (format(datum[\"Horsepower\"], \"\")) + \"; Miles_per_Gallon: \" + (format(datum[\"Miles_per_Gallon\"], \"\")) + \"; Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"])"
           },
           "x": {"scale": "x", "field": "Horsepower"},
           "y": {"scale": "y", "field": "Miles_per_Gallon"},
           "size": [
             {
-              "test": "!(length(data(\"CylYr_store\"))) || (vlSelectionTest(\"CylYr_store\", datum))",
+              "test": "!length(data(\"CylYr_store\")) || vlSelectionTest(\"CylYr_store\", datum)",
               "value": 100
             },
             {"value": 50}
@@ -131,34 +127,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Horsepower",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Miles_per_Gallon",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -168,23 +146,38 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Horsepower",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Miles_per_Gallon",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
   "legends": [
     {
       "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "Origin",
-      "encode": {
-        "symbols": {
-          "update": {"shape": {"value": "circle"}, "opacity": {"value": 0.7}}
-        }
-      }
+      "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}}
     }
   ]
 }

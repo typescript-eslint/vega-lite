@@ -1,16 +1,16 @@
-import {AggregateOp, LayoutAlign, NewSignal} from 'vega';
+import {AggregateOp, LayoutAlign, NewSignal, SignalRef} from 'vega';
 import {isArray} from 'vega-util';
 import {isBinning} from '../bin';
-import {Channel, COLUMN, FacetChannel, FACET_CHANNELS, ROW, ScaleChannel} from '../channel';
-import {FieldRefOption, normalize, TypedFieldDef, vgField} from '../channeldef';
+import {COLUMN, ExtendedChannel, FacetChannel, FACET_CHANNELS, POSITION_SCALE_CHANNELS, ROW} from '../channel';
+import {FieldName, FieldRefOption, initFieldDef, TypedFieldDef, vgField} from '../channeldef';
 import {Config} from '../config';
-import {reduce} from '../encoding';
+import {ExprRef, replaceExprRef} from '../expr';
 import * as log from '../log';
 import {hasDiscreteDomain} from '../scale';
 import {DEFAULT_SORT_OP, EncodingSortField, isSortField, SortOrder} from '../sort';
 import {NormalizedFacetSpec} from '../spec';
 import {EncodingFacetMapping, FacetFieldDef, FacetMapping, isFacetMapping} from '../spec/facet';
-import {contains, flatten} from '../util';
+import {keys} from '../util';
 import {isVgRangeStep, VgData, VgLayout, VgMarkGroup} from '../vega.schema';
 import {buildModel} from './buildmodel';
 import {assembleFacetData} from './data/assemble';
@@ -22,7 +22,6 @@ import {HEADER_CHANNELS, HEADER_TYPES} from './header/component';
 import {parseFacetHeaders} from './header/parse';
 import {parseChildrenLayoutSize} from './layoutsize/parse';
 import {Model, ModelWithField} from './model';
-import {RepeaterValue, replaceRepeaterInFacet} from './repeater';
 import {assembleDomain, getFieldFromDomain} from './scale/domain';
 import {assembleFacetSignals} from './selection/assemble';
 
@@ -31,66 +30,71 @@ export function facetSortFieldName(
   sort: EncodingSortField<string>,
   opt?: FieldRefOption
 ) {
-  return vgField(sort, {suffix: `by_${vgField(fieldDef)}`, ...(opt || {})});
+  return vgField(sort, {suffix: `by_${vgField(fieldDef)}`, ...(opt ?? {})});
 }
 
 export class FacetModel extends ModelWithField {
-  public readonly facet: EncodingFacetMapping<string>;
+  public readonly facet: EncodingFacetMapping<string, SignalRef>;
 
   public readonly child: Model;
 
   public readonly children: Model[];
 
-  constructor(
-    spec: NormalizedFacetSpec,
-    parent: Model,
-    parentGivenName: string,
-    repeater: RepeaterValue,
-    config: Config
-  ) {
-    super(spec, 'facet', parent, parentGivenName, config, repeater, spec.resolve);
+  constructor(spec: NormalizedFacetSpec, parent: Model, parentGivenName: string, config: Config<SignalRef>) {
+    super(spec, 'facet', parent, parentGivenName, config, spec.resolve);
 
-    this.child = buildModel(spec.spec, this, this.getName('child'), undefined, repeater, config, false);
+    this.child = buildModel(spec.spec, this, this.getName('child'), undefined, config);
     this.children = [this.child];
 
-    const facet = replaceRepeaterInFacet(spec.facet, repeater);
-
-    this.facet = this.initFacet(facet);
+    this.facet = this.initFacet(spec.facet);
   }
 
-  private initFacet(facet: FacetFieldDef<string> | FacetMapping<string>): EncodingFacetMapping<string> {
+  private initFacet(
+    facet: FacetFieldDef<FieldName> | FacetMapping<FieldName>
+  ): EncodingFacetMapping<FieldName, SignalRef> {
     // clone to prevent side effect to the original spec
     if (!isFacetMapping(facet)) {
-      return {facet: normalize(facet, 'facet')};
+      return {facet: this.initFacetFieldDef(facet, 'facet')};
     }
 
-    return reduce(
-      facet,
-      (normalizedFacet, fieldDef: TypedFieldDef<string>, channel: Channel) => {
-        if (!contains([ROW, COLUMN], channel)) {
-          // Drop unsupported channel
-          log.warn(log.message.incompatibleChannel(channel, 'facet'));
-          return normalizedFacet;
-        }
+    const channels = keys(facet);
+    const normalizedFacet = {};
+    for (const channel of channels) {
+      if (![ROW, COLUMN].includes(channel)) {
+        // Drop unsupported channel
+        log.warn(log.message.incompatibleChannel(channel, 'facet'));
+        break;
+      }
 
-        if (fieldDef.field === undefined) {
-          log.warn(log.message.emptyFieldDef(fieldDef, channel));
-          return normalizedFacet;
-        }
+      const fieldDef = facet[channel];
+      if (fieldDef.field === undefined) {
+        log.warn(log.message.emptyFieldDef(fieldDef, channel));
+        break;
+      }
 
-        // Convert type to full, lowercase type, or augment the fieldDef with a default type if missing.
-        normalizedFacet[channel] = normalize(fieldDef, channel);
-        return normalizedFacet;
-      },
-      {}
-    );
+      normalizedFacet[channel] = this.initFacetFieldDef(fieldDef, channel);
+    }
+
+    return normalizedFacet;
   }
 
-  public channelHasField(channel: Channel): boolean {
+  private initFacetFieldDef(fieldDef: FacetFieldDef<FieldName, ExprRef | SignalRef>, channel: FacetChannel) {
+    // Cast because we call initFieldDef, which assumes general FieldDef.
+    // However, FacetFieldDef is a bit more constrained than the general FieldDef
+    const facetFieldDef = initFieldDef(fieldDef, channel) as FacetFieldDef<FieldName, SignalRef>;
+    if (facetFieldDef.header) {
+      facetFieldDef.header = replaceExprRef(facetFieldDef.header);
+    } else if (facetFieldDef.header === null) {
+      facetFieldDef.header = null;
+    }
+    return facetFieldDef;
+  }
+
+  public channelHasField(channel: ExtendedChannel): boolean {
     return !!this.facet[channel];
   }
 
-  public fieldDef(channel: Channel): TypedFieldDef<string> {
+  public fieldDef(channel: ExtendedChannel): TypedFieldDef<string> {
     return this.facet[channel];
   }
 
@@ -130,7 +134,7 @@ export class FacetModel extends ModelWithField {
     return [];
   }
 
-  public assembleSelectionData(data: VgData[]): VgData[] {
+  public assembleSelectionData(data: readonly VgData[]): readonly VgData[] {
     return this.child.assembleSelectionData(data);
   }
 
@@ -144,27 +148,27 @@ export class FacetModel extends ModelWithField {
 
         const {facetFieldDef} = layoutHeaderComponent;
         if (facetFieldDef) {
-          const titleOrient = getHeaderProperty('titleOrient', facetFieldDef, this.config, channel);
+          const titleOrient = getHeaderProperty('titleOrient', facetFieldDef.header, this.config, channel);
 
-          if (contains(['right', 'bottom'], titleOrient)) {
+          if (['right', 'bottom'].includes(titleOrient)) {
             const headerChannel = getHeaderChannel(channel, titleOrient);
-            layoutMixins.titleAnchor = layoutMixins.titleAnchor || {};
+            layoutMixins.titleAnchor ??= {};
             layoutMixins.titleAnchor[headerChannel] = 'end';
           }
         }
 
-        if (headerComponent && headerComponent[0]) {
+        if (headerComponent?.[0]) {
           // set header/footerBand
           const sizeType = channel === 'row' ? 'height' : 'width';
           const bandType = headerType === 'header' ? 'headerBand' : 'footerBand';
           if (channel !== 'facet' && !this.child.component.layoutSize.get(sizeType)) {
             // If facet child does not have size signal, then apply headerBand
-            layoutMixins[bandType] = layoutMixins[bandType] || {};
+            layoutMixins[bandType] ??= {};
             layoutMixins[bandType][channel] = 0.5;
           }
 
           if (layoutHeaderComponent.title) {
-            layoutMixins.offset = layoutMixins.offset || {};
+            layoutMixins.offset ??= {};
             layoutMixins.offset[channel === 'row' ? 'rowTitle' : 'columnTitle'] = 10;
           }
         }
@@ -254,7 +258,7 @@ export class FacetModel extends ModelWithField {
         as.push(`distinct_${field}`);
       }
     } else {
-      for (const channel of ['x', 'y'] as ScaleChannel[]) {
+      for (const channel of POSITION_SCALE_CHANNELS) {
         const childScaleComponent = this.child.component.scales[channel];
         if (childScaleComponent && !childScaleComponent.merged) {
           const type = childScaleComponent.get('type');
@@ -268,7 +272,7 @@ export class FacetModel extends ModelWithField {
               ops.push('distinct');
               as.push(`distinct_${field}`);
             } else {
-              log.warn('Unknown field for ${channel}.  Cannot calculate view size.');
+              log.warn(log.message.unknownField(channel));
             }
           }
         }
@@ -324,7 +328,7 @@ export class FacetModel extends ModelWithField {
       name,
       data,
       groupby,
-      ...(cross || fields.length
+      ...(cross || fields.length > 0
         ? {
             aggregate: {
               ...(cross ? {cross} : {}),
@@ -375,8 +379,8 @@ export class FacetModel extends ModelWithField {
 
     for (const channel of HEADER_CHANNELS) {
       if (facet[channel]) {
-        const labelOrient = getHeaderProperty('labelOrient', facet[channel], config, channel);
-        if (contains(ORTHOGONAL_ORIENT[channel], labelOrient)) {
+        const labelOrient = getHeaderProperty('labelOrient', facet[channel]?.header, config, channel);
+        if (ORTHOGONAL_ORIENT[channel].includes(labelOrient)) {
           // Row/Column with orthogonal labelOrient must use title to display labels
           return assembleLabelTitle(facet[channel], channel, config);
         }
@@ -408,8 +412,8 @@ export class FacetModel extends ModelWithField {
       },
       // TODO: move this to after data
       sort: {
-        field: flatten(FACET_CHANNELS.map(c => this.facetSortFields(c))),
-        order: flatten(FACET_CHANNELS.map(c => this.facetSortOrder(c)))
+        field: FACET_CHANNELS.map(c => this.facetSortFields(c)).flat(),
+        order: FACET_CHANNELS.map(c => this.facetSortOrder(c)).flat()
       },
       ...(data.length > 0 ? {data: data} : {}),
       ...(encodeEntry ? {encode: {update: encodeEntry}} : {}),

@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "style": "cell",
   "data": [
@@ -26,7 +26,7 @@
         {"type": "identifier", "as": "_vgsid_"},
         {
           "type": "filter",
-          "expr": "datum[\"count\"] !== null && !isNaN(datum[\"count\"])"
+          "expr": "isValid(datum[\"count\"]) && isFinite(+datum[\"count\"])"
         }
       ]
     }
@@ -46,7 +46,10 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "highlight", "update": "vlSelectionResolve(\"highlight_store\")"},
+    {
+      "name": "highlight",
+      "update": "vlSelectionResolve(\"highlight_store\", \"union\", true, true)"
+    },
     {
       "name": "highlight_tuple",
       "on": [
@@ -55,7 +58,7 @@
           "update": "datum && item().mark.marktype !== 'group' ? {unit: \"\", fields: highlight_tuple_fields, values: [(item().isVoronoi ? datum.datum : datum)[\"_vgsid_\"]]} : null",
           "force": true
         },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"}
       ]
     },
     {
@@ -63,33 +66,65 @@
       "value": [{"type": "E", "field": "_vgsid_"}]
     },
     {
+      "name": "highlight_toggle",
+      "value": false,
+      "on": [
+        {
+          "events": [{"source": "scope", "type": "click"}],
+          "update": "event.shiftKey"
+        },
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "false"}
+      ]
+    },
+    {
       "name": "highlight_modify",
-      "update": "modify(\"highlight_store\", highlight_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "highlight_tuple"},
+          "update": "modify(\"highlight_store\", highlight_toggle ? null : highlight_tuple, highlight_toggle ? null : true, highlight_toggle ? highlight_tuple : null)"
+        }
+      ]
     }
   ],
   "marks": [
     {
       "name": "marks",
       "type": "rect",
-      "style": ["bar"],
+      "style": ["rect"],
+      "interactive": true,
       "from": {"data": "data_0"},
       "encode": {
         "update": {
-          "fill": {"scale": "color", "field": "count"},
+          "strokeWidth": {"value": 2},
+          "fill": {"scale": "fill", "field": "count"},
+          "stroke": [
+            {
+              "test": "length(data(\"highlight_store\")) && vlSelectionTest(\"highlight_store\", datum)",
+              "value": "black"
+            },
+            {"value": null}
+          ],
           "opacity": [
             {
-              "test": "!(length(data(\"highlight_store\"))) || (vlSelectionTest(\"highlight_store\", datum))",
+              "test": "!length(data(\"highlight_store\")) || vlSelectionTest(\"highlight_store\", datum)",
               "value": 1
             },
             {"value": 0.5}
           ],
-          "tooltip": {
-            "signal": "{\"actual\": ''+datum[\"actual\"], \"predicted\": ''+datum[\"predicted\"], \"count\": format(datum[\"count\"], \"\")}"
+          "zindex": [
+            {
+              "test": "!length(data(\"highlight_store\")) || vlSelectionTest(\"highlight_store\", datum)",
+              "value": 1
+            },
+            {"value": 0}
+          ],
+          "description": {
+            "signal": "\"actual: \" + (isValid(datum[\"actual\"]) ? datum[\"actual\"] : \"\"+datum[\"actual\"]) + \"; predicted: \" + (isValid(datum[\"predicted\"]) ? datum[\"predicted\"] : \"\"+datum[\"predicted\"]) + \"; count: \" + (format(datum[\"count\"], \"\"))"
           },
           "x": {"scale": "x", "field": "predicted"},
-          "width": {"scale": "x", "band": true},
+          "width": {"scale": "x", "band": 1},
           "y": {"scale": "y", "field": "actual"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     }
@@ -112,10 +147,10 @@
       "paddingOuter": 0
     },
     {
-      "name": "color",
+      "name": "fill",
       "type": "linear",
       "domain": {"data": "data_0", "field": "count"},
-      "range": "ramp",
+      "range": "heatmap",
       "interpolate": "hcl",
       "zero": false
     }
@@ -141,12 +176,14 @@
   ],
   "legends": [
     {
-      "fill": "color",
+      "fill": "fill",
       "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
       "title": "count",
       "encode": {"gradient": {"update": {"opacity": {"value": 1}}}}
     }
   ],
-  "config": {"range": {"ramp": {"scheme": "yellowgreenblue"}}}
+  "config": {
+    "range": {"ramp": {"scheme": "yellowgreenblue"}},
+    "axis": {"domain": false}
+  }
 }

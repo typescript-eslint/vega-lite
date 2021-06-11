@@ -1,25 +1,26 @@
-import {Encoding} from '../encoding';
 import {Field} from '../channeldef';
-import {NormalizerParams} from '../normalize/index';
+import {Encoding} from '../encoding';
+import {NormalizerParams} from '../normalize';
 import {GenericUnitSpec, NormalizedLayerSpec} from '../spec';
 import {EncodingFacetMapping} from '../spec/facet';
+import {NormalizedUnitSpec} from '../spec/unit';
 import {keys} from '../util';
 import {CompositeMarkNormalizer} from './base';
-import {BOXPLOT, BoxPlot, BOXPLOT_PARTS, BoxPlotConfigMixins, BoxPlotDef, normalizeBoxPlot} from './boxplot';
+import {BOXPLOT, BoxPlot, BoxPlotConfigMixins, BoxPlotDef, BOXPLOT_PARTS, normalizeBoxPlot} from './boxplot';
 import {
   ERRORBAND,
   ErrorBand,
-  ERRORBAND_PARTS,
   ErrorBandConfigMixins,
   ErrorBandDef,
+  ERRORBAND_PARTS,
   normalizeErrorBand
 } from './errorband';
 import {
   ERRORBAR,
   ErrorBar,
-  ERRORBAR_PARTS,
   ErrorBarConfigMixins,
   ErrorBarDef,
+  ERRORBAR_PARTS,
   ErrorExtraEncoding,
   normalizeErrorBar
 } from './errorbar';
@@ -31,7 +32,7 @@ export {ErrorBarConfigMixins} from './errorbar';
 export type CompositeMarkNormalizerRun = (
   spec: GenericUnitSpec<any, any>,
   params: NormalizerParams
-) => NormalizedLayerSpec;
+) => NormalizedLayerSpec | NormalizedUnitSpec;
 
 /**
  * Registry index for all composite mark's normalizer
@@ -39,11 +40,11 @@ export type CompositeMarkNormalizerRun = (
 const compositeMarkRegistry: {
   [mark: string]: {
     normalizer: CompositeMarkNormalizer<any>;
-    parts: string[];
+    parts: readonly string[];
   };
 } = {};
 
-export function add(mark: string, run: CompositeMarkNormalizerRun, parts: string[]) {
+export function add(mark: string, run: CompositeMarkNormalizerRun, parts: readonly string[]) {
   const normalizer = new CompositeMarkNormalizer(mark, run);
   compositeMarkRegistry[mark] = {normalizer, parts};
 }
@@ -52,8 +53,18 @@ export function remove(mark: string) {
   delete compositeMarkRegistry[mark];
 }
 
-export type CompositeEncoding = Encoding<Field> & ErrorExtraEncoding<Field>;
-export type FacetedCompositeEncoding = Encoding<Field> & ErrorExtraEncoding<Field> & EncodingFacetMapping<Field>;
+export type CompositeEncoding<F extends Field> = Encoding<F> & ErrorExtraEncoding<F>;
+
+export type PartialIndex<T extends Encoding<any>> = {
+  [t in keyof T]?: Partial<T[t]>;
+};
+
+export type SharedCompositeEncoding<F extends Field> = PartialIndex<
+  Omit<CompositeEncoding<F>, 'detail' | 'order' | 'tooltip'> // need to omit and cherry pick detail / order / tooltip since they allow array
+> &
+  Pick<Encoding<F>, 'detail' | 'order' | 'tooltip'>;
+
+export type FacetedCompositeEncoding<F extends Field> = Encoding<F> & ErrorExtraEncoding<F> & EncodingFacetMapping<F>;
 
 export type CompositeMark = BoxPlot | ErrorBar | ErrorBand;
 

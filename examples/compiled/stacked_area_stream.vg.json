@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 300,
   "height": 200,
@@ -12,9 +12,10 @@
       "format": {"type": "json", "parse": {"date": "date"}},
       "transform": [
         {
-          "type": "formula",
-          "as": "yearmonth_date",
-          "expr": "datetime(year(datum[\"date\"]), month(datum[\"date\"]), 1, 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["year", "month"],
+          "as": ["yearmonth_date", "yearmonth_date_end"]
         },
         {
           "type": "aggregate",
@@ -64,20 +65,20 @@
           "name": "marks",
           "type": "area",
           "style": ["area"],
-          "sort": {"field": "datum[\"yearmonth_date\"]", "order": "descending"},
+          "sort": {"field": "datum[\"yearmonth_date\"]"},
           "from": {"data": "faceted_path_main"},
           "encode": {
             "update": {
               "orient": {"value": "vertical"},
               "fill": {"scale": "color", "field": "series"},
-              "tooltip": {
-                "signal": "{\"date (year-month)\": timeFormat(datum[\"yearmonth_date\"], '%Y'), \"Sum of count\": format(datum[\"sum_count\"], \"\"), \"series\": ''+datum[\"series\"]}"
+              "description": {
+                "signal": "\"date (year-month): \" + (timeFormat(datum[\"yearmonth_date\"], '%Y')) + \"; Sum of count: \" + (format(datum[\"sum_count\"], \"\")) + \"; series: \" + (isValid(datum[\"series\"]) ? datum[\"series\"] : \"\"+datum[\"series\"])"
               },
               "x": {"scale": "x", "field": "yearmonth_date"},
               "y": {"scale": "y", "field": "sum_count_end"},
               "y2": {"scale": "y", "field": "sum_count_start"},
               "defined": {
-                "signal": "datum[\"yearmonth_date\"] !== null && !isNaN(datum[\"yearmonth_date\"]) && datum[\"sum_count\"] !== null && !isNaN(datum[\"sum_count\"])"
+                "signal": "isValid(datum[\"yearmonth_date\"]) && isFinite(+datum[\"yearmonth_date\"]) && isValid(datum[\"sum_count\"]) && isFinite(+datum[\"sum_count\"])"
               }
             }
           }
@@ -114,40 +115,30 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date (year-month)",
-      "domain": false,
-      "tickSize": 0,
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%Y')"}}
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date (year-month)",
+      "domain": false,
+      "format": "%Y",
+      "tickSize": 0,
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "series"
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "circle", "title": "series"}]
 }

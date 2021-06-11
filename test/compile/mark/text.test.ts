@@ -1,5 +1,5 @@
-/* tslint:disable quotemark */
 import {X, Y} from '../../../src/channel';
+import {BIN_RANGE_DELIMITER} from '../../../src/compile/common';
 import {text} from '../../../src/compile/mark/text';
 import {UnitModel} from '../../../src/compile/unit';
 import {NormalizedUnitSpec, TopLevel, TopLevelSpec} from '../../../src/spec';
@@ -12,11 +12,10 @@ describe('Mark: Text', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
       mark: 'text',
       encoding: {
-        x: {aggregate: 'sum', field: 'a', type: 'quantitative'},
+        x: {aggregate: 'sum', field: 'a', type: 'quantitative', stack: 'zero'},
         color: {field: 'b', type: 'ordinal'}
       },
-      data: {url: 'data/barley.json'},
-      config: {stack: 'zero'}
+      data: {url: 'data/barley.json'}
     });
 
     const props = text.encodeEntry(model);
@@ -26,17 +25,32 @@ describe('Mark: Text', () => {
     });
   });
 
+  it('should use stack_mid on theta for stacked theta', () => {
+    // This is a simplified example for stacked text.
+    // In reality this will be used as stacked's overlayed marker
+    const model = parseUnitModelWithScaleAndLayoutSize({
+      mark: 'text',
+      encoding: {
+        theta: {field: 'value', type: 'quantitative', stack: true},
+        color: {field: 'b', type: 'ordinal'}
+      },
+      data: {url: 'data/barley.json'}
+    });
+
+    const props = text.encodeEntry(model);
+    expect(props.theta).toEqual({signal: 'scale("theta", 0.5 * datum["value_start"] + 0.5 * datum["value_end"])'});
+  });
+
   describe('with stacked y', () => {
     // This is a simplified example for stacked text.
     // In reality this will be used as stacked's overlayed marker
     const model = parseUnitModelWithScaleAndLayoutSize({
       mark: 'text',
       encoding: {
-        y: {aggregate: 'sum', field: 'a', type: 'quantitative'},
+        y: {aggregate: 'sum', field: 'a', type: 'quantitative', stack: 'zero'},
         color: {field: 'b', type: 'ordinal'}
       },
-      data: {url: 'data/barley.json'},
-      config: {stack: 'zero'}
+      data: {url: 'data/barley.json'}
     });
 
     const props = text.encodeEntry(model);
@@ -61,6 +75,23 @@ describe('Mark: Text', () => {
     });
   });
 
+  describe('with custom formatType', () => {
+    const spec: TopLevel<NormalizedUnitSpec> = {
+      mark: 'text',
+      encoding: {
+        text: {field: 'foo', type: 'quantitative', format: 'd', formatType: 'numberFormat'}
+      },
+      config: {customFormatTypes: true}
+    };
+
+    const model = parseUnitModelWithScaleAndLayoutSize(spec);
+    const props = text.encodeEntry(model);
+
+    it('should use custom formatter', () => {
+      expect(props.text).toEqual({signal: `numberFormat(datum["foo"], "d")`});
+    });
+  });
+
   describe('with binned quantitative', () => {
     const spec: NormalizedUnitSpec = {
       mark: 'text',
@@ -73,7 +104,7 @@ describe('Mark: Text', () => {
 
     it('should output correct bin range', () => {
       expect(props.text).toEqual({
-        signal: `datum["bin_maxbins_10_foo"] === null || isNaN(datum["bin_maxbins_10_foo"]) ? "null" : format(datum["bin_maxbins_10_foo"], "d") + " - " + format(datum["bin_maxbins_10_foo_end"], "d")`
+        signal: `!isValid(datum["bin_maxbins_10_foo"]) || !isFinite(+datum["bin_maxbins_10_foo"]) ? "null" : format(datum["bin_maxbins_10_foo"], "d") + "${BIN_RANGE_DELIMITER}" + format(datum["bin_maxbins_10_foo_end"], "d")`
       });
     });
   });
@@ -117,8 +148,8 @@ describe('Mark: Text', () => {
       expect(props.align).toEqual({value: 'center'});
     });
 
-    it('should map text without template', () => {
-      expect(props.text).toEqual({signal: `''+datum["Origin"]`});
+    it('should map to text without template', () => {
+      expect(props.text).toEqual({signal: `isValid(datum["Origin"]) ? datum["Origin"] : ""+datum["Origin"]`});
     });
   });
 
@@ -155,7 +186,7 @@ describe('Mark: Text', () => {
     });
   });
 
-  describe('with config.text.size', () => {
+  describe('with config.text.fontSize', () => {
     const spec: TopLevel<NormalizedUnitSpec> = {
       mark: {type: 'text'},
       encoding: {
@@ -167,7 +198,7 @@ describe('Mark: Text', () => {
     const model = parseUnitModelWithScaleAndLayoutSize(spec);
     const props = text.encodeEntry(model);
 
-    it('should map size to fontSize', () => {
+    it('should map fontSize to fontSize', () => {
       expect(props.fontSize).toEqual({value: 25});
     });
   });
@@ -184,7 +215,7 @@ describe('Mark: Text', () => {
       },
       data: {url: 'data/cars.json'},
       config: {
-        invalidValues: 'hide'
+        mark: {invalid: 'hide'}
       }
     };
     const model = parseModelWithScale(spec);
@@ -213,7 +244,7 @@ describe('Mark: Text', () => {
     it('should map color to fill', () => {
       expect(props.fill).toEqual([
         {
-          test: 'datum["mean_Acceleration"] === null || isNaN(datum["mean_Acceleration"])',
+          test: '!isValid(datum["mean_Acceleration"]) || !isFinite(+datum["mean_Acceleration"])',
           value: null
         },
         {

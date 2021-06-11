@@ -1,20 +1,21 @@
-/* tslint:disable:quotemark */
 import {COLUMN, FACET_CHANNELS, ROW} from '../../src/channel';
 import {defaultConfig, initConfig} from '../../src/config';
 import * as log from '../../src/log';
 import {LocalLogger} from '../../src/log';
-import {normalize} from '../../src/normalize/index';
-import {TopLevelSpec} from '../../src/spec/index';
-
-// describe('isStacked()') -- tested as part of stackOffset in stack.test.ts
+import {normalize} from '../../src/normalize';
+import {TopLevelSpec} from '../../src/spec';
 
 describe('normalize()', () => {
+  it('throws errors for invalid spec', () => {
+    expect(() => normalize({} as any)).toThrow(log.message.invalidSpec({}));
+  });
+
   describe('normalizeRepeat', () => {
     it(
-      'should drop columns from repeat with row/column',
+      'should ignore columns from repeat with row/column',
       log.wrap((localLogger: LocalLogger) => {
         const spec: TopLevelSpec = {
-          $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
+          $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
           repeat: {column: ['Horsepower', 'Miles_per_Gallon', 'Acceleration', 'Displacement']},
           columns: 2,
           spec: {
@@ -32,26 +33,54 @@ describe('normalize()', () => {
           }
         };
         const normalized = normalize(spec);
-        expect(normalized['columns']).toBeUndefined();
+        expect(normalized['columns']).toBe(4);
         expect(localLogger.warns[0]).toEqual(log.message.columnsNotSupportByRowCol('repeat'));
       })
     );
+
+    it('normalizes repeat layer', () => {
+      const spec: TopLevelSpec = {
+        data: {
+          url: 'data/movies.json'
+        },
+        repeat: {
+          layer: ['US_Gross', 'Worldwide_Gross']
+        },
+        spec: {
+          mark: 'line',
+          encoding: {
+            x: {
+              bin: true,
+              field: 'IMDB_Rating',
+              type: 'quantitative'
+            },
+            y: {
+              aggregate: 'mean',
+              field: {repeat: 'layer'},
+              type: 'quantitative'
+            }
+          }
+        }
+      };
+      const normalized = normalize(spec);
+      expect(normalized['layer']).toHaveLength(2);
+    });
   });
 
   describe('normalizeFacetedUnit', () => {
     for (const channel of FACET_CHANNELS) {
       it(`should convert single extended spec with ${channel} into a composite spec`, () => {
         const fieldDef = {field: 'MPAA_Rating', type: 'ordinal'};
+        const layoutMixins = {spacing: 13};
         const spec: any = {
           name: 'faceted',
           width: 123,
           height: 234,
           description: 'faceted spec',
           data: {url: 'data/movies.json'},
-          spacing: 20,
           mark: 'point',
           encoding: {
-            [channel]: fieldDef,
+            [channel]: {...fieldDef, ...layoutMixins},
             x: {field: 'Worldwide_Gross', type: 'quantitative'},
             y: {field: 'US_DVD_Sales', type: 'quantitative'}
           }
@@ -69,7 +98,7 @@ describe('normalize()', () => {
           name: 'faceted',
           description: 'faceted spec',
           data: {url: 'data/movies.json'},
-          spacing: 20,
+          spacing: channel === 'facet' ? 13 : {[channel]: 13},
           facet: expectedFacet,
           spec: {
             mark: 'point',
@@ -124,7 +153,6 @@ describe('normalize()', () => {
       'should drop columns from facet with row/column',
       log.wrap((localLogger: LocalLogger) => {
         const spec: TopLevelSpec = {
-          $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
           data: {url: 'data/cars.json'},
           facet: {column: {field: 'a', type: 'nominal'}},
           columns: 2,
@@ -212,26 +240,22 @@ describe('normalize()', () => {
                   as: 'lower_people'
                 }
               ],
-              layer: [
-                {
-                  mark: {type: 'rule', style: 'errorbar-rule'},
-                  encoding: {
-                    y: {
-                      field: 'lower_people',
-                      type: 'quantitative',
-                      title: 'people'
-                    },
-                    y2: {field: 'upper_people', type: 'quantitative'},
-                    x: {field: 'age', type: 'ordinal'},
-                    tooltip: [
-                      {field: 'center_people', title: 'Mean of people', type: 'quantitative'},
-                      {field: 'upper_people', title: 'Mean + stderr of people', type: 'quantitative'},
-                      {field: 'lower_people', title: 'Mean - stderr of people', type: 'quantitative'},
-                      {field: 'age', type: 'ordinal'}
-                    ]
-                  }
-                }
-              ]
+              mark: {type: 'rule', ariaRoleDescription: 'errorbar', style: 'errorbar-rule'},
+              encoding: {
+                y: {
+                  field: 'lower_people',
+                  type: 'quantitative',
+                  title: 'people'
+                },
+                y2: {field: 'upper_people'},
+                x: {field: 'age', type: 'ordinal'},
+                tooltip: [
+                  {field: 'center_people', title: 'Mean of people', type: 'quantitative'},
+                  {field: 'upper_people', title: 'Mean + stderr of people', type: 'quantitative'},
+                  {field: 'lower_people', title: 'Mean - stderr of people', type: 'quantitative'},
+                  {field: 'age', type: 'ordinal'}
+                ]
+              }
             },
             {
               mark: {type: 'point', opacity: 1, filled: true},
@@ -306,8 +330,84 @@ describe('normalize()', () => {
       });
     });
 
+    it('correctly passes shared encoding type/scale to children of layer', () => {
+      const output = normalize(
+        {
+          data: {url: 'data/population.json'},
+          encoding: {
+            x: {type: 'quantitative', scale: {type: 'log'}, axis: {title: null}},
+            color: {scale: {range: ['blue', 'green']}}
+          },
+          layer: [
+            {mark: 'point', encoding: {x: {field: 'a'}}},
+            {
+              layer: [
+                {mark: 'rule', encoding: {x: {field: 'b'}}},
+                {
+                  mark: 'text',
+                  encoding: {
+                    x: {field: 'c'},
+                    color: {field: 'b1'},
+                    text: {field: 'a', type: 'nominal'}
+                  }
+                },
+                {
+                  mark: 'text',
+                  encoding: {x: {value: 1}, color: {condition: {test: 'a', field: 'b'}, value: 'red'}}
+                },
+                {
+                  mark: 'text'
+                }
+              ]
+            }
+          ]
+        },
+        defaultConfig
+      );
+
+      expect(output).toEqual({
+        data: {url: 'data/population.json'},
+        layer: [
+          {
+            mark: 'point',
+            encoding: {
+              x: {field: 'a', type: 'quantitative', scale: {type: 'log'}, axis: {title: null}}
+            }
+          },
+          {
+            layer: [
+              {
+                mark: 'rule',
+                encoding: {
+                  x: {field: 'b', type: 'quantitative', scale: {type: 'log'}, axis: {title: null}}
+                }
+              },
+              {
+                mark: 'text',
+                encoding: {
+                  x: {field: 'c', type: 'quantitative', scale: {type: 'log'}, axis: {title: null}},
+                  color: {field: 'b1', scale: {range: ['blue', 'green']}},
+                  text: {field: 'a', type: 'nominal'}
+                }
+              },
+              {
+                mark: 'text',
+                encoding: {
+                  x: {value: 1},
+                  color: {condition: {test: 'a', field: 'b', scale: {range: ['blue', 'green']}}, value: 'red'}
+                }
+              },
+              {
+                mark: 'text'
+              }
+            ]
+          }
+        ]
+      });
+    });
+
     it(
-      'correctly overrides shared projection and encoding and throws warnings',
+      'correctly overrides shared projection and throws warnings',
       log.wrap((localLogger: LocalLogger) => {
         const output = normalize(
           {
@@ -332,7 +432,7 @@ describe('normalize()', () => {
           defaultConfig
         );
 
-        expect(localLogger.warns.length).toEqual(2);
+        expect(localLogger.warns).toHaveLength(1);
 
         expect(localLogger.warns[0]).toEqual(
           log.message.projectionOverridden({
@@ -340,8 +440,6 @@ describe('normalize()', () => {
             projection: {type: 'albersUsa'}
           })
         );
-
-        expect(localLogger.warns[1]).toEqual(log.message.encodingOverridden(['x']));
 
         expect(output).toEqual({
           data: {url: 'data/population.json'},

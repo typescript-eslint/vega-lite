@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": {
     "values": [
       {
@@ -308,50 +308,54 @@
     {
       "mark": "bar",
       "height": 700,
-      "selection": {
-        "brush": {"type": "interval", "encodings": ["y"]}
-      },
+      "params": [{
+        "name": "brush",
+        "select": {"type": "interval", "encodings": ["y"]}
+      }],
       "encoding": {
         "y": {
           "field": "Country",
           "type": "ordinal",
-          "sort": {
-            "encoding": "x",
-            "order": "descending"
-          }
+          "sort": "-x"
         },
         "x": {
           "field": "Population_ages_15_64_of_total",
           "type": "quantitative"
         },
         "color": {
-          "condition": {"selection": {"not": "brush"}, "value": "steelblue"},
-          "value": "goldenrod"
+          "condition": {
+            "param": "brush",
+            "empty": false,
+            "value": "goldenrod"
+          },
+          "value": "steelblue"
         }
       }
     },
     {
       "mark": "bar",
       "height": 700,
-      "selection": {
-        "brush": {"type": "interval", "encodings": ["y"]}
-      },
+      "params": [{
+        "name": "brush",
+        "select": {"type": "interval", "encodings": ["y"]}
+      }],
       "encoding": {
         "y": {
           "field": "Country",
           "type": "ordinal",
-          "sort": {
-            "encoding": "x",
-            "order": "descending"
-          }
+          "sort": "-x"
         },
         "x": {
           "field": "Population_ages_65_and_above_of_total",
           "type": "quantitative"
         },
         "color": {
-          "condition": {"selection": {"not": "brush"}, "value": "steelblue"},
-          "value": "goldenrod"
+          "condition": {
+            "param": "brush",
+            "empty": false,
+            "value": "goldenrod"
+          },
+          "value": "steelblue"
         }
       }
     },
@@ -359,7 +363,7 @@
       "mark": "point",
       "width": 260,
       "height": 260,
-      "selection": {"brush": {"type": "interval"}},
+      "params": [{"name": "brush", "select": "interval"}],
       "encoding": {
         "y": {
           "field": "Population_ages_15_64_of_total",
@@ -372,8 +376,12 @@
           "scale": {"zero": false}
         },
         "color": {
-          "condition": {"selection": {"not": "brush"}, "value": "steelblue"},
-          "value": "goldenrod"
+          "condition": {
+            "param": "brush",
+            "empty": false,
+            "value": "goldenrod"
+          },
+          "value": "steelblue"
         }
       }
     }

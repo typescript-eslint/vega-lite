@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -12,9 +12,10 @@
       "format": {"type": "csv", "parse": {"date": "date"}},
       "transform": [
         {
-          "type": "formula",
-          "as": "year_date",
-          "expr": "datetime(year(datum[\"date\"]), 0, 1, 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["year"],
+          "as": ["year_date", "year_date_end"]
         },
         {
           "type": "aggregate",
@@ -31,18 +32,18 @@
       "name": "marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"year_date\"]", "order": "descending"},
+      "sort": {"field": "datum[\"year_date\"]"},
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"date (year)\": timeFormat(datum[\"year_date\"], '%Y'), \"Mean of temp_max\": format(datum[\"mean_temp_max\"], \"\")}"
+          "description": {
+            "signal": "\"date (year): \" + (timeFormat(datum[\"year_date\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; Mean of temp_max: \" + (format(datum[\"mean_temp_max\"], \"\"))"
           },
           "x": {"scale": "x", "field": "year_date"},
           "y": {"scale": "y", "field": "mean_temp_max"},
           "defined": {
-            "signal": "datum[\"year_date\"] !== null && !isNaN(datum[\"year_date\"]) && datum[\"mean_temp_max\"] !== null && !isNaN(datum[\"mean_temp_max\"])"
+            "signal": "isValid(datum[\"year_date\"]) && isFinite(+datum[\"year_date\"]) && isValid(datum[\"mean_temp_max\"]) && isFinite(+datum[\"mean_temp_max\"])"
           }
         }
       }
@@ -68,39 +69,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date (year)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%Y')"}}
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Mean of temp_max",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -110,9 +88,32 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date (year)",
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Mean of temp_max",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

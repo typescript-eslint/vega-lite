@@ -1,7 +1,15 @@
-import {Data, DataFormatType, isGenerator, isInlineData, isNamedData, isSphereGenerator, isUrlData} from '../../data';
-import {contains, keys, omit} from '../../util';
+import {
+  Data,
+  DataFormat,
+  DataFormatType,
+  isGenerator,
+  isInlineData,
+  isNamedData,
+  isSphereGenerator,
+  isUrlData
+} from '../../data';
+import {contains, isEmpty, omit} from '../../util';
 import {VgData} from '../../vega.schema';
-import {DataFormat} from './../../data';
 import {DataFlowNode} from './dataflow';
 
 export class SourceNode extends DataFlowNode {
@@ -14,7 +22,7 @@ export class SourceNode extends DataFlowNode {
   constructor(data: Data) {
     super(null); // source cannot have parent
 
-    data = data || {name: 'source'};
+    data ??= {name: 'source'};
     let format;
 
     if (!isGenerator(data)) {
@@ -52,9 +60,17 @@ export class SourceNode extends DataFlowNode {
       this._name = data.name;
     }
 
-    if (format && keys(format).length > 0) {
+    if (format && !isEmpty(format)) {
       this._data.format = format;
     }
+  }
+
+  public dependentFields() {
+    return new Set<string>();
+  }
+
+  public producedFields(): undefined {
+    return undefined; // we don't know what this source produces
   }
 
   get data() {
@@ -65,7 +81,7 @@ export class SourceNode extends DataFlowNode {
     return !!this._name;
   }
 
-  get generator() {
+  get isGenerator() {
     return this._generator;
   }
   get dataName() {

@@ -1,26 +1,24 @@
+import {Transforms as VgTransform} from 'vega';
 import {isArray, isString} from 'vega-util';
-import {getTypedFieldDef, isFieldDef, TypedFieldDef, vgField} from '../../channeldef';
+import {FieldName, getFieldDef, isFieldDef, PositionFieldDef, vgField} from '../../channeldef';
+import {SortFields, SortOrder} from '../../sort';
 import {StackOffset} from '../../stack';
 import {StackTransform} from '../../transform';
 import {duplicate, getFirstDefined, hash} from '../../util';
-import {VgComparatorOrder, VgCompare, VgTransform} from '../../vega.schema';
 import {sortParams} from '../common';
 import {UnitModel} from '../unit';
 import {DataFlowNode} from './dataflow';
 
 function getStackByFields(model: UnitModel): string[] {
-  return model.stack.stackBy.reduce(
-    (fields, by) => {
-      const fieldDef = by.fieldDef;
+  return model.stack.stackBy.reduce((fields, by) => {
+    const fieldDef = by.fieldDef;
 
-      const _field = vgField(fieldDef);
-      if (_field) {
-        fields.push(_field);
-      }
-      return fields;
-    },
-    [] as string[]
-  );
+    const _field = vgField(fieldDef);
+    if (_field) {
+      fields.push(_field);
+    }
+    return fields;
+  }, [] as string[]);
 }
 
 export interface StackComponent {
@@ -29,7 +27,7 @@ export interface StackComponent {
    */
   facetby: string[];
 
-  dimensionFieldDef?: TypedFieldDef<string>;
+  dimensionFieldDef?: PositionFieldDef<string>;
 
   /**
    * Stack measure's field. Used in makeFromEncoding.
@@ -46,7 +44,7 @@ export interface StackComponent {
    * Field that determines order of levels in the stacked charts.
    * Used in both but optional in transform.
    */
-  sort: VgCompare;
+  sort: SortFields;
 
   /** Mode for stacking marks.
    */
@@ -60,11 +58,11 @@ export interface StackComponent {
   /**
    * The data fields to group by.
    */
-  groupby?: string[];
+  groupby?: FieldName[];
   /**
    * Output field names of each stack field.
    */
-  as: string[];
+  as: [FieldName, FieldName];
 }
 
 function isValidAsArray(as: string[] | string): as is string[] {
@@ -88,24 +86,24 @@ export class StackNode extends DataFlowNode {
     const {stack, groupby, as, offset = 'zero'} = stackTransform;
 
     const sortFields: string[] = [];
-    const sortOrder: VgComparatorOrder[] = [];
+    const sortOrder: SortOrder[] = [];
     if (stackTransform.sort !== undefined) {
       for (const sortField of stackTransform.sort) {
         sortFields.push(sortField.field);
         sortOrder.push(getFirstDefined(sortField.order, 'ascending'));
       }
     }
-    const sort: VgCompare = {
+    const sort: SortFields = {
       field: sortFields,
       order: sortOrder
     };
-    let normalizedAs: string[];
+    let normalizedAs: [string, string];
     if (isValidAsArray(as)) {
       normalizedAs = as;
     } else if (isString(as)) {
-      normalizedAs = [as, as + '_end'];
+      normalizedAs = [as, `${as}_end`];
     } else {
-      normalizedAs = [stackTransform.stack + '_start', stackTransform.stack + '_end'];
+      normalizedAs = [`${stackTransform.stack}_start`, `${stackTransform.stack}_end`];
     }
 
     return new StackNode(parent, {
@@ -126,16 +124,18 @@ export class StackNode extends DataFlowNode {
       return null;
     }
 
-    let dimensionFieldDef: TypedFieldDef<string>;
-    if (stackProperties.groupbyChannel) {
-      const cDef = encoding[stackProperties.groupbyChannel];
-      dimensionFieldDef = getTypedFieldDef(cDef);
+    const {groupbyChannel, fieldChannel, offset, impute} = stackProperties;
+
+    let dimensionFieldDef: PositionFieldDef<string>;
+    if (groupbyChannel) {
+      const cDef = encoding[groupbyChannel];
+      dimensionFieldDef = getFieldDef(cDef) as PositionFieldDef<string>; // Fair to cast as groupByChannel is always either x or y
     }
 
     const stackby = getStackByFields(model);
     const orderDef = model.encoding.order;
 
-    let sort: VgCompare;
+    let sort: SortFields;
     if (isArray(orderDef) || isFieldDef(orderDef)) {
       sort = sortParams(orderDef);
     } else {
@@ -144,7 +144,7 @@ export class StackNode extends DataFlowNode {
       sort = stackby.reduce(
         (s, field) => {
           s.field.push(field);
-          s.order.push('descending');
+          s.order.push(fieldChannel === 'y' ? 'descending' : 'ascending');
           return s;
         },
         {field: [], order: []}
@@ -153,15 +153,15 @@ export class StackNode extends DataFlowNode {
 
     return new StackNode(parent, {
       dimensionFieldDef,
-      stackField: model.vgField(stackProperties.fieldChannel),
+      stackField: model.vgField(fieldChannel),
       facetby: [],
       stackby,
       sort,
-      offset: stackProperties.offset,
-      impute: stackProperties.impute,
+      offset,
+      impute,
       as: [
-        model.vgField(stackProperties.fieldChannel, {suffix: 'start', forAs: true}),
-        model.vgField(stackProperties.fieldChannel, {suffix: 'end', forAs: true})
+        model.vgField(fieldChannel, {suffix: 'start', forAs: true}),
+        model.vgField(fieldChannel, {suffix: 'end', forAs: true})
       ]
     });
   }
@@ -179,10 +179,9 @@ export class StackNode extends DataFlowNode {
 
     out.add(this._stack.stackField);
 
-    this.getGroupbyFields().forEach(out.add);
-    this._stack.facetby.forEach(out.add);
-    const field = this._stack.sort.field as string;
-    isArray(field) ? field.forEach(out.add) : out.add(field);
+    this.getGroupbyFields().forEach(out.add, out);
+    this._stack.facetby.forEach(out.add, out);
+    this._stack.sort.field.forEach(out.add, out);
 
     return out;
   }
@@ -212,7 +211,7 @@ export class StackNode extends DataFlowNode {
       }
       return [vgField(dimensionFieldDef)];
     }
-    return groupby || [];
+    return groupby ?? [];
   }
 
   public assemble(): VgTransform[] {
@@ -221,17 +220,17 @@ export class StackNode extends DataFlowNode {
 
     // Impute
     if (impute && dimensionFieldDef) {
-      if (dimensionFieldDef.bin) {
+      const {bandPosition = 0.5, bin} = dimensionFieldDef;
+      if (bin) {
         // As we can only impute one field at a time, we need to calculate
         // mid point for a binned field
         transform.push({
           type: 'formula',
           expr:
-            '(' +
+            `${bandPosition}*` +
             vgField(dimensionFieldDef, {expr: 'datum'}) +
-            '+' +
-            vgField(dimensionFieldDef, {expr: 'datum', binSuffix: 'end'}) +
-            ')/2',
+            `+${1 - bandPosition}*` +
+            vgField(dimensionFieldDef, {expr: 'datum', binSuffix: 'end'}),
           as: vgField(dimensionFieldDef, {binSuffix: 'mid', forAs: true})
         });
       }

@@ -1,3 +1,4 @@
+import {AncestorParse, DataComponent} from '.';
 import {
   Data,
   isGenerator,
@@ -6,21 +7,25 @@ import {
   isNamedData,
   isSequenceGenerator,
   isUrlData,
-  MAIN,
-  ParseValue,
-  RAW
+  DataSourceType,
+  ParseValue
 } from '../../data';
 import * as log from '../../log';
 import {
   isAggregate,
   isBin,
   isCalculate,
+  isDensity,
   isFilter,
   isFlatten,
   isFold,
   isImpute,
   isJoinAggregate,
+  isLoess,
   isLookup,
+  isPivot,
+  isQuantile,
+  isRegression,
   isSample,
   isStack,
   isTimeUnit,
@@ -29,25 +34,35 @@ import {
 import {deepEqual, mergeDeep} from '../../util';
 import {isFacetModel, isLayerModel, isUnitModel, Model} from '../model';
 import {requiresSelectionId} from '../selection';
+import {materializeSelections} from '../selection/parse';
 import {AggregateNode} from './aggregate';
 import {BinNode} from './bin';
 import {CalculateNode} from './calculate';
 import {DataFlowNode, OutputNode} from './dataflow';
+import {DensityTransformNode} from './density';
 import {FacetNode} from './facet';
 import {FilterNode} from './filter';
 import {FilterInvalidNode} from './filterinvalid';
 import {FlattenTransformNode} from './flatten';
 import {FoldTransformNode} from './fold';
-import {ParseNode} from './formatparse';
+import {
+  getImplicitFromEncoding,
+  getImplicitFromFilterTransform,
+  getImplicitFromSelection,
+  ParseNode
+} from './formatparse';
 import {GeoJSONNode} from './geojson';
 import {GeoPointNode} from './geopoint';
 import {GraticuleNode} from './graticule';
 import {IdentifierNode} from './identifier';
 import {ImputeNode} from './impute';
-import {AncestorParse, DataComponent} from './index';
 import {JoinAggregateTransformNode} from './joinaggregate';
 import {makeJoinAggregateFromFacet} from './joinaggregatefacet';
+import {LoessTransformNode} from './loess';
 import {LookupNode} from './lookup';
+import {PivotTransformNode} from './pivot';
+import {QuantileTransformNode} from './quantile';
+import {RegressionTransformNode} from './regression';
 import {SampleTransformNode} from './sample';
 import {SequenceNode} from './sequence';
 import {SourceNode} from './source';
@@ -58,10 +73,33 @@ import {WindowTransformNode} from './window';
 export function findSource(data: Data, sources: SourceNode[]) {
   for (const other of sources) {
     const otherData = other.data;
+
+    // if both datasets have a name defined, we cannot merge
+    if (data.name && other.hasName() && data.name !== other.dataName) {
+      continue;
+    }
+
+    const formatMesh = data['format']?.mesh;
+    const otherFeature = otherData.format?.feature;
+
+    // feature and mesh are mutually exclusive
+    if (formatMesh && otherFeature) {
+      continue;
+    }
+
+    // we have to extract the same feature or mesh
+    const formatFeature = data['format']?.feature;
+    if ((formatFeature || otherFeature) && formatFeature !== otherFeature) {
+      continue;
+    }
+
+    const otherMesh = otherData.format?.mesh;
+    if ((formatMesh || otherMesh) && formatMesh !== otherMesh) {
+      continue;
+    }
+
     if (isInlineData(data) && isInlineData(otherData)) {
-      const srcVals = data.values;
-      const otherVals = otherData.values;
-      if (deepEqual(srcVals, otherVals)) {
+      if (deepEqual(data.values, otherData.values)) {
         return other;
       }
     } else if (isUrlData(data) && isUrlData(otherData)) {
@@ -81,11 +119,23 @@ function parseRoot(model: Model, sources: SourceNode[]): DataFlowNode {
   if (model.data || !model.parent) {
     // if the model defines a data source or is the root, create a source node
 
+    if (model.data === null) {
+      // data: null means we should ignore the parent's data so we just create a new data source
+      const source = new SourceNode({values: []});
+      sources.push(source);
+      return source;
+    }
+
     const existingSource = findSource(model.data, sources);
 
     if (existingSource) {
       if (!isGenerator(model.data)) {
         existingSource.data.format = mergeDeep({}, model.data.format, existingSource.data.format);
+      }
+
+      // if the new source has a name but the existing one does not, we can set it
+      if (!existingSource.hasName() && model.data.name) {
+        existingSource.dataName = model.data.name;
       }
 
       return existingSource;
@@ -116,22 +166,22 @@ export function parseTransformArray(head: DataFlowNode, model: Model, ancestorPa
       transformNode = head = new CalculateNode(head, t);
       derivedType = 'derived';
     } else if (isFilter(t)) {
-      transformNode = head = ParseNode.makeImplicitFromFilterTransform(head, t, ancestorParse) || head;
+      const implicit = getImplicitFromFilterTransform(t);
+      transformNode = head = ParseNode.makeWithAncestors(head, {}, implicit, ancestorParse) ?? head;
 
       head = new FilterNode(head, model, t.filter);
     } else if (isBin(t)) {
       transformNode = head = BinNode.makeFromTransform(head, t, model);
       derivedType = 'number';
     } else if (isTimeUnit(t)) {
-      transformNode = head = TimeUnitNode.makeFromTransform(head, t);
       derivedType = 'date';
-
-      // Create parse node because the input to time unit is always date.
       const parsedAs = ancestorParse.getWithExplicit(t.field);
+      // Create parse node because the input to time unit is always date.
       if (parsedAs.value === undefined) {
         head = new ParseNode(head, {[t.field]: derivedType});
         ancestorParse.set(t.field, derivedType, false);
       }
+      transformNode = head = TimeUnitNode.makeFromTransform(head, t);
     } else if (isAggregate(t)) {
       transformNode = head = AggregateNode.makeFromTransform(head, t);
       derivedType = 'number';
@@ -156,10 +206,25 @@ export function parseTransformArray(head: DataFlowNode, model: Model, ancestorPa
     } else if (isFlatten(t)) {
       transformNode = head = new FlattenTransformNode(head, t);
       derivedType = 'derived';
+    } else if (isPivot(t)) {
+      transformNode = head = new PivotTransformNode(head, t);
+      derivedType = 'derived';
     } else if (isSample(t)) {
       head = new SampleTransformNode(head, t);
     } else if (isImpute(t)) {
       transformNode = head = ImputeNode.makeFromTransform(head, t);
+      derivedType = 'derived';
+    } else if (isDensity(t)) {
+      transformNode = head = new DensityTransformNode(head, t);
+      derivedType = 'derived';
+    } else if (isQuantile(t)) {
+      transformNode = head = new QuantileTransformNode(head, t);
+      derivedType = 'derived';
+    } else if (isRegression(t)) {
+      transformNode = head = new RegressionTransformNode(head, t);
+      derivedType = 'derived';
+    } else if (isLoess(t)) {
+      transformNode = head = new LoessTransformNode(head, t);
       derivedType = 'derived';
     } else {
       log.warn(log.message.invalidTransformIgnored(t));
@@ -167,7 +232,7 @@ export function parseTransformArray(head: DataFlowNode, model: Model, ancestorPa
     }
 
     if (transformNode && derivedType !== undefined) {
-      for (const field of transformNode.producedFields()) {
+      for (const field of transformNode.producedFields() ?? []) {
         ancestorParse.set(field, derivedType, false);
       }
     }
@@ -247,33 +312,28 @@ export function parseData(model: Model): DataComponent {
     }
     // no parsing necessary for generator
     ancestorParse.parseNothing = true;
-  } else if (data && data.format && data.format.parse === null) {
+  } else if (data?.format?.parse === null) {
     // format.parse: null means disable parsing
     ancestorParse.parseNothing = true;
   }
 
-  head = ParseNode.makeExplicit(head, model, ancestorParse) || head;
+  head = ParseNode.makeExplicit(head, model, ancestorParse) ?? head;
 
-  // Default discrete selections require an identifier transform to
-  // uniquely identify data points as the _id field is volatile. Add
-  // this transform at the head of our pipeline such that the identifier
-  // field is available for all subsequent datasets. Additional identifier
+  // Default discrete selections require an identifer transform to
+  // uniquely identify data points. Add this transform at the head of
+  // the pipeline such that the identifier field is available for all
+  // subsequent datasets. During optimization, we will remove this
+  // transform if it proves to be unnecessary. Additional identifier
   // transforms will be necessary when new tuples are constructed
   // (e.g., post-aggregation).
-  if (
-    requiresSelectionId(model) &&
-    // only add identifier to unit/layer models that do not have layer parents to avoid redundant identifier transforms
-    ((isUnitModel(model) || isLayerModel(model)) && (!model.parent || !isLayerModel(model.parent)))
-  ) {
-    head = new IdentifierNode(head);
-  }
+  head = new IdentifierNode(head);
 
   // HACK: This is equivalent for merging bin extent for union scale.
   // FIXME(https://github.com/vega/vega-lite/issues/2270): Correctly merge extent / bin node for shared bin scale
   const parentIsLayer = model.parent && isLayerModel(model.parent);
   if (isUnitModel(model) || isFacetModel(model)) {
     if (parentIsLayer) {
-      head = BinNode.makeFromEncoding(head, model) || head;
+      head = BinNode.makeFromEncoding(head, model) ?? head;
     }
   }
 
@@ -281,7 +341,10 @@ export function parseData(model: Model): DataComponent {
     head = parseTransformArray(head, model, ancestorParse);
   }
 
-  head = ParseNode.makeImplicitFromEncoding(head, model, ancestorParse) || head;
+  // create parse nodes for fields that need to be parsed (or flattened) implicitly
+  const implicitSelection = getImplicitFromSelection(model);
+  const implicitEncoding = getImplicitFromEncoding(model);
+  head = ParseNode.makeWithAncestors(head, {}, {...implicitSelection, ...implicitEncoding}, ancestorParse) ?? head;
 
   if (isUnitModel(model)) {
     head = GeoJSONNode.parseAll(head, model);
@@ -290,16 +353,16 @@ export function parseData(model: Model): DataComponent {
 
   if (isUnitModel(model) || isFacetModel(model)) {
     if (!parentIsLayer) {
-      head = BinNode.makeFromEncoding(head, model) || head;
+      head = BinNode.makeFromEncoding(head, model) ?? head;
     }
 
-    head = TimeUnitNode.makeFromEncoding(head, model) || head;
+    head = TimeUnitNode.makeFromEncoding(head, model) ?? head;
     head = CalculateNode.parseAllForSortIndex(head, model);
   }
 
   // add an output node pre aggregation
-  const rawName = model.getName(RAW);
-  const raw = new OutputNode(head, rawName, RAW, outputNodeRefCounts);
+  const rawName = model.getDataName(DataSourceType.Raw);
+  const raw = new OutputNode(head, rawName, DataSourceType.Raw, outputNodeRefCounts);
   outputNodes[rawName] = raw;
   head = raw;
 
@@ -312,36 +375,37 @@ export function parseData(model: Model): DataComponent {
         head = new IdentifierNode(head);
       }
     }
-    head = ImputeNode.makeFromEncoding(head, model) || head;
-    head = StackNode.makeFromEncoding(head, model) || head;
+    head = ImputeNode.makeFromEncoding(head, model) ?? head;
+    head = StackNode.makeFromEncoding(head, model) ?? head;
   }
 
   if (isUnitModel(model)) {
-    head = FilterInvalidNode.make(head, model) || head;
+    head = FilterInvalidNode.make(head, model) ?? head;
   }
 
   // output node for marks
-  const mainName = model.getName(MAIN);
-  const main = new OutputNode(head, mainName, MAIN, outputNodeRefCounts);
+  const mainName = model.getDataName(DataSourceType.Main);
+  const main = new OutputNode(head, mainName, DataSourceType.Main, outputNodeRefCounts);
   outputNodes[mainName] = main;
   head = main;
+
+  if (isUnitModel(model)) {
+    materializeSelections(model, main);
+  }
 
   // add facet marker
   let facetRoot = null;
   if (isFacetModel(model)) {
     const facetName = model.getName('facet');
 
-    // Derive new sort index field for facet's sort array
-    head = CalculateNode.parseAllForSortIndex(head, model);
-
     // Derive new aggregate for facet's sort field
     // augment data source with new fields for crossed facet
-    head = makeJoinAggregateFromFacet(head, model.facet) || head;
+    head = makeJoinAggregateFromFacet(head, model.facet) ?? head;
 
     facetRoot = new FacetNode(head, model, facetName, main.getSource());
     outputNodes[facetName] = facetRoot;
-    head = facetRoot;
   }
+
   return {
     ...model.component.data,
     outputNodes,

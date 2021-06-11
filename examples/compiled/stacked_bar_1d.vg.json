@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 20,
@@ -22,14 +22,17 @@
           "type": "stack",
           "groupby": [],
           "field": "sum_Acceleration",
-          "sort": {"field": ["Origin"], "order": ["descending"]},
+          "sort": {"field": ["Origin"], "order": ["ascending"]},
           "as": ["sum_Acceleration_start", "sum_Acceleration_end"],
           "offset": "zero"
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"sum_Acceleration\"]) && isFinite(+datum[\"sum_Acceleration\"])"
         }
       ]
     }
   ],
-  "signals": [{"name": "height", "update": "height"}],
   "marks": [
     {
       "name": "marks",
@@ -39,13 +42,14 @@
       "encode": {
         "update": {
           "fill": {"scale": "color", "field": "Origin"},
-          "tooltip": {
-            "signal": "{\"Sum of Acceleration\": format(datum[\"sum_Acceleration\"], \"\"), \"Origin\": ''+datum[\"Origin\"]}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"Sum of Acceleration: \" + (format(datum[\"sum_Acceleration\"], \"\")) + \"; Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"])"
           },
           "x": {"scale": "x", "field": "sum_Acceleration_end"},
           "x2": {"scale": "x", "field": "sum_Acceleration_start"},
           "yc": {"signal": "height", "mult": 0.5},
-          "height": {"value": 19}
+          "height": {"value": 18}
         }
       }
     }
@@ -73,33 +77,26 @@
     {
       "scale": "x",
       "orient": "bottom",
+      "grid": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
       "grid": false,
       "title": "Sum of Acceleration",
       "labelFlush": true,
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
-      "grid": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "Origin",
-      "encode": {"symbols": {"update": {"shape": {"value": "square"}}}}
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "square", "title": "Origin"}]
 }

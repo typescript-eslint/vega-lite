@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 400,
   "height": 400,
@@ -129,7 +129,10 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "highlight", "update": "vlSelectionResolve(\"highlight_store\")"},
+    {
+      "name": "highlight",
+      "update": "vlSelectionResolve(\"highlight_store\", \"union\")"
+    },
     {
       "name": "highlight_x",
       "value": [],
@@ -164,16 +167,16 @@
         },
         {"events": {"signal": "highlight_scale_trigger"}, "update": "[0, 0]"},
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "highlight_translate_delta"},
           "update": "clampRange(panLinear(highlight_translate_anchor.extent_x, highlight_translate_delta.x / span(highlight_translate_anchor.extent_x)), 0, width)"
         },
         {
           "events": {"signal": "highlight_zoom_delta"},
           "update": "clampRange(zoomLinear(highlight_x, highlight_zoom_anchor.x, highlight_zoom_delta), 0, width)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -220,16 +223,16 @@
         },
         {"events": {"signal": "highlight_scale_trigger"}, "update": "[0, 0]"},
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "highlight_translate_delta"},
           "update": "clampRange(panLinear(highlight_translate_anchor.extent_y, highlight_translate_delta.y / span(highlight_translate_anchor.extent_y)), 0, height)"
         },
         {
           "events": {"signal": "highlight_zoom_delta"},
           "update": "clampRange(zoomLinear(highlight_y, highlight_zoom_anchor.y, highlight_zoom_delta), 0, height)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -343,7 +346,12 @@
     },
     {
       "name": "highlight_modify",
-      "update": "modify(\"highlight_store\", highlight_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "highlight_tuple"},
+          "update": "modify(\"highlight_store\", highlight_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -389,19 +397,21 @@
       "name": "marks",
       "type": "symbol",
       "style": ["point"],
+      "interactive": true,
       "from": {"data": "data_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "fill": [
             {
-              "test": "!(length(data(\"highlight_store\"))) || (vlSelectionTest(\"highlight_store\", datum))",
+              "test": "!length(data(\"highlight_store\")) || vlSelectionTest(\"highlight_store\", datum)",
               "value": "rgb(194,81,64)"
             },
             {"value": "rgb(167,165,156)"}
           ],
-          "tooltip": {
-            "signal": "{\"col\": ''+datum[\"col\"], \"row\": ''+datum[\"row\"]}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"col: \" + (isValid(datum[\"col\"]) ? datum[\"col\"] : \"\"+datum[\"col\"]) + \"; row: \" + (isValid(datum[\"row\"]) ? datum[\"row\"] : \"\"+datum[\"row\"])"
           },
           "x": {"scale": "x", "field": "col"},
           "y": {"scale": "y", "field": "row"},

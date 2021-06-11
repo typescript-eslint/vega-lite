@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 600,
   "height": 300,
@@ -18,7 +18,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"date\"] !== null && !isNaN(datum[\"date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+          "expr": "(isDate(datum[\"date\"]) || (isValid(datum[\"date\"]) && isFinite(+datum[\"date\"]))) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
         }
       ]
     },
@@ -28,27 +28,11 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "(index.date) && (!(length(data(\"index_store\"))) || (vlSelectionTest(\"index_store\", datum)))"
-        }
-      ]
-    },
-    {
-      "name": "data_2",
-      "source": "data_1",
-      "transform": [
+          "expr": "(index.date) && (!length(data(\"index_store\")) || vlSelectionTest(\"index_store\", datum))"
+        },
         {
           "type": "filter",
-          "expr": "datum[\"date\"] !== null && !isNaN(datum[\"date\"])"
-        }
-      ]
-    },
-    {
-      "name": "data_3",
-      "source": "data_1",
-      "transform": [
-        {
-          "type": "filter",
-          "expr": "datum[\"date\"] !== null && !isNaN(datum[\"date\"])"
+          "expr": "(isDate(datum[\"date\"]) || (isValid(datum[\"date\"]) && isFinite(+datum[\"date\"])))"
         }
       ]
     }
@@ -61,16 +45,25 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "index", "update": "vlSelectionResolve(\"index_store\")"},
+    {
+      "name": "index",
+      "update": "vlSelectionResolve(\"index_store\", \"union\", true, true)"
+    },
     {
       "name": "index_tuple",
       "on": [
         {
-          "events": [{"source": "scope", "type": "mousemove"}],
+          "events": [
+            {
+              "source": "scope",
+              "type": "mousemove",
+              "markname": "layer_1_voronoi"
+            }
+          ],
           "update": "datum && item().mark.marktype !== 'group' ? {unit: \"layer_1\", fields: index_tuple_fields, values: [(item().isVoronoi ? datum.datum : datum)[\"date\"]]} : null",
           "force": true
         },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"}
       ]
     },
     {
@@ -78,8 +71,30 @@
       "value": [{"field": "date", "channel": "x", "type": "E"}]
     },
     {
+      "name": "index_toggle",
+      "value": false,
+      "on": [
+        {
+          "events": [
+            {
+              "source": "scope",
+              "type": "mousemove",
+              "markname": "layer_1_voronoi"
+            }
+          ],
+          "update": "event.shiftKey"
+        },
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "false"}
+      ]
+    },
+    {
       "name": "index_modify",
-      "update": "modify(\"index_store\", index_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "index_tuple"},
+          "update": "modify(\"index_store\", index_toggle ? null : index_tuple, index_toggle ? null : true, index_toggle ? index_tuple : null)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -104,18 +119,19 @@
           "name": "layer_0_marks",
           "type": "line",
           "style": ["line"],
-          "sort": {"field": "datum[\"date\"]", "order": "descending"},
+          "sort": {"field": "datum[\"date\"]"},
+          "interactive": false,
           "from": {"data": "faceted_path_layer_0_main"},
           "encode": {
             "update": {
               "stroke": {"scale": "color", "field": "symbol"},
-              "tooltip": {
-                "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y'), \"price\": format(datum[\"price\"], \"\"), \"symbol\": ''+datum[\"symbol\"]}"
+              "description": {
+                "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y')) + \"; price: \" + (format(datum[\"price\"], \"\")) + \"; symbol: \" + (isValid(datum[\"symbol\"]) ? datum[\"symbol\"] : \"\"+datum[\"symbol\"])"
               },
               "x": {"scale": "x", "field": "date"},
               "y": {"scale": "y", "field": "price"},
               "defined": {
-                "signal": "datum[\"date\"] !== null && !isNaN(datum[\"date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+                "signal": "isValid(datum[\"date\"]) && isFinite(+datum[\"date\"]) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
               }
             }
           }
@@ -126,14 +142,16 @@
       "name": "layer_1_marks",
       "type": "symbol",
       "style": ["point"],
+      "interactive": true,
       "from": {"data": "data_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y'), \"price\": format(datum[\"price\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y')) + \"; price: \" + (format(datum[\"price\"], \"\"))"
           },
           "x": {"scale": "x", "field": "date"},
           "y": {"scale": "y", "field": "price"}
@@ -143,16 +161,14 @@
     {
       "name": "layer_1_voronoi",
       "type": "path",
+      "interactive": true,
       "from": {"data": "layer_1_marks"},
       "encode": {
         "update": {
           "fill": {"value": "transparent"},
           "strokeWidth": {"value": 0.35},
           "stroke": {"value": "transparent"},
-          "isVoronoi": {"value": true},
-          "tooltip": {
-            "signal": "{\"date\": timeFormat(datum.datum[\"date\"], '%b %d, %Y'), \"price\": format(datum.datum[\"price\"], \"\")}"
-          }
+          "isVoronoi": {"value": true}
         }
       },
       "transform": [
@@ -168,16 +184,17 @@
       "name": "layer_2_marks",
       "type": "rule",
       "style": ["rule"],
-      "from": {"data": "data_2"},
+      "interactive": false,
+      "from": {"data": "data_1"},
       "encode": {
         "update": {
           "stroke": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y')}"
+          "description": {
+            "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y'))"
           },
           "x": {"scale": "x", "field": "date"},
-          "y": {"field": {"group": "height"}},
-          "y2": {"value": 0}
+          "y": {"value": 0},
+          "y2": {"field": {"group": "height"}}
         }
       }
     },
@@ -185,12 +202,13 @@
       "name": "layer_3_marks",
       "type": "text",
       "style": ["text"],
-      "from": {"data": "data_3"},
+      "interactive": false,
+      "from": {"data": "data_1"},
       "encode": {
         "update": {
           "fill": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"date\": timeFormat(datum[\"date\"], '%b %d, %Y')}"
+          "description": {
+            "signal": "\"date: \" + (timeFormat(datum[\"date\"], '%b %d, %Y'))"
           },
           "x": {"scale": "x", "field": "date"},
           "y": {"value": 10},
@@ -208,8 +226,7 @@
         "fields": [
           {"data": "source_0", "field": "date"},
           {"data": "data_0", "field": "date"},
-          {"data": "data_2", "field": "date"},
-          {"data": "data_3", "field": "date"}
+          {"data": "data_1", "field": "date"}
         ]
       },
       "range": [0, {"signal": "width"}]
@@ -238,34 +255,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "price",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -275,19 +274,32 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    }
-  ],
-  "legends": [
+    },
     {
-      "stroke": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "stroke",
-      "title": "symbol"
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "price",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "zindex": 0
     }
   ],
+  "legends": [{"stroke": "color", "symbolType": "stroke", "title": "symbol"}],
   "config": {"style": {"text": {"align": "right", "dx": -5, "dy": 5}}}
 }

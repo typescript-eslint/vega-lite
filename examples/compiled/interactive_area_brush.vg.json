@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -10,16 +10,23 @@
     {
       "name": "source_0",
       "url": "data/unemployment-across-industries.json",
-      "format": {"type": "json", "parse": {"date": "date"}}
+      "format": {"type": "json", "parse": {"date": "date"}},
+      "transform": [
+        {
+          "field": "date",
+          "type": "timeunit",
+          "units": ["year", "month"],
+          "as": ["yearmonth_date", "yearmonth_date_end"]
+        }
+      ]
     },
     {
       "name": "data_0",
       "source": "source_0",
       "transform": [
         {
-          "type": "formula",
-          "as": "yearmonth_date",
-          "expr": "datetime(year(datum[\"date\"]), month(datum[\"date\"]), 1, 0, 0, 0, 0)"
+          "type": "filter",
+          "expr": "!length(data(\"brush_store\")) || vlSelectionTest(\"brush_store\", datum)"
         },
         {
           "type": "aggregate",
@@ -34,15 +41,6 @@
       "name": "data_1",
       "source": "source_0",
       "transform": [
-        {
-          "type": "filter",
-          "expr": "!(length(data(\"brush_store\"))) || (vlSelectionTest(\"brush_store\", datum))"
-        },
-        {
-          "type": "formula",
-          "as": "yearmonth_date",
-          "expr": "datetime(year(datum[\"date\"]), month(datum[\"date\"]), 1, 0, 0, 0, 0)"
-        },
         {
           "type": "aggregate",
           "groupby": ["yearmonth_date"],
@@ -61,7 +59,10 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "brush", "update": "vlSelectionResolve(\"brush_store\")"},
+    {
+      "name": "brush",
+      "update": "vlSelectionResolve(\"brush_store\", \"union\")"
+    },
     {
       "name": "brush_x",
       "value": [],
@@ -99,16 +100,16 @@
           "update": "[scale(\"x\", brush_yearmonth_date[0]), scale(\"x\", brush_yearmonth_date[1])]"
         },
         {
+          "events": [{"source": "view", "type": "dblclick"}],
+          "update": "[0, 0]"
+        },
+        {
           "events": {"signal": "brush_translate_delta"},
           "update": "clampRange(panLinear(brush_translate_anchor.extent_x, brush_translate_delta.x / span(brush_translate_anchor.extent_x)), 0, width)"
         },
         {
           "events": {"signal": "brush_zoom_delta"},
           "update": "clampRange(zoomLinear(brush_x, brush_zoom_anchor.x, brush_zoom_delta), 0, width)"
-        },
-        {
-          "events": [{"source": "scope", "type": "dblclick"}],
-          "update": "[0, 0]"
         }
       ]
     },
@@ -215,7 +216,12 @@
     },
     {
       "name": "brush_modify",
-      "update": "modify(\"brush_store\", brush_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "brush_tuple"},
+          "update": "modify(\"brush_store\", brush_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -261,20 +267,21 @@
       "name": "layer_0_marks",
       "type": "area",
       "style": ["area"],
-      "sort": {"field": "datum[\"yearmonth_date\"]", "order": "descending"},
-      "from": {"data": "data_0"},
+      "sort": {"field": "datum[\"yearmonth_date\"]"},
+      "interactive": true,
+      "from": {"data": "data_1"},
       "encode": {
         "update": {
           "orient": {"value": "vertical"},
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"date (year-month)\": timeFormat(datum[\"yearmonth_date\"], '%b %Y'), \"Sum of count\": format(datum[\"sum_count\"], \"\")}"
+          "description": {
+            "signal": "\"date (year-month): \" + (timeFormat(datum[\"yearmonth_date\"], timeUnitSpecifier([\"year\",\"month\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; Sum of count: \" + (format(datum[\"sum_count\"], \"\"))"
           },
           "x": {"scale": "x", "field": "yearmonth_date"},
           "y": {"scale": "y", "field": "sum_count"},
           "y2": {"scale": "y", "value": 0},
           "defined": {
-            "signal": "datum[\"yearmonth_date\"] !== null && !isNaN(datum[\"yearmonth_date\"]) && datum[\"sum_count\"] !== null && !isNaN(datum[\"sum_count\"])"
+            "signal": "isValid(datum[\"yearmonth_date\"]) && isFinite(+datum[\"yearmonth_date\"]) && isValid(datum[\"sum_count\"]) && isFinite(+datum[\"sum_count\"])"
           }
         }
       }
@@ -283,20 +290,21 @@
       "name": "layer_1_marks",
       "type": "area",
       "style": ["area"],
-      "sort": {"field": "datum[\"yearmonth_date\"]", "order": "descending"},
-      "from": {"data": "data_1"},
+      "sort": {"field": "datum[\"yearmonth_date\"]"},
+      "interactive": false,
+      "from": {"data": "data_0"},
       "encode": {
         "update": {
           "orient": {"value": "vertical"},
           "fill": {"value": "goldenrod"},
-          "tooltip": {
-            "signal": "{\"date (year-month)\": timeFormat(datum[\"yearmonth_date\"], '%b %Y'), \"Sum of count\": format(datum[\"sum_count\"], \"\")}"
+          "description": {
+            "signal": "\"date (year-month): \" + (timeFormat(datum[\"yearmonth_date\"], timeUnitSpecifier([\"year\",\"month\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; Sum of count: \" + (format(datum[\"sum_count\"], \"\"))"
           },
           "x": {"scale": "x", "field": "yearmonth_date"},
           "y": {"scale": "y", "field": "sum_count"},
           "y2": {"scale": "y", "value": 0},
           "defined": {
-            "signal": "datum[\"yearmonth_date\"] !== null && !isNaN(datum[\"yearmonth_date\"]) && datum[\"sum_count\"] !== null && !isNaN(datum[\"sum_count\"])"
+            "signal": "isValid(datum[\"yearmonth_date\"]) && isFinite(+datum[\"yearmonth_date\"]) && isValid(datum[\"sum_count\"]) && isFinite(+datum[\"sum_count\"])"
           }
         }
       }
@@ -350,8 +358,8 @@
       "type": "time",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "yearmonth_date"},
-          {"data": "data_1", "field": "yearmonth_date"}
+          {"data": "data_1", "field": "yearmonth_date"},
+          {"data": "data_0", "field": "yearmonth_date"}
         ]
       },
       "range": [0, {"signal": "width"}]
@@ -361,8 +369,8 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "sum_count"},
-          {"data": "data_1", "field": "sum_count"}
+          {"data": "data_1", "field": "sum_count"},
+          {"data": "data_0", "field": "sum_count"}
         ]
       },
       "range": [{"signal": "height"}, 0],
@@ -374,39 +382,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "date (year-month)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%b %Y')"}}
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Sum of count",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -416,9 +401,32 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "date (year-month)",
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\",\"month\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Sum of count",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

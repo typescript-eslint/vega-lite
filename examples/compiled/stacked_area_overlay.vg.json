@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -71,21 +71,21 @@
           "name": "layer_0_marks",
           "type": "area",
           "style": ["area"],
-          "sort": {"field": "datum[\"age\"]", "order": "descending"},
+          "sort": {"field": "datum[\"age\"]"},
           "from": {"data": "faceted_path_layer_0_main"},
           "encode": {
             "update": {
               "opacity": {"value": 0.7},
               "orient": {"value": "vertical"},
               "fill": {"scale": "color", "field": "gender"},
-              "tooltip": {
-                "signal": "{\"Sum of people\": format(datum[\"sum_people\"], \"\"), \"age\": ''+datum[\"age\"], \"gender\": ''+datum[\"gender\"]}"
+              "description": {
+                "signal": "\"Sum of people: \" + (format(datum[\"sum_people\"], \"\")) + \"; age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; gender: \" + (isValid(datum[\"gender\"]) ? datum[\"gender\"] : \"\"+datum[\"gender\"])"
               },
               "x": {"scale": "x", "field": "age"},
               "y": {"scale": "y", "field": "sum_people_end"},
               "y2": {"scale": "y", "field": "sum_people_start"},
               "defined": {
-                "signal": "datum[\"sum_people\"] !== null && !isNaN(datum[\"sum_people\"])"
+                "signal": "isValid(datum[\"sum_people\"]) && isFinite(+datum[\"sum_people\"])"
               }
             }
           }
@@ -113,19 +113,19 @@
           "name": "layer_1_marks",
           "type": "line",
           "style": ["line"],
-          "sort": {"field": "datum[\"age\"]", "order": "descending"},
+          "sort": {"field": "datum[\"age\"]"},
           "from": {"data": "faceted_path_layer_1_main"},
           "encode": {
             "update": {
               "stroke": {"scale": "color", "field": "gender"},
               "opacity": {"value": 0.7},
-              "tooltip": {
-                "signal": "{\"Sum of people\": format(datum[\"sum_people\"], \"\"), \"age\": ''+datum[\"age\"], \"gender\": ''+datum[\"gender\"]}"
+              "description": {
+                "signal": "\"Sum of people: \" + (format(datum[\"sum_people\"], \"\")) + \"; age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; gender: \" + (isValid(datum[\"gender\"]) ? datum[\"gender\"] : \"\"+datum[\"gender\"])"
               },
               "x": {"scale": "x", "field": "age"},
               "y": {"scale": "y", "field": "sum_people_end"},
               "defined": {
-                "signal": "datum[\"sum_people\"] !== null && !isNaN(datum[\"sum_people\"])"
+                "signal": "isValid(datum[\"sum_people\"]) && isFinite(+datum[\"sum_people\"])"
               }
             }
           }
@@ -156,30 +156,10 @@
       "name": "color",
       "type": "ordinal",
       "domain": {"data": "source_0", "field": "gender", "sort": true},
-      "range": ["#EA98D2", "#659CCA"]
+      "range": ["#675193", "#ca8861"]
     }
   ],
   "axes": [
-    {
-      "scale": "x",
-      "orient": "bottom",
-      "grid": false,
-      "title": "age",
-      "labelAlign": "right",
-      "labelAngle": 270,
-      "labelBaseline": "middle",
-      "labelOverlap": true,
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Sum of people",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
     {
       "scale": "y",
       "orient": "left",
@@ -188,16 +168,35 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "age",
+      "labelAlign": "right",
+      "labelAngle": 270,
+      "labelBaseline": "middle",
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Sum of people",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
   "legends": [
     {
       "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "gender",
       "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}},

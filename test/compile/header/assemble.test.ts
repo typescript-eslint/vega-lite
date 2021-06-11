@@ -1,6 +1,7 @@
 import {
   assembleHeaderGroups,
   assembleHeaderProperties,
+  assembleLabelTitle,
   assembleTitleGroup,
   defaultHeaderGuideAlign,
   defaultHeaderGuideBaseline,
@@ -37,9 +38,9 @@ describe('compile/header/index', () => {
     });
 
     it('label aligns correctly according to angle for column', () => {
-      expect(defaultHeaderGuideAlign('column', 0)).toEqual({align: 'center'});
+      expect(defaultHeaderGuideAlign('column', 0)).toEqual({});
       expect(defaultHeaderGuideAlign('column', 10)).toEqual({align: 'right'});
-      expect(defaultHeaderGuideAlign('column', -10)).toEqual({align: 'left'});
+      expect(defaultHeaderGuideAlign('column', 350)).toEqual({align: 'left'});
     });
   });
 
@@ -286,6 +287,40 @@ describe('compile/header/index', () => {
       it('should overwrite the config label property with the header label property', () => {
         expect(bothLabelProps.fontSize).toEqual(40);
       });
+    });
+  });
+
+  describe('assembleLabelTitle', () => {
+    it('correctly applies labelExpr', () => {
+      const title = assembleLabelTitle(
+        {field: 'foo', type: 'ordinal', header: {labelExpr: 'datum.label[0]'}},
+        'column',
+        {headerColumn: {format: 'd'}, header: {format: 'd'}}
+      );
+
+      expect(title.text).toEqual({signal: 'format(parent["foo"], "d")[0]'});
+    });
+
+    it('correctly applies custom format type', () => {
+      const title = assembleLabelTitle(
+        {field: 'foo', type: 'ordinal', header: {format: 'abc', formatType: 'foo'}},
+        'column',
+        {headerColumn: {format: 'd'}, header: {format: 'd'}, customFormatTypes: true}
+      );
+      expect(title.text).toEqual({signal: 'foo(parent["foo"], "abc")'});
+    });
+
+    it('correctly applies labelExpr when accessing the value', () => {
+      const title = assembleLabelTitle(
+        {field: 'foo', type: 'ordinal', header: {labelExpr: 'datum.value[0]'}},
+        'column',
+        {
+          headerColumn: {format: 'd'},
+          header: {format: 'd'}
+        }
+      );
+
+      expect(title.text).toEqual({signal: 'parent["foo"][0]'});
     });
   });
 });

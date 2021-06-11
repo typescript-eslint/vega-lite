@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -39,29 +39,19 @@
       "name": "data_0",
       "source": "source_0",
       "transform": [
-        {"type": "formula", "expr": "toDate(datum[\"Year\"])", "as": "Year"}
+        {"type": "formula", "expr": "toDate(datum[\"Year\"])", "as": "Year"},
+        {
+          "field": "Year",
+          "type": "timeunit",
+          "units": ["year"],
+          "as": ["year_Year", "year_Year_end"]
+        }
       ]
     },
     {
       "name": "data_1",
       "source": "data_0",
       "transform": [
-        {
-          "type": "formula",
-          "as": "year_Year",
-          "expr": "datetime(year(datum[\"Year\"]), 0, 1, 0, 0, 0, 0)"
-        }
-      ]
-    },
-    {
-      "name": "data_2",
-      "source": "data_0",
-      "transform": [
-        {
-          "type": "formula",
-          "as": "year_Year",
-          "expr": "datetime(year(datum[\"Year\"]), 0, 1, 0, 0, 0, 0)"
-        },
         {"type": "formula", "expr": "datum[\"ci0\"]", "as": "upper_ci1"},
         {"type": "formula", "expr": "datum[\"ci1\"]", "as": "lower_ci1"}
       ]
@@ -72,21 +62,25 @@
       "name": "layer_0_layer_0_marks",
       "type": "area",
       "style": ["area", "errorband-band"],
-      "sort": {"field": "datum[\"year_Year\"]", "order": "descending"},
-      "from": {"data": "data_2"},
+      "sort": {"field": "datum[\"year_Year\"]"},
+      "from": {"data": "data_1"},
       "encode": {
         "update": {
+          "ariaRoleDescription": {"value": "errorband"},
           "opacity": {"value": 0.3},
           "orient": {"value": "vertical"},
           "fill": {"value": "#4c78a8"},
           "tooltip": {
-            "signal": "{\"ci0\": format(datum[\"upper_ci1\"], \"\"), \"ci1\": format(datum[\"lower_ci1\"], \"\"), \"Year (year)\": timeFormat(datum[\"year_Year\"], '%Y')}"
+            "signal": "{\"ci0\": format(datum[\"upper_ci1\"], \"\"), \"ci1\": format(datum[\"lower_ci1\"], \"\"), \"Year (year)\": timeFormat(datum[\"year_Year\"], '%b %d, %Y')}"
+          },
+          "description": {
+            "signal": "\"Mean of Miles per Gallon (95% CIs): \" + (format(datum[\"lower_ci1\"], \"\")) + \"; upper_ci1: \" + (format(datum[\"upper_ci1\"], \"\")) + \"; Year (year): \" + (timeFormat(datum[\"year_Year\"], '%b %d, %Y')) + \"; ci0: \" + (format(datum[\"upper_ci1\"], \"\")) + \"; ci1: \" + (format(datum[\"lower_ci1\"], \"\"))"
           },
           "x": {"scale": "x", "field": "year_Year"},
           "y": {"scale": "y", "field": "lower_ci1"},
           "y2": {"scale": "y", "field": "upper_ci1"},
           "defined": {
-            "signal": "datum[\"year_Year\"] !== null && !isNaN(datum[\"year_Year\"]) && datum[\"lower_ci1\"] !== null && !isNaN(datum[\"lower_ci1\"])"
+            "signal": "isValid(datum[\"year_Year\"]) && isFinite(+datum[\"year_Year\"]) && isValid(datum[\"lower_ci1\"]) && isFinite(+datum[\"lower_ci1\"])"
           }
         }
       }
@@ -95,18 +89,18 @@
       "name": "layer_1_marks",
       "type": "line",
       "style": ["line"],
-      "sort": {"field": "datum[\"year_Year\"]", "order": "descending"},
-      "from": {"data": "data_1"},
+      "sort": {"field": "datum[\"year_Year\"]"},
+      "from": {"data": "data_0"},
       "encode": {
         "update": {
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"center\": format(datum[\"center\"], \"\"), \"Year (year)\": timeFormat(datum[\"year_Year\"], '%Y')}"
+          "description": {
+            "signal": "\"center: \" + (format(datum[\"center\"], \"\")) + \"; Year (year): \" + (timeFormat(datum[\"year_Year\"], timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})))"
           },
           "x": {"scale": "x", "field": "year_Year"},
           "y": {"scale": "y", "field": "center"},
           "defined": {
-            "signal": "datum[\"year_Year\"] !== null && !isNaN(datum[\"year_Year\"]) && datum[\"center\"] !== null && !isNaN(datum[\"center\"])"
+            "signal": "isValid(datum[\"year_Year\"]) && isFinite(+datum[\"year_Year\"]) && isValid(datum[\"center\"]) && isFinite(+datum[\"center\"])"
           }
         }
       }
@@ -118,8 +112,8 @@
       "type": "time",
       "domain": {
         "fields": [
-          {"data": "data_2", "field": "year_Year"},
-          {"data": "data_1", "field": "year_Year"}
+          {"data": "data_1", "field": "year_Year"},
+          {"data": "data_0", "field": "year_Year"}
         ]
       },
       "range": [0, {"signal": "width"}]
@@ -129,9 +123,9 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_2", "field": "lower_ci1"},
-          {"data": "data_2", "field": "upper_ci1"},
-          {"data": "data_1", "field": "center"}
+          {"data": "data_1", "field": "lower_ci1"},
+          {"data": "data_1", "field": "upper_ci1"},
+          {"data": "data_0", "field": "center"}
         ]
       },
       "range": [{"signal": "height"}, 0],
@@ -143,39 +137,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Year (year)",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%Y')"}}
-        }
-      },
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Mean of Miles per Gallon (95% CIs)",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -185,9 +156,32 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Year (year)",
+      "format": {
+        "signal": "timeUnitSpecifier([\"year\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
+      },
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Mean of Miles per Gallon (95% CIs)",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

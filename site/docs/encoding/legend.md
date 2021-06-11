@@ -27,7 +27,7 @@ Otherwise, symbol legends are generated.
 
 ## Combined Legend
 
-If multiple channels encode the same fields, Vega-lite automatically combines their legends. For example, the following plot uses both `color` and `shape` to encode `Origin`; as a result, its legend shows the encoded colors and shapes.
+If multiple channels encode the same fields, Vega-Lite automatically combines their legends. For example, the following plot uses both `color` and `shape` to encode `Origin`; as a result, its legend shows the encoded colors and shapes.
 
 <div class="vl-example" data-name="point_color_with_shape"></div>
 
@@ -62,27 +62,27 @@ _See also:_ This [interactive article](https://beta.observablehq.com/@jheer/a-gu
 
 ### General
 
-{% include table.html props="cornerRadius,direction,fillColor,offset,orient,padding,strokeColor,strokeWidth,type,tickCount,values,zindex" source="Legend" %}
+{% include table.html props="aria,cornerRadius,description,direction,fillColor,legendX,legendY,offset,orient,padding,strokeColor,type,tickCount,values,zindex" source="Legend" %}
 
 ### Gradient
 
-{% include table.html props="gradientLength,gradientThickness,gradientStrokeColor,gradientStrokeWidth" source="Legend" %}
+{% include table.html props="gradientLength,gradientOpacity,gradientStrokeColor,gradientStrokeWidth,gradientThickness" source="Legend" %}
 
 ### Labels
 
-{% include table.html props="format,formatType,labelAlign,labelBaseline,labelColor,labelFont,labelFontSize,labelLimit,labelOffset,labelOverlap" source="Legend" %}
+{% include table.html props="format,formatType,labelAlign,labelBaseline,labelColor,labelFont,labelFontSize,labelFontStyle,labelLimit,labelOffset,labelOverlap" source="Legend" %}
 
 ### Symbols
 
-{% include table.html props="symbolFillColor,symbolSize,symbolStrokeColor,symbolStrokeWidth,symbolType" source="Legend" %}
+{% include table.html props="symbolDash,symbolDashOffset,symbolFillColor,symbolOffset,symbolOpacity,symbolSize,symbolStrokeColor,symbolStrokeWidth,symbolType" source="Legend" %}
 
 ### Symbol Layout
 
-{% include table.html props="clipHeight,columnPadding,columns,gridAlign,rowPadding" source="Legend" %}
+{% include table.html props="clipHeight,columnPadding,columns,gridAlign,rowPadding,symbolLimit" source="Legend" %}
 
 ### Title
 
-{% include table.html props="title,titleAlign,titleBaseline,titleColor,titleFont,titleFontSize,titleFontWeight,titleLimit,titlePadding" source="Legend" %}
+{% include table.html props="title,titleAlign,titleAnchor,titleBaseline,titleColor,titleFont,titleFontSize,titleFontStyle,titleFontWeight,titleLimit,titleLineHeight,titleOpacity,titlePadding" source="Legend" %}
 
 <!--
 ### Custom Legend Encodings
@@ -110,4 +110,4 @@ To provide themes for all legends, the legend config (`config: {legend: {...}}`)
 
 The legend configuration also supports the following properties:
 
-{% include table.html props="gradientDirection,gradientHorizontalMaxLength,gradientHorizontalMinLength,gradientLabelLimit,gradientLabelOffset,gradientVerticalMaxLength,gradientVerticalMinLength,symbolBaseFillColor,symbolBaseStrokeColor,symbolDirection,symbolOffset,shortTimeLabels,strokeDash" source="LegendConfig" %}
+{% include table.html props="disable,gradientDirection,gradientHorizontalMaxLength,gradientHorizontalMinLength,gradientLabelLimit,gradientLabelOffset,gradientVerticalMaxLength,gradientVerticalMinLength,symbolBaseFillColor,symbolBaseStrokeColor,symbolDirection,unselectedOpacity" source="LegendConfig" %}

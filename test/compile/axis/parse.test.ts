@@ -1,5 +1,3 @@
-/* tslint:disable:quotemark */
-
 import {Y} from '../../../src/channel';
 import {parseLayerAxes, parseUnitAxes} from '../../../src/compile/axis/parse';
 import {parseLayerModel, parseUnitModelWithScale} from '../../util';
@@ -39,11 +37,11 @@ describe('Axis', () => {
         }
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
+      expect(axisComponent['x']).toHaveLength(1);
       expect(axisComponent['x'][0].explicit.grid).toEqual(true);
     });
 
-    it('should produce Vega grid when axis config is specified.', () => {
+    it('should respect config even though the function could provide default value', () => {
       const model = parseUnitModelWithScale({
         mark: 'point',
         encoding: {
@@ -52,11 +50,149 @@ describe('Axis', () => {
             type: 'quantitative'
           }
         },
-        config: {axisX: {grid: true}}
+        config: {axisQuantitative: {labelAlign: 'right'}}
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].implicit.labelAlign).toEqual('right');
+    });
+
+    it('should produce grid, orient, tickCount, labelExpr in the component when axis config is specified.', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'quantitative'
+          }
+        },
+        config: {axisX: {grid: true, orient: 'right', tickCount: 20, labelExpr: 'abc'}}
+      });
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
       expect(axisComponent['x'][0].implicit.grid).toEqual(true);
+      expect(axisComponent['x'][0].implicit.orient).toEqual('right');
+      expect(axisComponent['x'][0].implicit.tickCount).toEqual(20);
+      expect(axisComponent['x'][0].implicit.labelExpr).toEqual('abc');
+    });
+
+    it('should include conditional axis config', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'quantitative'
+          }
+        },
+        config: {
+          axisX: {
+            gridDash: {
+              condition: {
+                test: {field: 'value', timeUnit: 'monthdate', equal: {month: 1, date: 1}},
+                value: null
+              },
+              value: [2, 2]
+            }
+          }
+        }
+      });
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].implicit.gridDash).toEqual({
+        condition: {
+          test: {field: 'value', timeUnit: 'monthdate', equal: {month: 1, date: 1}},
+          value: null
+        },
+        value: [2, 2]
+      });
+    });
+
+    it('should include axis property in style', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'quantitative',
+            axis: {style: 'foo'}
+          }
+        },
+        config: {
+          style: {
+            foo: {labelColor: 'red'}
+          }
+        }
+      });
+
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].implicit.labelColor).toEqual('red');
+    });
+
+    it('should include axis property in axis config style', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'quantitative'
+          }
+        },
+        config: {
+          axis: {style: 'foo'},
+          style: {
+            foo: {labelColor: 'red'}
+          }
+        }
+      });
+
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].implicit.labelColor).toEqual('red');
+    });
+
+    it('should include axis property in orientation and type based axis config style', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'quantitative'
+          }
+        },
+        config: {
+          axisXQuantitative: {labelColor: 'red'}
+        }
+      });
+
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].implicit.labelColor).toEqual('red');
+    });
+
+    it('should include axis property in axis config over axis config style', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'quantitative'
+          }
+        },
+        config: {
+          axis: {style: 'foo'},
+          axisX: {labelColor: 'blue'},
+          style: {
+            foo: {labelColor: 'red'}
+          }
+        }
+      });
+
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].implicit.labelColor).toBeUndefined();
+      // Vega-Lite doesn't have to output "blue" here since Vega will apply config.axisX.labelColor and renders blue label color anyway.
     });
 
     it('should produce axis component with grid=false', () => {
@@ -71,7 +207,7 @@ describe('Axis', () => {
         }
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
+      expect(axisComponent['x']).toHaveLength(1);
       expect(axisComponent['x'][0].explicit.grid).toEqual(false);
     });
 
@@ -106,8 +242,8 @@ describe('Axis', () => {
         config: {axisX: {grid: false}}
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
-      expect(axisComponent['x'][0].explicit.grid).toEqual(undefined);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].explicit.grid).toBeUndefined();
     });
 
     it('should produce Vega grid axis = undefined axis if grid is disabled via config.axis', () => {
@@ -122,8 +258,8 @@ describe('Axis', () => {
         config: {axis: {grid: false}}
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
-      expect(axisComponent['x'][0].explicit.grid).toEqual(undefined);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].explicit.grid).toBeUndefined();
     });
 
     it('should store the title value if title = null, "", or false', () => {
@@ -139,7 +275,7 @@ describe('Axis', () => {
           }
         });
         const axisComponent = parseUnitAxes(model);
-        expect(axisComponent['x'].length).toEqual(1);
+        expect(axisComponent['x']).toHaveLength(1);
         expect(axisComponent['x'][0].explicit.title).toEqual(val as any);
       }
     });
@@ -157,7 +293,7 @@ describe('Axis', () => {
           }
         });
         const axisComponent = parseUnitAxes(model);
-        expect(axisComponent['x'].length).toEqual(1);
+        expect(axisComponent['x']).toHaveLength(1);
         expect(axisComponent['x'][0].explicit.title).toEqual(val as any);
       }
     });
@@ -174,8 +310,38 @@ describe('Axis', () => {
         }
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
+      expect(axisComponent['x']).toHaveLength(1);
       expect(axisComponent['x'][0].explicit.title).toBe('foo');
+    });
+
+    it('should produces correct axis encode', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'a',
+            type: 'quantitative',
+            axis: {
+              encoding: {
+                labels: {
+                  dx: {value: {signal: 'a'}},
+                  dy: {value: 2}
+                }
+              }
+            }
+          }
+        }
+      });
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].explicit.encode).toEqual({
+        labels: {
+          update: {
+            dx: {signal: 'a'},
+            dy: {value: 2}
+          }
+        }
+      });
     });
 
     it('should merge title of fieldDef and fieldDef2', () => {
@@ -189,13 +355,12 @@ describe('Axis', () => {
           },
           x2: {
             field: 'b',
-            type: 'quantitative',
             title: 'bar'
           }
         }
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
+      expect(axisComponent['x']).toHaveLength(1);
       expect(axisComponent['x'][0].explicit.title).toBe('foo, bar');
     });
 
@@ -209,13 +374,12 @@ describe('Axis', () => {
           },
           x2: {
             field: 'b',
-            type: 'quantitative',
             title: 'bar'
           }
         }
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
+      expect(axisComponent['x']).toHaveLength(1);
       expect(axisComponent['x'][0].explicit.title).toBe('bar');
     });
 
@@ -224,12 +388,66 @@ describe('Axis', () => {
         mark: 'rule',
         encoding: {
           x: {field: 'a', type: 'quantitative'},
-          x2: {field: 'a2', type: 'quantitative'}
+          x2: {field: 'a2'}
         }
       });
       const axisComponent = parseUnitAxes(model);
-      expect(axisComponent['x'].length).toEqual(1);
+      expect(axisComponent['x']).toHaveLength(1);
       expect(axisComponent['x'][0].get('title')).toEqual([{field: 'a'}, {field: 'a2'}]);
+    });
+
+    it('should have correct text.signal for quarter timeUnits', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'temporal', timeUnit: 'quarter'}
+        }
+      });
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].get('format')).toEqual({
+        signal: 'timeUnitSpecifier(["quarter"], {"year-month":"%b %Y ","year-month-date":"%b %d, %Y "})'
+      });
+    });
+
+    it('should have output time formatType for ordinal months', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'ordinal', timeUnit: 'month'}
+        }
+      });
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].get('formatType')).toEqual('time');
+    });
+
+    it('should have output axis custom format in label encode block', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'ordinal', timeUnit: 'month', axis: {format: 'x', formatType: 'foo'}}
+        },
+        config: {customFormatTypes: true}
+      });
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].get('format')).toBeUndefined();
+      expect(axisComponent['x'][0].get('encode').labels.update.text).toEqual({signal: 'foo(datum.value, "x")'});
+    });
+
+    it('should have correct text.signal for yearquartermonth timeUnits', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {field: 'a', type: 'temporal', timeUnit: 'yearquartermonth'}
+        }
+      });
+      const axisComponent = parseUnitAxes(model);
+      expect(axisComponent['x']).toHaveLength(1);
+      expect(axisComponent['x'][0].get('format')).toEqual({
+        signal: 'timeUnitSpecifier(["year","quarter","month"], {"year-month":"%b %Y ","year-month-date":"%b %d, %Y "})'
+      });
     });
   });
 
@@ -269,7 +487,7 @@ describe('Axis', () => {
 
     it('correctly merges gridScale if one layer does not have one of the axis', () => {
       const axisComponents = globalRuleOverlay.component.axes;
-      expect(axisComponents.y.length).toEqual(1);
+      expect(axisComponents.y).toHaveLength(1);
       expect(axisComponents.y[0].get('gridScale')).toBe('x');
     });
 
@@ -280,7 +498,6 @@ describe('Axis', () => {
 
     it('correctly combines different title', () => {
       const model = parseLayerModel({
-        $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
         data: {url: 'data/cars.json'},
         layer: [
           {
@@ -317,6 +534,46 @@ describe('Axis', () => {
         {aggregate: 'max', field: 'Horsepower'},
         {aggregate: 'min', field: 'Horsepower'}
       ]);
+    });
+
+    it('correctly combines different title with null', () => {
+      const model = parseLayerModel({
+        data: {url: 'data/cars.json'},
+        layer: [
+          {
+            mark: 'line',
+            encoding: {
+              x: {field: 'Cylinders', type: 'ordinal', title: 'Hello'},
+              y: {
+                aggregate: 'max',
+                field: 'Horsepower',
+                type: 'quantitative',
+                title: 'HP'
+              },
+              color: {value: 'darkred'}
+            }
+          },
+          {
+            data: {url: 'data/cars.json'},
+            mark: 'line',
+            encoding: {
+              x: {field: 'Cylinders', type: 'ordinal', title: 'World'},
+              y: {
+                aggregate: 'min',
+                field: 'Horsepower',
+                type: 'quantitative',
+                title: null // remove the title entirely
+              }
+            }
+          }
+        ]
+      });
+      model.parseScale();
+      parseLayerAxes(model);
+      const axisComponents = model.component.axes;
+
+      expect(axisComponents.x[0].get('title')).toEqual('Hello, World');
+      expect(axisComponents.y[0].get('title')).toBeNull();
     });
   });
 });

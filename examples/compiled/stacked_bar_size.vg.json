@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -11,9 +11,10 @@
       "format": {"type": "csv", "parse": {"date": "date"}},
       "transform": [
         {
-          "type": "formula",
-          "as": "month_date",
-          "expr": "datetime(0, month(datum[\"date\"]), 1, 0, 0, 0, 0)"
+          "field": "date",
+          "type": "timeunit",
+          "units": ["month"],
+          "as": ["month_date", "month_date_end"]
         },
         {
           "type": "aggregate",
@@ -50,8 +51,9 @@
         "update": {
           "fill": {"value": "#4c78a8"},
           "opacity": {"value": 0.5},
-          "tooltip": {
-            "signal": "{\"date (month)\": timeFormat(datum[\"month_date\"], '%b'), \"Count of Records\": format(datum[\"__count\"], \"\"), \"weather\": ''+datum[\"weather\"]}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"date (month): \" + (timeFormat(datum[\"month_date\"], timeUnitSpecifier([\"month\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"}))) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\")) + \"; weather: \" + (isValid(datum[\"weather\"]) ? datum[\"weather\"] : \"\"+datum[\"weather\"])"
           },
           "xc": {"scale": "x", "field": "month_date", "band": 0.5},
           "width": {"scale": "size", "field": "weather"},
@@ -90,20 +92,30 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
       "title": "date (month)",
-      "labelAlign": "right",
-      "labelAngle": 270,
-      "labelBaseline": "middle",
-      "labelOverlap": true,
-      "encode": {
-        "labels": {
-          "update": {"text": {"signal": "timeFormat(datum.value, '%b')"}}
-        }
+      "format": {
+        "signal": "timeUnitSpecifier([\"month\"], {\"year-month\":\"%b %Y \",\"year-month-date\":\"%b %d, %Y \"})"
       },
-      "zindex": 1
+      "formatType": "time",
+      "labelOverlap": true,
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -112,33 +124,18 @@
       "title": "Count of Records",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ],
   "legends": [
     {
       "size": "size",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
+      "symbolType": "square",
       "title": "weather",
       "encode": {
         "symbols": {
           "update": {
             "fill": {"value": "#4c78a8"},
-            "shape": {"value": "square"},
             "opacity": {"value": 0.5},
             "stroke": {"value": "transparent"}
           }

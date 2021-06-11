@@ -1,9 +1,13 @@
-import {isString} from 'vega-util';
+import {Color, SignalRef} from 'vega';
+import {BaseSpec} from '.';
+import {getPositionScaleChannel} from '../channel';
+import {signalRefOrValue} from '../compile/common';
 import {Config} from '../config';
 import {InlineDataset} from '../data';
-import * as log from '../log';
+import {ExprRef} from '../expr';
+import {VariableParameter} from '../parameter';
+import {TopLevelSelectionParameter} from '../selection';
 import {Dict} from '../util';
-import {BaseSpec} from './index';
 
 /**
  * @minimum 0
@@ -15,13 +19,13 @@ export type Datasets = Dict<InlineDataset>;
 export type TopLevel<S extends BaseSpec> = S &
   TopLevelProperties & {
     /**
-     * URL to [JSON schema](http://json-schema.org/) for a Vega-Lite specification. Unless you have a reason to change this, use `https://vega.github.io/schema/vega-lite/v3.json`. Setting the `$schema` property allows automatic validation and autocomplete in editors that support JSON schema.
+     * URL to [JSON schema](http://json-schema.org/) for a Vega-Lite specification. Unless you have a reason to change this, use `https://vega.github.io/schema/vega-lite/v5.json`. Setting the `$schema` property allows automatic validation and autocomplete in editors that support JSON schema.
      * @format uri
      */
     $schema?: string;
 
     /**
-     * Vega-Lite configuration object.  This property can only be defined at the top-level of a specification.
+     * Vega-Lite configuration object. This property can only be defined at the top-level of a specification.
      */
     config?: Config;
 
@@ -35,40 +39,57 @@ export type TopLevel<S extends BaseSpec> = S &
      * Optional metadata that will be passed to Vega.
      * This object is completely ignored by Vega and Vega-Lite and can be used for custom metadata.
      */
-    usermeta?: object;
+    usermeta?: Dict<unknown>;
   };
 
-export interface TopLevelProperties {
+/**
+ * Shared properties between Top-Level specs and Config
+ */
+export interface TopLevelProperties<ES extends ExprRef | SignalRef = ExprRef | SignalRef> {
   /**
    * CSS color property to use as the background of the entire view.
    *
-   * __Default value:__ none (transparent)
+   * __Default value:__ `"white"`
    */
-  background?: string;
+  background?: Color | ES;
 
   /**
-   * The default visualization padding, in pixels, from the edge of the visualization canvas to the data rectangle.  If a number, specifies padding for all sides.
+   * The default visualization padding, in pixels, from the edge of the visualization canvas to the data rectangle. If a number, specifies padding for all sides.
    * If an object, the value should have the format `{"left": 5, "top": 5, "right": 5, "bottom": 5}` to specify padding for each side of the visualization.
    *
    * __Default value__: `5`
    */
-  padding?: Padding;
+  padding?: Padding | ES;
 
   /**
-   * Sets how the visualization size should be determined. If a string, should be one of `"pad"`, `"fit"` or `"none"`.
+   * How the visualization size should be determined. If a string, should be one of `"pad"`, `"fit"` or `"none"`.
    * Object values can additionally specify parameters for content sizing and automatic resizing.
-   * `"fit"` is only supported for single and layered views that don't use `rangeStep`.
    *
    * __Default value__: `pad`
    */
-  autosize?: AutosizeType | AutoSizeParams;
+  autosize?: AutosizeType | AutoSizeParams; // Vega actually supports signal for autosize. However, we need to check autosize at compile time to infer the rest of the spec. Thus VL's autosize won't support SignalRef for now.
+
+  /**
+   * Dynamic variables or selections that parameterize a visualization.
+   */
+  params?: (VariableParameter | TopLevelSelectionParameter)[];
 }
 
-export type AutosizeType = 'pad' | 'fit' | 'none';
+export type FitType = 'fit' | 'fit-x' | 'fit-y';
+
+export function isFitType(autoSizeType: AutosizeType): autoSizeType is FitType {
+  return autoSizeType === 'fit' || autoSizeType === 'fit-x' || autoSizeType === 'fit-y';
+}
+
+export function getFitType(sizeType?: 'width' | 'height'): FitType {
+  return sizeType ? (`fit-${getPositionScaleChannel(sizeType)}` as FitType) : 'fit';
+}
+
+export type AutosizeType = 'pad' | 'none' | 'fit' | 'fit-x' | 'fit-y';
 
 export interface AutoSizeParams {
   /**
-   * The sizing format type. One of `"pad"`, `"fit"` or `"none"`. See the [autosize type](https://vega.github.io/vega-lite/docs/size.html#autosize) documentation for descriptions of each.
+   * The sizing format type. One of `"pad"`, `"fit"`, `"fit-x"`, `"fit-y"`,  or `"none"`. See the [autosize type](https://vega.github.io/vega-lite/docs/size.html#autosize) documentation for descriptions of each.
    *
    * __Default value__: `"pad"`
    */
@@ -89,42 +110,21 @@ export interface AutoSizeParams {
   contains?: 'content' | 'padding';
 }
 
-function _normalizeAutoSize(autosize: AutosizeType | AutoSizeParams) {
-  return isString(autosize) ? {type: autosize} : autosize || {};
-}
-
-export function normalizeAutoSize(
-  topLevelAutosize: AutosizeType | AutoSizeParams,
-  configAutosize: AutosizeType | AutoSizeParams,
-  isUnitOrLayer: boolean = true
-): AutoSizeParams {
-  const autosize: AutoSizeParams = {
-    type: 'pad',
-    ..._normalizeAutoSize(configAutosize),
-    ..._normalizeAutoSize(topLevelAutosize)
-  };
-
-  if (autosize.type === 'fit') {
-    if (!isUnitOrLayer) {
-      log.warn(log.message.FIT_NON_SINGLE);
-      autosize.type = 'pad';
-    }
-  }
-
-  return autosize;
-}
-
 const TOP_LEVEL_PROPERTIES: (keyof TopLevelProperties)[] = [
   'background',
   'padding'
   // We do not include "autosize" here as it is supported by only unit and layer specs and thus need to be normalized
 ];
 
-export function extractTopLevelProperties<T extends TopLevelProperties>(t: T) {
-  return TOP_LEVEL_PROPERTIES.reduce((o, p) => {
+export function extractTopLevelProperties(t: TopLevelProperties, includeParams: boolean) {
+  const o: TopLevelProperties<SignalRef> = {};
+  for (const p of TOP_LEVEL_PROPERTIES) {
     if (t && t[p] !== undefined) {
-      o[p] = t[p];
+      o[p as any] = signalRefOrValue(t[p]);
     }
-    return o;
-  }, {});
+  }
+  if (includeParams) {
+    o.params = t.params;
+  }
+  return o;
 }

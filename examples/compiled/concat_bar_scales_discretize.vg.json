@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Horizontally concatenated charts that show different types of discretizing scales.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {
@@ -24,7 +24,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"b\"] !== null && !isNaN(datum[\"b\"])"
+          "expr": "isValid(datum[\"b\"]) && isFinite(+datum[\"b\"])"
         }
       ]
     },
@@ -34,7 +34,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"b\"] !== null && !isNaN(datum[\"b\"])"
+          "expr": "isValid(datum[\"b\"]) && isFinite(+datum[\"b\"])"
         }
       ]
     },
@@ -44,25 +44,23 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"b\"] !== null && !isNaN(datum[\"b\"])"
+          "expr": "isValid(datum[\"b\"]) && isFinite(+datum[\"b\"])"
         }
       ]
     }
   ],
   "signals": [
-    {"name": "concat_0_width", "value": 20},
+    {"name": "childWidth", "value": 20},
     {"name": "concat_0_y_step", "value": 20},
     {
       "name": "concat_0_height",
       "update": "bandspace(domain('concat_0_y').length, 1, 0.5) * concat_0_y_step"
     },
-    {"name": "concat_1_width", "value": 20},
     {"name": "concat_1_y_step", "value": 20},
     {
       "name": "concat_1_height",
       "update": "bandspace(domain('concat_1_y').length, 1, 0.5) * concat_1_y_step"
     },
-    {"name": "concat_2_width", "value": 20},
     {"name": "concat_2_y_step", "value": 20},
     {
       "name": "concat_2_height",
@@ -77,11 +75,11 @@
       "style": "cell",
       "encode": {
         "update": {
-          "width": {"signal": "concat_0_width"},
+          "width": {"signal": "childWidth"},
           "height": {"signal": "concat_0_height"}
         }
       },
-      "signals": [{"name": "width", "update": "concat_0_width"}],
+      "signals": [{"name": "width", "update": "childWidth"}],
       "marks": [
         {
           "name": "concat_0_marks",
@@ -92,10 +90,11 @@
             "update": {
               "opacity": {"value": 0.7},
               "fill": {"scale": "concat_0_color", "field": "b"},
-              "tooltip": {
-                "signal": "{\"b\": ''+datum[\"b\"], \"Quantize\": format(datum[\"b\"], \"\")}"
+              "ariaRoleDescription": {"value": "circle"},
+              "description": {
+                "signal": "\"b: \" + (isValid(datum[\"b\"]) ? datum[\"b\"] : \"\"+datum[\"b\"])"
               },
-              "x": {"signal": "concat_0_width", "mult": 0.5},
+              "x": {"signal": "childWidth", "mult": 0.5},
               "y": {"scale": "concat_0_y", "field": "b"},
               "size": {"scale": "concat_0_size", "field": "b"},
               "shape": {"value": "circle"}
@@ -110,23 +109,15 @@
           "grid": false,
           "domain": false,
           "ticks": false,
-          "zindex": 1
+          "zindex": 0
         }
       ],
       "legends": [
         {
           "title": "Quantize",
           "fill": "concat_0_color",
-          "gradientLength": {"signal": "clamp(concat_0_height, 64, 200)"},
           "symbolType": "circle",
-          "encode": {
-            "symbols": {
-              "update": {
-                "shape": {"value": "circle"},
-                "opacity": {"value": 0.7}
-              }
-            }
-          },
+          "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}},
           "size": "concat_0_size"
         }
       ]
@@ -137,11 +128,11 @@
       "style": "cell",
       "encode": {
         "update": {
-          "width": {"signal": "concat_1_width"},
+          "width": {"signal": "childWidth"},
           "height": {"signal": "concat_1_height"}
         }
       },
-      "signals": [{"name": "width", "update": "concat_1_width"}],
+      "signals": [{"name": "width", "update": "childWidth"}],
       "marks": [
         {
           "name": "concat_1_marks",
@@ -152,10 +143,11 @@
             "update": {
               "opacity": {"value": 0.7},
               "fill": {"scale": "concat_1_color", "field": "b"},
-              "tooltip": {
-                "signal": "{\"b\": ''+datum[\"b\"], \"Quantile\": format(datum[\"b\"], \"d\")}"
+              "ariaRoleDescription": {"value": "circle"},
+              "description": {
+                "signal": "\"b: \" + (isValid(datum[\"b\"]) ? datum[\"b\"] : \"\"+datum[\"b\"])"
               },
-              "x": {"signal": "concat_1_width", "mult": 0.5},
+              "x": {"signal": "childWidth", "mult": 0.5},
               "y": {"scale": "concat_1_y", "field": "b"},
               "size": {"scale": "concat_1_size", "field": "b"},
               "shape": {"value": "circle"}
@@ -170,7 +162,7 @@
           "grid": false,
           "domain": false,
           "ticks": false,
-          "zindex": 1
+          "zindex": 0
         }
       ],
       "legends": [
@@ -178,17 +170,9 @@
           "format": "d",
           "title": "Quantile",
           "fill": "concat_1_color",
-          "gradientLength": {"signal": "clamp(concat_1_height, 64, 200)"},
           "labelOverlap": "greedy",
           "symbolType": "circle",
-          "encode": {
-            "symbols": {
-              "update": {
-                "shape": {"value": "circle"},
-                "opacity": {"value": 0.7}
-              }
-            }
-          },
+          "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}},
           "size": "concat_1_size"
         }
       ]
@@ -199,11 +183,11 @@
       "style": "cell",
       "encode": {
         "update": {
-          "width": {"signal": "concat_2_width"},
+          "width": {"signal": "childWidth"},
           "height": {"signal": "concat_2_height"}
         }
       },
-      "signals": [{"name": "width", "update": "concat_2_width"}],
+      "signals": [{"name": "width", "update": "childWidth"}],
       "marks": [
         {
           "name": "concat_2_marks",
@@ -214,10 +198,11 @@
             "update": {
               "opacity": {"value": 0.7},
               "fill": {"scale": "concat_2_color", "field": "b"},
-              "tooltip": {
-                "signal": "{\"b\": ''+datum[\"b\"], \"Threshold\": format(datum[\"b\"], \"\")}"
+              "ariaRoleDescription": {"value": "circle"},
+              "description": {
+                "signal": "\"b: \" + (isValid(datum[\"b\"]) ? datum[\"b\"] : \"\"+datum[\"b\"])"
               },
-              "x": {"signal": "concat_2_width", "mult": 0.5},
+              "x": {"signal": "childWidth", "mult": 0.5},
               "y": {"scale": "concat_2_y", "field": "b"},
               "size": {"scale": "concat_2_size", "field": "b"},
               "shape": {"value": "circle"}
@@ -232,24 +217,16 @@
           "grid": false,
           "domain": false,
           "ticks": false,
-          "zindex": 1
+          "zindex": 0
         }
       ],
       "legends": [
         {
           "title": "Threshold",
           "fill": "concat_2_color",
-          "gradientLength": {"signal": "clamp(concat_2_height, 64, 200)"},
           "labelOverlap": "greedy",
           "symbolType": "circle",
-          "encode": {
-            "symbols": {
-              "update": {
-                "shape": {"value": "circle"},
-                "opacity": {"value": 0.7}
-              }
-            }
-          },
+          "encode": {"symbols": {"update": {"opacity": {"value": 0.7}}}},
           "size": "concat_2_size"
         }
       ]

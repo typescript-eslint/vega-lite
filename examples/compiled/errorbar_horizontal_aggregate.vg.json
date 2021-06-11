@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "A bar chart showing the US population distribution of age groups in 2000.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -9,19 +9,25 @@
     {
       "name": "source_0",
       "url": "data/population.json",
-      "format": {"type": "json"},
-      "transform": [{"type": "filter", "expr": "datum.year == 2000"}]
+      "format": {"type": "json", "parse": {"people": "number"}},
+      "transform": [
+        {"type": "filter", "expr": "datum.year == 2000"},
+        {
+          "type": "aggregate",
+          "groupby": ["age"],
+          "ops": ["mean", "min", "max"],
+          "fields": ["people", "people", "people"],
+          "as": ["mean_people", "min_people", "max_people"]
+        }
+      ]
     },
     {
       "name": "data_0",
       "source": "source_0",
       "transform": [
         {
-          "type": "aggregate",
-          "groupby": ["age"],
-          "ops": ["mean"],
-          "fields": ["people"],
-          "as": ["mean_people"]
+          "type": "filter",
+          "expr": "isValid(datum[\"mean_people\"]) && isFinite(+datum[\"mean_people\"])"
         }
       ]
     },
@@ -30,16 +36,18 @@
       "source": "source_0",
       "transform": [
         {
-          "type": "formula",
-          "expr": "toNumber(datum[\"people\"])",
-          "as": "people"
-        },
+          "type": "filter",
+          "expr": "isValid(datum[\"min_people\"]) && isFinite(+datum[\"min_people\"])"
+        }
+      ]
+    },
+    {
+      "name": "data_2",
+      "source": "source_0",
+      "transform": [
         {
-          "type": "aggregate",
-          "groupby": ["age"],
-          "ops": ["max", "min"],
-          "fields": ["people", "people"],
-          "as": ["max_people", "min_people"]
+          "type": "filter",
+          "expr": "isValid(datum[\"max_people\"]) && isFinite(+datum[\"max_people\"])"
         }
       ]
     }
@@ -57,12 +65,12 @@
       "encode": {
         "update": {
           "stroke": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"age\": ''+datum[\"age\"], \"population\": format(datum[\"min_people\"], \"\"), \"Max of people\": format(datum[\"max_people\"], \"\")}"
+          "description": {
+            "signal": "\"age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; population: \" + (format(datum[\"min_people\"], \"\")) + \"; Max of people: \" + (format(datum[\"max_people\"], \"\"))"
           },
           "x": {"scale": "x", "field": "min_people"},
-          "y": {"scale": "y", "field": "age", "band": 0.5},
-          "x2": {"scale": "x", "field": "max_people"}
+          "x2": {"scale": "x", "field": "max_people"},
+          "y": {"scale": "y", "field": "age", "band": 0.5}
         }
       }
     },
@@ -74,8 +82,9 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"age\": ''+datum[\"age\"], \"population\": format(datum[\"min_people\"], \"\")}"
+          "ariaRoleDescription": {"value": "tick"},
+          "description": {
+            "signal": "\"age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; population: \" + (format(datum[\"min_people\"], \"\"))"
           },
           "xc": {"scale": "x", "field": "min_people"},
           "yc": {"scale": "y", "field": "age", "band": 0.5},
@@ -88,12 +97,13 @@
       "name": "layer_2_marks",
       "type": "rect",
       "style": ["tick"],
-      "from": {"data": "data_1"},
+      "from": {"data": "data_2"},
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"age\": ''+datum[\"age\"], \"population\": format(datum[\"max_people\"], \"\")}"
+          "ariaRoleDescription": {"value": "tick"},
+          "description": {
+            "signal": "\"age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; population: \" + (format(datum[\"max_people\"], \"\"))"
           },
           "xc": {"scale": "x", "field": "max_people"},
           "yc": {"scale": "y", "field": "age", "band": 0.5},
@@ -111,8 +121,9 @@
         "update": {
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"age\": ''+datum[\"age\"], \"population\": format(datum[\"mean_people\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"age: \" + (isValid(datum[\"age\"]) ? datum[\"age\"] : \"\"+datum[\"age\"]) + \"; population: \" + (format(datum[\"mean_people\"], \"\"))"
           },
           "x": {"scale": "x", "field": "mean_people"},
           "y": {"scale": "y", "field": "age", "band": 0.5},
@@ -129,6 +140,7 @@
         "fields": [
           {"data": "data_1", "field": "min_people"},
           {"data": "data_1", "field": "max_people"},
+          {"data": "data_2", "field": "max_people"},
           {"data": "data_0", "field": "mean_people"}
         ]
       },
@@ -142,6 +154,7 @@
       "domain": {
         "fields": [
           {"data": "data_1", "field": "age"},
+          {"data": "data_2", "field": "age"},
           {"data": "data_0", "field": "age"}
         ],
         "sort": true
@@ -155,33 +168,27 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "population",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
     },
     {
-      "scale": "y",
-      "orient": "left",
+      "scale": "x",
+      "orient": "bottom",
       "grid": false,
-      "title": "age",
+      "title": "population",
+      "labelFlush": true,
       "labelOverlap": true,
-      "zindex": 1
-    }
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {"scale": "y", "orient": "left", "grid": false, "title": "age", "zindex": 0}
   ]
 }

@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -50,7 +50,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"lower_upper_yield\"] !== null && !isNaN(datum[\"lower_upper_yield\"])"
+          "expr": "isValid(datum[\"lower_upper_yield\"]) && isFinite(+datum[\"lower_upper_yield\"])"
         }
       ]
     },
@@ -60,7 +60,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"center\"] !== null && !isNaN(datum[\"center\"])"
+          "expr": "isValid(datum[\"center\"]) && isFinite(+datum[\"center\"])"
         }
       ]
     }
@@ -71,31 +71,35 @@
   ],
   "marks": [
     {
-      "name": "layer_0_layer_0_marks",
+      "name": "layer_0_marks",
       "type": "rule",
       "style": ["rule", "errorbar-rule"],
       "from": {"data": "data_1"},
       "encode": {
         "update": {
+          "ariaRoleDescription": {"value": "errorbar"},
           "stroke": {"value": "black"},
           "tooltip": {
-            "signal": "{\"lower_yield\": format(datum[\"upper_upper_yield\"], \"\"), \"upper_yield\": format(datum[\"lower_upper_yield\"], \"\"), \"variety\": ''+datum[\"variety\"]}"
+            "signal": "{\"lower_yield\": format(datum[\"upper_upper_yield\"], \"\"), \"upper_yield\": format(datum[\"lower_upper_yield\"], \"\"), \"variety\": isValid(datum[\"variety\"]) ? datum[\"variety\"] : \"\"+datum[\"variety\"]}"
+          },
+          "description": {
+            "signal": "\"yield: \" + (format(datum[\"lower_upper_yield\"], \"\")) + \"; upper_upper_yield: \" + (format(datum[\"upper_upper_yield\"], \"\")) + \"; variety: \" + (isValid(datum[\"variety\"]) ? datum[\"variety\"] : \"\"+datum[\"variety\"]) + \"; lower_yield: \" + (format(datum[\"upper_upper_yield\"], \"\")) + \"; upper_yield: \" + (format(datum[\"lower_upper_yield\"], \"\"))"
           },
           "x": [
             {
-              "test": "datum[\"lower_upper_yield\"] === null || isNaN(datum[\"lower_upper_yield\"])",
+              "test": "!isValid(datum[\"lower_upper_yield\"]) || !isFinite(+datum[\"lower_upper_yield\"])",
               "value": 0
             },
             {"scale": "x", "field": "lower_upper_yield"}
           ],
-          "y": {"scale": "y", "field": "variety", "band": 0.5},
           "x2": [
             {
-              "test": "datum[\"upper_upper_yield\"] === null || isNaN(datum[\"upper_upper_yield\"])",
+              "test": "!isValid(datum[\"upper_upper_yield\"]) || !isFinite(+datum[\"upper_upper_yield\"])",
               "value": 0
             },
             {"scale": "x", "field": "upper_upper_yield"}
-          ]
+          ],
+          "y": {"scale": "y", "field": "variety", "band": 0.5}
         }
       }
     },
@@ -108,12 +112,13 @@
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"center\": format(datum[\"center\"], \"\"), \"variety\": ''+datum[\"variety\"]}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"center: \" + (format(datum[\"center\"], \"\")) + \"; variety: \" + (isValid(datum[\"variety\"]) ? datum[\"variety\"] : \"\"+datum[\"variety\"])"
           },
           "x": [
             {
-              "test": "datum[\"center\"] === null || isNaN(datum[\"center\"])",
+              "test": "!isValid(datum[\"center\"]) || !isFinite(+datum[\"center\"])",
               "value": 0
             },
             {"scale": "x", "field": "center"}
@@ -157,24 +162,25 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "yield",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "yield",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
       "zindex": 0
     },
     {
@@ -182,8 +188,7 @@
       "orient": "left",
       "grid": false,
       "title": "variety",
-      "labelOverlap": true,
-      "zindex": 1
+      "zindex": 0
     }
   ]
 }

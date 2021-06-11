@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "config": {"view": {"stroke": ""}},
   "data": {
     "values": [
@@ -42,13 +42,11 @@
       {"country": "United States", "animal": "sheep", "col": 1}
     ]
   },
-  "facet": {
-    "row": {"field": "country", "type": "nominal", "header": {"title": ""}}
-  },
+  "facet": {"row": {"field": "country", "header": {"title": ""}}},
   "spec": {
-    "mark": {"type": "point", "filled": true},
     "width": 800,
     "height": 200,
+    "mark": {"type": "point", "filled": true},
     "encoding": {
       "x": {"field": "col", "type": "ordinal", "axis": null},
       "y": {"field": "animal", "type": "ordinal", "axis": null},

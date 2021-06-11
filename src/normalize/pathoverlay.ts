@@ -1,7 +1,8 @@
+import {SignalRef} from 'vega';
 import {isObject} from 'vega-util';
-import {Field} from '../channeldef';
 import {Config} from '../config';
-import {Encoding} from '../encoding';
+import {Encoding, normalizeEncoding} from '../encoding';
+import {ExprRef} from '../expr';
 import {AreaConfig, isMarkDef, LineConfig, Mark, MarkConfig, MarkDef} from '../mark';
 import {GenericUnitSpec, NormalizedUnitSpec} from '../spec';
 import {isUnitSpec} from '../spec/unit';
@@ -17,19 +18,24 @@ function dropLineAndPoint(markDef: MarkDef): MarkDef | Mark {
   return keys(mark).length > 1 ? mark : mark.type;
 }
 
-function dropLineAndPointFromConfig(config: Config) {
-  for (const mark of ['line', 'area', 'rule', 'trail']) {
+function dropLineAndPointFromConfig(config: Config<SignalRef>) {
+  for (const mark of ['line', 'area', 'rule', 'trail'] as const) {
     if (config[mark]) {
       config = {
         ...config,
-        [mark]: omit(config[mark], ['point', 'line'])
+        // TODO: remove as any
+        [mark]: omit(config[mark], ['point', 'line'] as any)
       };
     }
   }
   return config;
 }
 
-function getPointOverlay(markDef: MarkDef, markConfig: LineConfig = {}, encoding: Encoding<Field>): MarkConfig {
+function getPointOverlay(
+  markDef: MarkDef,
+  markConfig: LineConfig<ExprRef | SignalRef> = {},
+  encoding: Encoding<string>
+): MarkConfig<ExprRef | SignalRef> {
   if (markDef.point === 'transparent') {
     return {opacity: 0};
   } else if (markDef.point) {
@@ -49,7 +55,10 @@ function getPointOverlay(markDef: MarkDef, markConfig: LineConfig = {}, encoding
   }
 }
 
-function getLineOverlay(markDef: MarkDef, markConfig: AreaConfig = {}): MarkConfig {
+function getLineOverlay(
+  markDef: MarkDef,
+  markConfig: AreaConfig<ExprRef | SignalRef> = {}
+): MarkConfig<ExprRef | SignalRef> {
   if (markDef.line) {
     // true or object
     return markDef.line === true ? {} : markDef.line;
@@ -69,6 +78,7 @@ function getLineOverlay(markDef: MarkDef, markConfig: AreaConfig = {}): MarkConf
 
 export class PathOverlayNormalizer implements NonFacetUnitNormalizer<UnitSpecWithPathOverlay> {
   public name = 'path-overlay';
+
   public hasMatchingType(spec: GenericUnitSpec<any, Mark | MarkDef>, config: Config): spec is UnitSpecWithPathOverlay {
     if (isUnitSpec(spec)) {
       const {mark, encoding} = spec;
@@ -88,9 +98,14 @@ export class PathOverlayNormalizer implements NonFacetUnitNormalizer<UnitSpecWit
     }
     return false;
   }
-  public run(spec: UnitSpecWithPathOverlay, params: NormalizerParams, normalize: NormalizeLayerOrUnit) {
-    const {config} = params;
-    const {selection, projection, encoding, mark, ...outerSpec} = spec;
+
+  public run(spec: UnitSpecWithPathOverlay, normParams: NormalizerParams, normalize: NormalizeLayerOrUnit) {
+    const {config} = normParams;
+    const {params, projection, mark, encoding: e, ...outerSpec} = spec;
+
+    // Need to call normalizeEncoding because we need the inferred types to correctly determine stack
+    const encoding = normalizeEncoding(e, config);
+
     const markDef: MarkDef = isMarkDef(mark) ? mark : {type: mark};
 
     const pointOverlay = getPointOverlay(markDef, config[markDef.type], encoding);
@@ -98,13 +113,13 @@ export class PathOverlayNormalizer implements NonFacetUnitNormalizer<UnitSpecWit
 
     const layer: NormalizedUnitSpec[] = [
       {
-        ...(selection ? {selection} : {}),
-        // Do not include point / line overlay in the normalize spec
+        ...(params ? {params} : {}),
         mark: dropLineAndPoint({
-          ...markDef,
-          // make area mark translucent by default
           // TODO: extract this 0.7 to be shared with default opacity for point/tick/...
-          ...(markDef.type === 'area' ? {opacity: 0.7} : {})
+          ...(markDef.type === 'area' && markDef.opacity === undefined && markDef.fillOpacity === undefined
+            ? {opacity: 0.7}
+            : {}),
+          ...markDef
         }),
         // drop shape from encoding as this might be used to trigger point overlay
         encoding: omit(encoding, ['shape'])
@@ -114,7 +129,7 @@ export class PathOverlayNormalizer implements NonFacetUnitNormalizer<UnitSpecWit
     // FIXME: determine rules for applying selections.
 
     // Need to copy stack config to overlayed layer
-    const stackProps = stack(markDef, encoding, config ? config.stack : undefined);
+    const stackProps = stack(markDef, encoding);
 
     let overlayEncoding = encoding;
     if (stackProps) {
@@ -133,7 +148,7 @@ export class PathOverlayNormalizer implements NonFacetUnitNormalizer<UnitSpecWit
         ...(projection ? {projection} : {}),
         mark: {
           type: 'line',
-          ...pick(markDef, ['clip', 'interpolate', 'tension']),
+          ...pick(markDef, ['clip', 'interpolate', 'tension', 'tooltip']),
           ...lineOverlay
         },
         encoding: overlayEncoding
@@ -146,7 +161,7 @@ export class PathOverlayNormalizer implements NonFacetUnitNormalizer<UnitSpecWit
           type: 'point',
           opacity: 1,
           filled: true,
-          ...pick(markDef, ['clip']),
+          ...pick(markDef, ['clip', 'tooltip']),
           ...pointOverlay
         },
         encoding: overlayEncoding
@@ -159,7 +174,7 @@ export class PathOverlayNormalizer implements NonFacetUnitNormalizer<UnitSpecWit
         layer
       },
       {
-        ...params,
+        ...normParams,
         config: dropLineAndPointFromConfig(config)
       }
     );

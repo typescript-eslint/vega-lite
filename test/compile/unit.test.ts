@@ -15,7 +15,7 @@ describe('UnitModel', () => {
             shape: {field: 'a', type: 'nominal'}
           }
         });
-        expect(model.encoding.shape).toEqual(undefined);
+        expect(model.encoding.shape).toBeUndefined();
         expect(localLogger.warns[0]).toEqual(log.message.incompatibleChannel(SHAPE, BAR));
       })
     );
@@ -29,7 +29,7 @@ describe('UnitModel', () => {
             _y: {type: 'quantitative'}
           }
         } as any); // To make parseUnitModel accept the model with invalid encoding channel
-        expect(localLogger.warns[0]).toEqual(log.message.invalidEncodingChannel('_y'));
+        expect(localLogger.warns[0]).toEqual(log.message.invalidEncodingChannel('_y' as any));
       })
     );
 
@@ -42,7 +42,7 @@ describe('UnitModel', () => {
             x: {type: 'quantitative'}
           }
         });
-        expect(model.encoding.x).toEqual(undefined);
+        expect(model.encoding.x).toBeUndefined();
         expect(localLogger.warns[0]).toEqual(log.message.emptyFieldDef({type: QUANTITATIVE}, X));
       })
     );
@@ -62,30 +62,46 @@ describe('UnitModel', () => {
     );
   });
 
-  describe('initAxes', () => {
-    it('should not include properties of non-VlOnlyAxisConfig in config.axis', () => {
+  describe('initScales', () => {
+    it('redirects encode.x.scale to scale.x and replaces expression with signal', () => {
       const model = parseUnitModel({
         mark: 'point',
         encoding: {
-          x: {field: 'a', type: 'ordinal'},
+          x: {field: 'a', type: 'ordinal', scale: {domain: [1, {expr: 'max'}], scheme: {signal: 'scheme'}}},
           y: {field: 'b', type: 'ordinal'}
-        },
-        config: {axis: {domainWidth: 123}}
+        }
       });
 
-      expect(model.axis(X)['domainWidth']).toEqual(undefined);
+      expect(model.scaleDomain(X)).toEqual([1, {signal: 'max'}]);
+      expect(model.specifiedScales['x'].scheme).toEqual({signal: 'scheme'});
     });
+  });
 
-    it('it should have axis.offset = encode.x.axis.offset', () => {
+  describe('initAxes', () => {
+    it('redirects encode.x.axis to axis.x and replace expression with signal', () => {
       const model = parseUnitModel({
         mark: 'point',
         encoding: {
-          x: {field: 'a', type: 'ordinal', axis: {offset: 345}},
+          x: {field: 'a', type: 'ordinal', axis: {offset: 345, labelColor: {expr: 'red'}}},
           y: {field: 'b', type: 'ordinal'}
         }
       });
 
       expect(model.axis(X).offset).toEqual(345);
+      expect(model.axis(X).labelColor).toEqual({signal: 'red'});
+    });
+  });
+
+  describe('initLegend', () => {
+    it('redirects encode.color.legend to legend.color and replace expression with signal', () => {
+      const model = parseUnitModel({
+        mark: 'point',
+        encoding: {
+          color: {field: 'a', type: 'ordinal', legend: {labelColor: {expr: 'red'}}}
+        }
+      });
+
+      expect(model.legend('color').labelColor).toEqual({signal: 'red'});
     });
   });
 });

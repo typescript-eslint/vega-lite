@@ -1,5 +1,3 @@
-/* tslint:disable:quotemark */
-
 import {assembleRootData} from '../../../src/compile/data/assemble';
 import {optimizeDataflow} from '../../../src/compile/data/optimize';
 import {TimeUnitNode} from '../../../src/compile/data/timeunit';
@@ -8,13 +6,14 @@ import {parseUnitSelection} from '../../../src/compile/selection/parse';
 import {Config} from '../../../src/config';
 import {NormalizedUnitSpec} from '../../../src/spec';
 import {parseModel, parseUnitModel} from '../../util';
+import {deepEqual} from '../../../src/util';
 
 function getData(model: Model) {
   optimizeDataflow(model.component.data, null);
   return assembleRootData(model.component.data, {});
 }
 
-function getModel(unit2: NormalizedUnitSpec, config?: Config) {
+function getConcatModel(unit2: NormalizedUnitSpec, config?: Config) {
   const model = parseModel({
     data: {
       values: [
@@ -28,9 +27,12 @@ function getModel(unit2: NormalizedUnitSpec, config?: Config) {
     hconcat: [
       {
         mark: 'point',
-        selection: {
-          two: {type: 'single', encodings: ['x', 'y']}
-        },
+        params: [
+          {
+            name: 'two',
+            select: {type: 'point', encodings: ['x', 'y']}
+          }
+        ],
         encoding: {
           x: {
             field: 'date',
@@ -57,20 +59,23 @@ describe('Selection time unit', () => {
         y: {field: 'date', type: 'temporal', timeUnit: 'minutes'}
       }
     });
-    const selCmpts = (model.component.selection = parseUnitSelection(model, {
-      one: {type: 'single'},
-      two: {type: 'single', encodings: ['x', 'y']}
-    }));
+    const selCmpts = (model.component.selection = parseUnitSelection(model, [
+      {name: 'one', select: 'point'},
+      {name: 'two', select: {type: 'point', encodings: ['x', 'y']}}
+    ]));
 
     expect(selCmpts['one'].project.timeUnit).not.toBeDefined();
     expect(selCmpts['two'].project.timeUnit).toBeInstanceOf(TimeUnitNode);
 
     const as = selCmpts['two'].project.timeUnit.assemble().map(tx => tx.as);
-    expect(as).toEqual(['seconds_date', 'minutes_date']);
+    expect(as).toEqual([
+      ['seconds_date', 'seconds_date_end'],
+      ['minutes_date', 'minutes_date_end']
+    ]);
   });
 
   it('is added with conditional encodings', () => {
-    const model = getModel({
+    const model = getConcatModel({
       mark: 'point',
       encoding: {
         x: {
@@ -80,19 +85,21 @@ describe('Selection time unit', () => {
         },
         y: {field: 'price', type: 'quantitative'},
         color: {
-          condition: {selection: 'two', value: 'goldenrod'},
+          condition: {param: 'two', value: 'goldenrod'},
           value: 'steelblue'
         }
       }
     });
-    const data1 = getData(model).filter(d => d.name === 'data_1')[0].transform;
-    expect(data1.filter(tx => tx.type === 'formula' && tx.as === 'seconds_date').length).toEqual(1);
+    const data1 = getData(model).filter(d => d.name === 'data_0')[0].transform;
+    expect(
+      data1.filter(tx => tx.type === 'timeunit' && deepEqual(tx.as, ['seconds_date', 'seconds_date_end']))
+    ).toHaveLength(1);
   });
 
   it('is added before selection filters', () => {
-    const model = getModel(
+    const model = getConcatModel(
       {
-        transform: [{filter: {selection: 'two'}}],
+        transform: [{filter: {param: 'two'}}],
         mark: 'point',
         encoding: {
           x: {
@@ -103,20 +110,20 @@ describe('Selection time unit', () => {
           y: {field: 'price', type: 'quantitative'}
         }
       },
-      {invalidValues: 'hide'}
+      {mark: {invalid: 'hide'}}
     );
     const data0 = getData(model).filter(d => d.name === 'data_0')[0].transform;
     const data1 = getData(model).filter(d => d.name === 'data_1')[0].transform;
     let tuIdx = -1;
     let selIdx = -1;
     data0.forEach((tx, idx) => {
-      if (tx.type === 'formula' && tx.as === 'seconds_date') {
+      if (tx.type === 'timeunit' && deepEqual(tx.as, ['seconds_date', 'seconds_date_end'])) {
         tuIdx = idx;
       }
     });
 
     data1.forEach((tx, idx) => {
-      if (tx.type === 'filter' && tx.expr.indexOf('vlSelectionTest') >= 0) {
+      if (tx.type === 'filter' && tx.expr.includes('vlSelectionTest')) {
         selIdx = idx;
       }
     });
@@ -126,8 +133,8 @@ describe('Selection time unit', () => {
   });
 
   it('removes duplicate time unit formulae', () => {
-    const model = getModel({
-      transform: [{filter: {selection: 'two'}}],
+    const model = getConcatModel({
+      transform: [{filter: {param: 'two'}}],
       mark: 'point',
       encoding: {
         x: {
@@ -138,7 +145,9 @@ describe('Selection time unit', () => {
         y: {field: 'price', type: 'quantitative'}
       }
     });
-    const data1 = getData(model).filter(d => d.name === 'data_1')[0].transform;
-    expect(data1.filter(tx => tx.type === 'formula' && tx.as === 'seconds_date').length).toEqual(1);
+    const data1 = getData(model).filter(d => d.name === 'data_0')[0].transform;
+    expect(
+      data1.filter(tx => tx.type === 'timeunit' && deepEqual(tx.as, ['seconds_date', 'seconds_date_end']))
+    ).toHaveLength(1);
   });
 });

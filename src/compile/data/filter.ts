@@ -1,7 +1,7 @@
-import {LogicalOperand} from '../../logical';
+import {FilterTransform as VgFilterTransform} from 'vega';
+import {LogicalComposition} from '../../logical';
 import {Predicate} from '../../predicate';
 import {duplicate} from '../../util';
-import {VgFilterTransform} from '../../vega.schema';
 import {Model} from '../model';
 import {expression} from '../predicate';
 import {DataFlowNode} from './dataflow';
@@ -14,7 +14,11 @@ export class FilterNode extends DataFlowNode {
     return new FilterNode(null, this.model, duplicate(this.filter));
   }
 
-  constructor(parent: DataFlowNode, private readonly model: Model, private readonly filter: LogicalOperand<Predicate>) {
+  constructor(
+    parent: DataFlowNode,
+    private readonly model: Model,
+    private readonly filter: LogicalComposition<Predicate>
+  ) {
     super(parent);
 
     // TODO: refactor this to not take a node and
@@ -26,6 +30,10 @@ export class FilterNode extends DataFlowNode {
 
   public dependentFields() {
     return this._dependentFields;
+  }
+
+  public producedFields() {
+    return new Set<string>(); // filter does not produce any new fields
   }
 
   public assemble(): VgFilterTransform {

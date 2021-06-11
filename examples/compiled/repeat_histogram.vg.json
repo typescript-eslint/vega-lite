@@ -1,9 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
-  "width": 200,
-  "height": 200,
   "data": [
     {
       "name": "source_0",
@@ -13,7 +11,7 @@
         {
           "type": "extent",
           "field": "Displacement",
-          "signal": "child__repeat_repeat_Displacement_bin_maxbins_10_Displacement_extent"
+          "signal": "child__Displacement_bin_maxbins_10_Displacement_extent"
         },
         {
           "type": "bin",
@@ -22,31 +20,31 @@
             "bin_maxbins_10_Displacement",
             "bin_maxbins_10_Displacement_end"
           ],
-          "signal": "child__repeat_repeat_Displacement_bin_maxbins_10_Displacement_bins",
-          "maxbins": 10,
+          "signal": "child__Displacement_bin_maxbins_10_Displacement_bins",
           "extent": {
-            "signal": "child__repeat_repeat_Displacement_bin_maxbins_10_Displacement_extent"
-          }
+            "signal": "child__Displacement_bin_maxbins_10_Displacement_extent"
+          },
+          "maxbins": 10
         },
         {
           "type": "extent",
           "field": "Horsepower",
-          "signal": "child__repeat_repeat_Horsepower_bin_maxbins_10_Horsepower_extent"
+          "signal": "child__Horsepower_bin_maxbins_10_Horsepower_extent"
         },
         {
           "type": "bin",
           "field": "Horsepower",
           "as": ["bin_maxbins_10_Horsepower", "bin_maxbins_10_Horsepower_end"],
-          "signal": "child__repeat_repeat_Horsepower_bin_maxbins_10_Horsepower_bins",
-          "maxbins": 10,
+          "signal": "child__Horsepower_bin_maxbins_10_Horsepower_bins",
           "extent": {
-            "signal": "child__repeat_repeat_Horsepower_bin_maxbins_10_Horsepower_extent"
-          }
+            "signal": "child__Horsepower_bin_maxbins_10_Horsepower_extent"
+          },
+          "maxbins": 10
         },
         {
           "type": "extent",
           "field": "Miles_per_Gallon",
-          "signal": "child__repeat_repeat_Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_extent"
+          "signal": "child__Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_extent"
         },
         {
           "type": "bin",
@@ -55,16 +53,16 @@
             "bin_maxbins_10_Miles_per_Gallon",
             "bin_maxbins_10_Miles_per_Gallon_end"
           ],
-          "signal": "child__repeat_repeat_Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins",
-          "maxbins": 10,
+          "signal": "child__Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins",
           "extent": {
-            "signal": "child__repeat_repeat_Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_extent"
-          }
+            "signal": "child__Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_extent"
+          },
+          "maxbins": 10
         },
         {
           "type": "extent",
           "field": "Acceleration",
-          "signal": "child__repeat_repeat_Acceleration_bin_maxbins_10_Acceleration_extent"
+          "signal": "child__Acceleration_bin_maxbins_10_Acceleration_extent"
         },
         {
           "type": "bin",
@@ -73,11 +71,11 @@
             "bin_maxbins_10_Acceleration",
             "bin_maxbins_10_Acceleration_end"
           ],
-          "signal": "child__repeat_repeat_Acceleration_bin_maxbins_10_Acceleration_bins",
-          "maxbins": 10,
+          "signal": "child__Acceleration_bin_maxbins_10_Acceleration_bins",
           "extent": {
-            "signal": "child__repeat_repeat_Acceleration_bin_maxbins_10_Acceleration_extent"
-          }
+            "signal": "child__Acceleration_bin_maxbins_10_Acceleration_extent"
+          },
+          "maxbins": 10
         }
       ]
     },
@@ -109,7 +107,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_10_Displacement\"] !== null && !isNaN(datum[\"bin_maxbins_10_Displacement\"])"
+          "expr": "isValid(datum[\"bin_maxbins_10_Displacement\"]) && isFinite(+datum[\"bin_maxbins_10_Displacement\"])"
         }
       ]
     },
@@ -141,7 +139,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_10_Horsepower\"] !== null && !isNaN(datum[\"bin_maxbins_10_Horsepower\"])"
+          "expr": "isValid(datum[\"bin_maxbins_10_Horsepower\"]) && isFinite(+datum[\"bin_maxbins_10_Horsepower\"])"
         }
       ]
     },
@@ -173,7 +171,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_10_Miles_per_Gallon\"] !== null && !isNaN(datum[\"bin_maxbins_10_Miles_per_Gallon\"])"
+          "expr": "isValid(datum[\"bin_maxbins_10_Miles_per_Gallon\"]) && isFinite(+datum[\"bin_maxbins_10_Miles_per_Gallon\"])"
         }
       ]
     },
@@ -205,146 +203,153 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_10_Acceleration\"] !== null && !isNaN(datum[\"bin_maxbins_10_Acceleration\"])"
+          "expr": "isValid(datum[\"bin_maxbins_10_Acceleration\"]) && isFinite(+datum[\"bin_maxbins_10_Acceleration\"])"
         }
       ]
     }
   ],
-  "layout": {"padding": 20, "bounds": "full", "align": "all", "columns": 2},
+  "signals": [
+    {"name": "childWidth", "value": 200},
+    {"name": "childHeight", "value": 200}
+  ],
+  "layout": {"padding": 20, "columns": 2, "bounds": "full", "align": "all"},
   "marks": [
     {
       "type": "group",
-      "name": "child__repeat_repeat_Horsepower_group",
+      "name": "child__Horsepower_group",
       "style": "cell",
       "encode": {
-        "update": {"width": {"signal": "width"}, "height": {"signal": "height"}}
+        "update": {
+          "width": {"signal": "childWidth"},
+          "height": {"signal": "childHeight"}
+        }
       },
       "marks": [
         {
-          "name": "child__repeat_repeat_Horsepower_marks",
+          "name": "child__Horsepower_marks",
           "type": "rect",
           "style": ["bar"],
           "from": {"data": "data_1"},
           "encode": {
             "update": {
               "fill": {"scale": "color", "field": "Origin"},
-              "tooltip": {
-                "signal": "{\"Horsepower (binned)\": datum[\"bin_maxbins_10_Horsepower\"] === null || isNaN(datum[\"bin_maxbins_10_Horsepower\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Horsepower\"], \"\") + \" - \" + format(datum[\"bin_maxbins_10_Horsepower_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\"), \"Origin\": ''+datum[\"Origin\"]}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"Horsepower (binned): \" + (!isValid(datum[\"bin_maxbins_10_Horsepower\"]) || !isFinite(+datum[\"bin_maxbins_10_Horsepower\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Horsepower\"], \"\") + \" – \" + format(datum[\"bin_maxbins_10_Horsepower_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\")) + \"; Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"])"
               },
               "x2": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Horsepower\"] === null || isNaN(datum[\"bin_maxbins_10_Horsepower\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Horsepower\"]) || !isFinite(+datum[\"bin_maxbins_10_Horsepower\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Horsepower_x",
+                  "scale": "child__Horsepower_x",
                   "field": "bin_maxbins_10_Horsepower",
                   "offset": 1
                 }
               ],
               "x": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Horsepower\"] === null || isNaN(datum[\"bin_maxbins_10_Horsepower\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Horsepower\"]) || !isFinite(+datum[\"bin_maxbins_10_Horsepower\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Horsepower_x",
+                  "scale": "child__Horsepower_x",
                   "field": "bin_maxbins_10_Horsepower_end"
                 }
               ],
-              "y": {
-                "scale": "child__repeat_repeat_Horsepower_y",
-                "field": "__count_end"
-              },
-              "y2": {
-                "scale": "child__repeat_repeat_Horsepower_y",
-                "field": "__count_start"
-              }
+              "y": {"scale": "child__Horsepower_y", "field": "__count_end"},
+              "y2": {"scale": "child__Horsepower_y", "field": "__count_start"}
             }
           }
         }
       ],
       "axes": [
         {
-          "scale": "child__repeat_repeat_Horsepower_x",
+          "scale": "child__Horsepower_y",
+          "orient": "left",
+          "gridScale": "child__Horsepower_x",
+          "grid": true,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
+          "domain": false,
+          "labels": false,
+          "aria": false,
+          "maxExtent": 0,
+          "minExtent": 0,
+          "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "child__Horsepower_x",
           "orient": "bottom",
           "grid": false,
           "title": "Horsepower (binned)",
           "labelFlush": true,
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(width/10)"},
-          "zindex": 1
+          "tickCount": {"signal": "ceil(childWidth/10)"},
+          "zindex": 0
         },
         {
-          "scale": "child__repeat_repeat_Horsepower_y",
+          "scale": "child__Horsepower_y",
           "orient": "left",
           "grid": false,
           "title": "Count of Records",
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "child__repeat_repeat_Horsepower_y",
-          "orient": "left",
-          "gridScale": "child__repeat_repeat_Horsepower_x",
-          "grid": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "domain": false,
-          "labels": false,
-          "maxExtent": 0,
-          "minExtent": 0,
-          "ticks": false,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
           "zindex": 0
         }
       ]
     },
     {
       "type": "group",
-      "name": "child__repeat_repeat_Miles_per_Gallon_group",
+      "name": "child__Miles_per_Gallon_group",
       "style": "cell",
       "encode": {
-        "update": {"width": {"signal": "width"}, "height": {"signal": "height"}}
+        "update": {
+          "width": {"signal": "childWidth"},
+          "height": {"signal": "childHeight"}
+        }
       },
       "marks": [
         {
-          "name": "child__repeat_repeat_Miles_per_Gallon_marks",
+          "name": "child__Miles_per_Gallon_marks",
           "type": "rect",
           "style": ["bar"],
           "from": {"data": "data_2"},
           "encode": {
             "update": {
               "fill": {"scale": "color", "field": "Origin"},
-              "tooltip": {
-                "signal": "{\"Miles_per_Gallon (binned)\": datum[\"bin_maxbins_10_Miles_per_Gallon\"] === null || isNaN(datum[\"bin_maxbins_10_Miles_per_Gallon\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Miles_per_Gallon\"], \"\") + \" - \" + format(datum[\"bin_maxbins_10_Miles_per_Gallon_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\"), \"Origin\": ''+datum[\"Origin\"]}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"Miles_per_Gallon (binned): \" + (!isValid(datum[\"bin_maxbins_10_Miles_per_Gallon\"]) || !isFinite(+datum[\"bin_maxbins_10_Miles_per_Gallon\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Miles_per_Gallon\"], \"\") + \" – \" + format(datum[\"bin_maxbins_10_Miles_per_Gallon_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\")) + \"; Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"])"
               },
               "x2": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Miles_per_Gallon\"] === null || isNaN(datum[\"bin_maxbins_10_Miles_per_Gallon\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Miles_per_Gallon\"]) || !isFinite(+datum[\"bin_maxbins_10_Miles_per_Gallon\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Miles_per_Gallon_x",
+                  "scale": "child__Miles_per_Gallon_x",
                   "field": "bin_maxbins_10_Miles_per_Gallon",
                   "offset": 1
                 }
               ],
               "x": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Miles_per_Gallon\"] === null || isNaN(datum[\"bin_maxbins_10_Miles_per_Gallon\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Miles_per_Gallon\"]) || !isFinite(+datum[\"bin_maxbins_10_Miles_per_Gallon\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Miles_per_Gallon_x",
+                  "scale": "child__Miles_per_Gallon_x",
                   "field": "bin_maxbins_10_Miles_per_Gallon_end"
                 }
               ],
               "y": {
-                "scale": "child__repeat_repeat_Miles_per_Gallon_y",
+                "scale": "child__Miles_per_Gallon_y",
                 "field": "__count_end"
               },
               "y2": {
-                "scale": "child__repeat_repeat_Miles_per_Gallon_y",
+                "scale": "child__Miles_per_Gallon_y",
                 "field": "__count_start"
               }
             }
@@ -353,209 +358,208 @@
       ],
       "axes": [
         {
-          "scale": "child__repeat_repeat_Miles_per_Gallon_x",
+          "scale": "child__Miles_per_Gallon_y",
+          "orient": "left",
+          "gridScale": "child__Miles_per_Gallon_x",
+          "grid": true,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
+          "domain": false,
+          "labels": false,
+          "aria": false,
+          "maxExtent": 0,
+          "minExtent": 0,
+          "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "child__Miles_per_Gallon_x",
           "orient": "bottom",
           "grid": false,
           "title": "Miles_per_Gallon (binned)",
           "labelFlush": true,
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(width/10)"},
-          "zindex": 1
+          "tickCount": {"signal": "ceil(childWidth/10)"},
+          "zindex": 0
         },
         {
-          "scale": "child__repeat_repeat_Miles_per_Gallon_y",
+          "scale": "child__Miles_per_Gallon_y",
           "orient": "left",
           "grid": false,
           "title": "Count of Records",
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "child__repeat_repeat_Miles_per_Gallon_y",
-          "orient": "left",
-          "gridScale": "child__repeat_repeat_Miles_per_Gallon_x",
-          "grid": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "domain": false,
-          "labels": false,
-          "maxExtent": 0,
-          "minExtent": 0,
-          "ticks": false,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
           "zindex": 0
         }
       ]
     },
     {
       "type": "group",
-      "name": "child__repeat_repeat_Acceleration_group",
+      "name": "child__Acceleration_group",
       "style": "cell",
       "encode": {
-        "update": {"width": {"signal": "width"}, "height": {"signal": "height"}}
+        "update": {
+          "width": {"signal": "childWidth"},
+          "height": {"signal": "childHeight"}
+        }
       },
       "marks": [
         {
-          "name": "child__repeat_repeat_Acceleration_marks",
+          "name": "child__Acceleration_marks",
           "type": "rect",
           "style": ["bar"],
           "from": {"data": "data_3"},
           "encode": {
             "update": {
               "fill": {"scale": "color", "field": "Origin"},
-              "tooltip": {
-                "signal": "{\"Acceleration (binned)\": datum[\"bin_maxbins_10_Acceleration\"] === null || isNaN(datum[\"bin_maxbins_10_Acceleration\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Acceleration\"], \"\") + \" - \" + format(datum[\"bin_maxbins_10_Acceleration_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\"), \"Origin\": ''+datum[\"Origin\"]}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"Acceleration (binned): \" + (!isValid(datum[\"bin_maxbins_10_Acceleration\"]) || !isFinite(+datum[\"bin_maxbins_10_Acceleration\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Acceleration\"], \"\") + \" – \" + format(datum[\"bin_maxbins_10_Acceleration_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\")) + \"; Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"])"
               },
               "x2": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Acceleration\"] === null || isNaN(datum[\"bin_maxbins_10_Acceleration\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Acceleration\"]) || !isFinite(+datum[\"bin_maxbins_10_Acceleration\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Acceleration_x",
+                  "scale": "child__Acceleration_x",
                   "field": "bin_maxbins_10_Acceleration",
                   "offset": 1
                 }
               ],
               "x": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Acceleration\"] === null || isNaN(datum[\"bin_maxbins_10_Acceleration\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Acceleration\"]) || !isFinite(+datum[\"bin_maxbins_10_Acceleration\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Acceleration_x",
+                  "scale": "child__Acceleration_x",
                   "field": "bin_maxbins_10_Acceleration_end"
                 }
               ],
-              "y": {
-                "scale": "child__repeat_repeat_Acceleration_y",
-                "field": "__count_end"
-              },
-              "y2": {
-                "scale": "child__repeat_repeat_Acceleration_y",
-                "field": "__count_start"
-              }
+              "y": {"scale": "child__Acceleration_y", "field": "__count_end"},
+              "y2": {"scale": "child__Acceleration_y", "field": "__count_start"}
             }
           }
         }
       ],
       "axes": [
         {
-          "scale": "child__repeat_repeat_Acceleration_x",
+          "scale": "child__Acceleration_y",
+          "orient": "left",
+          "gridScale": "child__Acceleration_x",
+          "grid": true,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
+          "domain": false,
+          "labels": false,
+          "aria": false,
+          "maxExtent": 0,
+          "minExtent": 0,
+          "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "child__Acceleration_x",
           "orient": "bottom",
           "grid": false,
           "title": "Acceleration (binned)",
           "labelFlush": true,
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(width/10)"},
-          "zindex": 1
+          "tickCount": {"signal": "ceil(childWidth/10)"},
+          "zindex": 0
         },
         {
-          "scale": "child__repeat_repeat_Acceleration_y",
+          "scale": "child__Acceleration_y",
           "orient": "left",
           "grid": false,
           "title": "Count of Records",
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "child__repeat_repeat_Acceleration_y",
-          "orient": "left",
-          "gridScale": "child__repeat_repeat_Acceleration_x",
-          "grid": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "domain": false,
-          "labels": false,
-          "maxExtent": 0,
-          "minExtent": 0,
-          "ticks": false,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
           "zindex": 0
         }
       ]
     },
     {
       "type": "group",
-      "name": "child__repeat_repeat_Displacement_group",
+      "name": "child__Displacement_group",
       "style": "cell",
       "encode": {
-        "update": {"width": {"signal": "width"}, "height": {"signal": "height"}}
+        "update": {
+          "width": {"signal": "childWidth"},
+          "height": {"signal": "childHeight"}
+        }
       },
       "marks": [
         {
-          "name": "child__repeat_repeat_Displacement_marks",
+          "name": "child__Displacement_marks",
           "type": "rect",
           "style": ["bar"],
           "from": {"data": "data_0"},
           "encode": {
             "update": {
               "fill": {"scale": "color", "field": "Origin"},
-              "tooltip": {
-                "signal": "{\"Displacement (binned)\": datum[\"bin_maxbins_10_Displacement\"] === null || isNaN(datum[\"bin_maxbins_10_Displacement\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Displacement\"], \"\") + \" - \" + format(datum[\"bin_maxbins_10_Displacement_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\"), \"Origin\": ''+datum[\"Origin\"]}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"Displacement (binned): \" + (!isValid(datum[\"bin_maxbins_10_Displacement\"]) || !isFinite(+datum[\"bin_maxbins_10_Displacement\"]) ? \"null\" : format(datum[\"bin_maxbins_10_Displacement\"], \"\") + \" – \" + format(datum[\"bin_maxbins_10_Displacement_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\")) + \"; Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"])"
               },
               "x2": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Displacement\"] === null || isNaN(datum[\"bin_maxbins_10_Displacement\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Displacement\"]) || !isFinite(+datum[\"bin_maxbins_10_Displacement\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Displacement_x",
+                  "scale": "child__Displacement_x",
                   "field": "bin_maxbins_10_Displacement",
                   "offset": 1
                 }
               ],
               "x": [
                 {
-                  "test": "datum[\"bin_maxbins_10_Displacement\"] === null || isNaN(datum[\"bin_maxbins_10_Displacement\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_10_Displacement\"]) || !isFinite(+datum[\"bin_maxbins_10_Displacement\"])",
                   "value": 0
                 },
                 {
-                  "scale": "child__repeat_repeat_Displacement_x",
+                  "scale": "child__Displacement_x",
                   "field": "bin_maxbins_10_Displacement_end"
                 }
               ],
-              "y": {
-                "scale": "child__repeat_repeat_Displacement_y",
-                "field": "__count_end"
-              },
-              "y2": {
-                "scale": "child__repeat_repeat_Displacement_y",
-                "field": "__count_start"
-              }
+              "y": {"scale": "child__Displacement_y", "field": "__count_end"},
+              "y2": {"scale": "child__Displacement_y", "field": "__count_start"}
             }
           }
         }
       ],
       "axes": [
         {
-          "scale": "child__repeat_repeat_Displacement_x",
+          "scale": "child__Displacement_y",
+          "orient": "left",
+          "gridScale": "child__Displacement_x",
+          "grid": true,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
+          "domain": false,
+          "labels": false,
+          "aria": false,
+          "maxExtent": 0,
+          "minExtent": 0,
+          "ticks": false,
+          "zindex": 0
+        },
+        {
+          "scale": "child__Displacement_x",
           "orient": "bottom",
           "grid": false,
           "title": "Displacement (binned)",
           "labelFlush": true,
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(width/10)"},
-          "zindex": 1
+          "tickCount": {"signal": "ceil(childWidth/10)"},
+          "zindex": 0
         },
         {
-          "scale": "child__repeat_repeat_Displacement_y",
+          "scale": "child__Displacement_y",
           "orient": "left",
           "grid": false,
           "title": "Count of Records",
           "labelOverlap": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "zindex": 1
-        },
-        {
-          "scale": "child__repeat_repeat_Displacement_y",
-          "orient": "left",
-          "gridScale": "child__repeat_repeat_Displacement_x",
-          "grid": true,
-          "tickCount": {"signal": "ceil(height/40)"},
-          "domain": false,
-          "labels": false,
-          "maxExtent": 0,
-          "minExtent": 0,
-          "ticks": false,
+          "tickCount": {"signal": "ceil(childHeight/40)"},
           "zindex": 0
         }
       ]
@@ -577,93 +581,83 @@
       "range": "category"
     },
     {
-      "name": "child__repeat_repeat_Horsepower_x",
+      "name": "child__Horsepower_x",
       "type": "linear",
       "domain": {
-        "signal": "[child__repeat_repeat_Horsepower_bin_maxbins_10_Horsepower_bins.start, child__repeat_repeat_Horsepower_bin_maxbins_10_Horsepower_bins.stop]"
+        "signal": "[child__Horsepower_bin_maxbins_10_Horsepower_bins.start, child__Horsepower_bin_maxbins_10_Horsepower_bins.stop]"
       },
-      "range": [0, {"signal": "width"}],
-      "bins": {
-        "signal": "child__repeat_repeat_Horsepower_bin_maxbins_10_Horsepower_bins"
-      },
+      "range": [0, {"signal": "childWidth"}],
+      "bins": {"signal": "child__Horsepower_bin_maxbins_10_Horsepower_bins"},
       "zero": false
     },
     {
-      "name": "child__repeat_repeat_Horsepower_y",
+      "name": "child__Horsepower_y",
       "type": "linear",
       "domain": {"data": "data_1", "fields": ["__count_start", "__count_end"]},
-      "range": [{"signal": "height"}, 0],
+      "range": [{"signal": "childHeight"}, 0],
       "nice": true,
       "zero": true
     },
     {
-      "name": "child__repeat_repeat_Miles_per_Gallon_x",
+      "name": "child__Miles_per_Gallon_x",
       "type": "linear",
       "domain": {
-        "signal": "[child__repeat_repeat_Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins.start, child__repeat_repeat_Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins.stop]"
+        "signal": "[child__Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins.start, child__Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins.stop]"
       },
-      "range": [0, {"signal": "width"}],
+      "range": [0, {"signal": "childWidth"}],
       "bins": {
-        "signal": "child__repeat_repeat_Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins"
+        "signal": "child__Miles_per_Gallon_bin_maxbins_10_Miles_per_Gallon_bins"
       },
       "zero": false
     },
     {
-      "name": "child__repeat_repeat_Miles_per_Gallon_y",
+      "name": "child__Miles_per_Gallon_y",
       "type": "linear",
       "domain": {"data": "data_2", "fields": ["__count_start", "__count_end"]},
-      "range": [{"signal": "height"}, 0],
+      "range": [{"signal": "childHeight"}, 0],
       "nice": true,
       "zero": true
     },
     {
-      "name": "child__repeat_repeat_Acceleration_x",
+      "name": "child__Acceleration_x",
       "type": "linear",
       "domain": {
-        "signal": "[child__repeat_repeat_Acceleration_bin_maxbins_10_Acceleration_bins.start, child__repeat_repeat_Acceleration_bin_maxbins_10_Acceleration_bins.stop]"
+        "signal": "[child__Acceleration_bin_maxbins_10_Acceleration_bins.start, child__Acceleration_bin_maxbins_10_Acceleration_bins.stop]"
       },
-      "range": [0, {"signal": "width"}],
+      "range": [0, {"signal": "childWidth"}],
       "bins": {
-        "signal": "child__repeat_repeat_Acceleration_bin_maxbins_10_Acceleration_bins"
+        "signal": "child__Acceleration_bin_maxbins_10_Acceleration_bins"
       },
       "zero": false
     },
     {
-      "name": "child__repeat_repeat_Acceleration_y",
+      "name": "child__Acceleration_y",
       "type": "linear",
       "domain": {"data": "data_3", "fields": ["__count_start", "__count_end"]},
-      "range": [{"signal": "height"}, 0],
+      "range": [{"signal": "childHeight"}, 0],
       "nice": true,
       "zero": true
     },
     {
-      "name": "child__repeat_repeat_Displacement_x",
+      "name": "child__Displacement_x",
       "type": "linear",
       "domain": {
-        "signal": "[child__repeat_repeat_Displacement_bin_maxbins_10_Displacement_bins.start, child__repeat_repeat_Displacement_bin_maxbins_10_Displacement_bins.stop]"
+        "signal": "[child__Displacement_bin_maxbins_10_Displacement_bins.start, child__Displacement_bin_maxbins_10_Displacement_bins.stop]"
       },
-      "range": [0, {"signal": "width"}],
+      "range": [0, {"signal": "childWidth"}],
       "bins": {
-        "signal": "child__repeat_repeat_Displacement_bin_maxbins_10_Displacement_bins"
+        "signal": "child__Displacement_bin_maxbins_10_Displacement_bins"
       },
       "zero": false
     },
     {
-      "name": "child__repeat_repeat_Displacement_y",
+      "name": "child__Displacement_y",
       "type": "linear",
       "domain": {"data": "data_0", "fields": ["__count_start", "__count_end"]},
-      "range": [{"signal": "height"}, 0],
+      "range": [{"signal": "childHeight"}, 0],
       "nice": true,
       "zero": true
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "Origin",
-      "encode": {"symbols": {"update": {"shape": {"value": "square"}}}}
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "square", "title": "Origin"}]
 }

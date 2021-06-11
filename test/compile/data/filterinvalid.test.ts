@@ -1,6 +1,3 @@
-/* tslint:disable:quotemark */
-
-import {assert} from 'chai';
 import {FilterInvalidNode} from '../../../src/compile/data/filterinvalid';
 import {UnitModel} from '../../../src/compile/unit';
 import {NormalizedUnitSpec, TopLevel} from '../../../src/spec';
@@ -11,7 +8,7 @@ function parse(model: UnitModel) {
   return FilterInvalidNode.make(null, model);
 }
 
-describe('compile/data/nullfilter', () => {
+describe('compile/data/filterinvalid', () => {
   describe('compileUnit', () => {
     const spec: NormalizedUnitSpec = {
       mark: 'point',
@@ -25,35 +22,35 @@ describe('compile/data/nullfilter', () => {
 
     it('should add filterNull for Q and T by default', () => {
       const model = parseUnitModelWithScale(spec);
-      assert.deepEqual(parse(model).filter, {
+      expect(parse(model).filter).toEqual({
         qq: {field: 'qq', type: 'quantitative'},
         tt: {field: 'tt', type: 'temporal'}
       });
     });
 
-    it('should add filterNull for Q and T when invalidValues is "filter".', () => {
+    it('should add filterNull for Q and T when invalid is "filter".', () => {
       const model = parseUnitModelWithScale(
         mergeDeep<TopLevel<NormalizedUnitSpec>>(spec, {
           config: {
-            invalidValues: 'filter'
+            mark: {invalid: 'filter'}
           }
         })
       );
-      assert.deepEqual(parse(model).filter, {
+      expect(parse(model).filter).toEqual({
         qq: {field: 'qq', type: 'quantitative'},
         tt: {field: 'tt', type: 'temporal'}
       });
     });
 
-    it('should add no null filter if when invalidValues is null', () => {
+    it('should add no null filter if when invalid is null', () => {
       const model = parseUnitModelWithScale(
         mergeDeep<TopLevel<NormalizedUnitSpec>>(spec, {
           config: {
-            invalidValues: null
+            mark: {invalid: null}
           }
         })
       );
-      assert.deepEqual(parse(model), null);
+      expect(parse(model)).toBeNull();
     });
 
     it('should add no null filter for count field', () => {
@@ -64,36 +61,60 @@ describe('compile/data/nullfilter', () => {
         }
       });
 
-      assert.deepEqual(parse(model), null);
+      expect(parse(model)).toBeNull();
     });
   });
 
-  describe('assemble', () => {
-    it('should assemble simple filter', () => {
-      const model = parseUnitModelWithScale({
-        mark: 'point',
-        encoding: {
-          y: {field: 'foo', type: 'quantitative'}
-        }
-      });
-
-      assert.deepEqual(parse(model).assemble(), {
-        type: 'filter',
-        expr: 'datum["foo"] !== null && !isNaN(datum["foo"])'
+  describe('FilterInvalidNode', () => {
+    describe('dependentFields', () => {
+      it('should return the fields it filters', () => {
+        const node = new FilterInvalidNode(null, {foo: {field: 'foo', type: 'quantitative'}});
+        expect(node.dependentFields()).toEqual(new Set(['foo']));
       });
     });
 
-    it('should assemble filter for nested data', () => {
-      const model = parseUnitModelWithScale({
-        mark: 'point',
-        encoding: {
-          y: {field: 'foo.bar', type: 'quantitative'}
-        }
+    describe('producedFields', () => {
+      it('should return empty set', () => {
+        const node = new FilterInvalidNode(null, {foo: {field: 'foo', type: 'quantitative'}});
+        expect(node.producedFields()).toEqual(new Set());
+      });
+    });
+
+    describe('clone', () => {
+      it('should copy filters', () => {
+        const node = new FilterInvalidNode(null, {foo: {field: 'foo', type: 'quantitative'}});
+        const copy = node.clone();
+        expect(copy.filter).toEqual(node.filter);
+      });
+    });
+
+    describe('assemble', () => {
+      it('should assemble simple filter', () => {
+        const model = parseUnitModelWithScale({
+          mark: 'point',
+          encoding: {
+            y: {field: 'foo', type: 'quantitative'}
+          }
+        });
+
+        expect(parse(model).assemble()).toEqual({
+          type: 'filter',
+          expr: 'isValid(datum["foo"]) && isFinite(+datum["foo"])'
+        });
       });
 
-      assert.deepEqual(parse(model).assemble(), {
-        type: 'filter',
-        expr: 'datum["foo.bar"] !== null && !isNaN(datum["foo.bar"])'
+      it('should assemble filter for nested data', () => {
+        const model = parseUnitModelWithScale({
+          mark: 'point',
+          encoding: {
+            y: {field: 'foo.bar', type: 'quantitative'}
+          }
+        });
+
+        expect(parse(model).assemble()).toEqual({
+          type: 'filter',
+          expr: 'isValid(datum["foo.bar"]) && isFinite(+datum["foo.bar"])'
+        });
       });
     });
   });

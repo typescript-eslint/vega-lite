@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -14,7 +14,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"Horsepower\"] !== null && !isNaN(datum[\"Horsepower\"]) && datum[\"Miles_per_Gallon\"] !== null && !isNaN(datum[\"Miles_per_Gallon\"]) && datum[\"Cylinders\"] !== null && !isNaN(datum[\"Cylinders\"])"
+          "expr": "isValid(datum[\"Horsepower\"]) && isFinite(+datum[\"Horsepower\"]) && isValid(datum[\"Miles_per_Gallon\"]) && isFinite(+datum[\"Miles_per_Gallon\"]) && isValid(datum[\"Cylinders\"]) && isFinite(+datum[\"Cylinders\"])"
         }
       ]
     }
@@ -27,10 +27,11 @@
         {"events": "mousemove", "update": "isTuple(group()) ? group() : unit"}
       ]
     },
-    {"name": "grid", "update": "vlSelectionResolve(\"grid_store\")"},
+    {"name": "grid", "update": "vlSelectionResolve(\"grid_store\", \"union\")"},
     {
       "name": "grid_Horsepower",
       "on": [
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"},
         {
           "events": {"signal": "grid_translate_delta"},
           "update": "panLinear(grid_translate_anchor.extent_x, -grid_translate_delta.x / width)"
@@ -38,13 +39,13 @@
         {
           "events": {"signal": "grid_zoom_delta"},
           "update": "zoomLinear(domain(\"x\"), grid_zoom_anchor.x, grid_zoom_delta)"
-        },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        }
       ]
     },
     {
       "name": "grid_Miles_per_Gallon",
       "on": [
+        {"events": [{"source": "view", "type": "dblclick"}], "update": "null"},
         {
           "events": {"signal": "grid_translate_delta"},
           "update": "panLinear(grid_translate_anchor.extent_y, grid_translate_delta.y / height)"
@@ -52,8 +53,7 @@
         {
           "events": {"signal": "grid_zoom_delta"},
           "update": "zoomLinear(domain(\"y\"), grid_zoom_anchor.y, grid_zoom_delta)"
-        },
-        {"events": [{"source": "scope", "type": "dblclick"}], "update": "null"}
+        }
       ]
     },
     {
@@ -133,7 +133,12 @@
     },
     {
       "name": "grid_modify",
-      "update": "modify(\"grid_store\", grid_tuple, true)"
+      "on": [
+        {
+          "events": {"signal": "grid_tuple"},
+          "update": "modify(\"grid_store\", grid_tuple, true)"
+        }
+      ]
     }
   ],
   "marks": [
@@ -142,24 +147,26 @@
       "type": "symbol",
       "clip": true,
       "style": ["circle"],
+      "interactive": true,
       "from": {"data": "source_0"},
       "encode": {
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"Horsepower\": format(datum[\"Horsepower\"], \"\"), \"Miles_per_Gallon\": format(datum[\"Miles_per_Gallon\"], \"\"), \"Cylinders\": format(datum[\"Cylinders\"], \"\")}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"Horsepower: \" + (format(datum[\"Horsepower\"], \"\")) + \"; Miles_per_Gallon: \" + (format(datum[\"Miles_per_Gallon\"], \"\")) + \"; Cylinders: \" + (format(datum[\"Cylinders\"], \"\"))"
           },
           "x": [
             {
-              "test": "datum[\"Horsepower\"] === null || isNaN(datum[\"Horsepower\"])",
+              "test": "!isValid(datum[\"Horsepower\"]) || !isFinite(+datum[\"Horsepower\"])",
               "value": 0
             },
             {"scale": "x", "field": "Horsepower"}
           ],
           "y": [
             {
-              "test": "datum[\"Miles_per_Gallon\"] === null || isNaN(datum[\"Miles_per_Gallon\"])",
+              "test": "!isValid(datum[\"Miles_per_Gallon\"]) || !isFinite(+datum[\"Miles_per_Gallon\"])",
               "field": {"group": "height"}
             },
             {"scale": "y", "field": "Miles_per_Gallon"}
@@ -177,7 +184,6 @@
       "domain": [75, 150],
       "domainRaw": {"signal": "grid[\"Horsepower\"]"},
       "range": [0, {"signal": "width"}],
-      "nice": true,
       "zero": false
     },
     {
@@ -186,7 +192,6 @@
       "domain": [20, 40],
       "domainRaw": {"signal": "grid[\"Miles_per_Gallon\"]"},
       "range": [{"signal": "height"}, 0],
-      "nice": true,
       "zero": false
     },
     {
@@ -201,34 +206,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "Horsepower",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "Miles_per_Gallon",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -238,23 +225,41 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "Horsepower",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "Miles_per_Gallon",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ],
   "legends": [
     {
       "size": "size",
-      "gradientLength": {"signal": "clamp(height, 64, 200)"},
       "symbolType": "circle",
       "title": "Cylinders",
       "encode": {
         "symbols": {
           "update": {
             "fill": {"value": "#4c78a8"},
-            "shape": {"value": "circle"},
             "opacity": {"value": 0.7},
             "stroke": {"value": "transparent"}
           }

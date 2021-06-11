@@ -5,19 +5,26 @@ title: Projection
 permalink: /docs/projection.html
 ---
 
-A cartographic projection maps longitude and latitude pairs to x, y coordinates. As with Vega, one can use projections in Vega-lite to layout both geographic points (such as locations on a map) represented by longitude and latitude coordinates, or to project geographic regions (such as countries and states) represented using the GeoJSON format. Projection's are specified at the unit specification level, alongside encoding. Geographic coordinate data can then be mapped to [`longitude` and `latitude` channels](encoding.html#geo) (and `longitude2` and `latitude2` for ranged marks).
+A cartographic projection maps longitude and latitude pairs to x, y coordinates. As with Vega, one can use projections in Vega-Lite to layout both geographic points (such as locations on a map) represented by longitude and latitude coordinates, or to project geographic regions (such as countries and states) represented using the GeoJSON format. Projections are specified at the unit specification level, alongside encoding. Geographic coordinate data can then be mapped to [`longitude` and `latitude` channels](encoding.html#geo) (and `longitude2` and `latitude2` for ranged marks).
 
 For example, this example chart shows all airports in the United States by projecting `latitude`, `longitude` as `x`, `y` coordinates using the albersUsa projection.
 
 <span class="vl-example" data-name="geo_point"></span>
 
-See [the example gallery for more examples with geographic projection](../examples/#geographical-maps).
+See [the example gallery for more examples with geographic projection](../examples/#maps-geographic-displays).
 
-{:#properties}
+<!--prettier-ignore-start-->
+## Documentation Overview
+{:.no_toc}
+
+- TOC
+{:toc}
+
+<!--prettier-ignore-end-->
 
 ## Projection Properties
 
-{% include table.html props="type,clipAngle,clipExtent,center,scale,translate,rotate,precision" source="Projection" %}
+{% include table.html props="type,center,clipAngle,clipExtent,fit,parallels,pointRadius,precision,rotate,scale,translate" source="Projection" %}
 
 If you want to explore the various available properties in more depth, Vega's projection documentation [hosts a useful demo](https://vega.github.io/vega/docs/projections/)
 
@@ -29,17 +36,18 @@ _Note_: All [properties](#properties) of projections are **optional** with defau
 
 ## Projection Types
 
-Vega-lite includes all cartographic projections provided by the [d3-geo](https://github.com/d3/d3-geo#) library.
+Vega-Lite includes all cartographic projections provided by the [d3-geo](https://github.com/d3/d3-geo#) library.
 
 | Type | Description |
 | :-- | :-- |
 | [albers](https://github.com/d3/d3-geo#geoAlbers) | The Albers’ equal-area conic projection. This is a U.S.-centric configuration of `"conicEqualArea"`. |
 | [albersUsa](https://github.com/d3/d3-geo#geoAlbersUsa) | A U.S.-centric composite with projections for the lower 48 states, Hawaii, and Alaska (scaled to 0.35 times the true relative area). |
 | [azimuthalEqualArea](https://github.com/d3/d3-geo#geoAzimuthalEqualArea) | The azimuthal equal-area projection. |
-| [azimuthalEquidistanct](https://github.com/d3/d3-geo#geoAzimuthalEquidistant) | The azimuthal equidistant projection. |
+| [azimuthalEquidistant](https://github.com/d3/d3-geo#geoAzimuthalEquidistant) | The azimuthal equidistant projection. |
 | [conicConformal](https://github.com/d3/d3-geo#geoConicConformal) | The conic conformal projection. The parallels default to [30&deg;, 30&deg;] resulting in flat top. |
 | [conicEqualArea](https://github.com/d3/d3-geo#geoConicEqualArea) | The Albers’ equal-area conic projection. |
 | [conicEquidistant](https://github.com/d3/d3-geo#geoConicEquidistant) | The conic equidistant projection. |
+| [equalEarth](https://github.com/d3/d3-geo#equal-earth) | The Equal Earth projection, by Bojan Šavrič et al., 2018. |
 | [equirectangular](https://github.com/d3/d3-geo#geoEquirectangular) | The equirectangular (plate carr&eacute;e) projection, akin to use longitude, latitude directly. |
 | [gnomonic](https://github.com/d3/d3-geo#geoGnomonic) | The gnomonic projection. |
 | [identity](https://github.com/d3/d3-geo#geoIdentity) | The identity projection. Also supports additional boolean `reflectX` and `reflectY` parameters. |

@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 200,
@@ -27,7 +27,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"a b\"] !== null && !isNaN(datum[\"a b\"]) && datum[\"c d\"] !== null && !isNaN(datum[\"c d\"])"
+          "expr": "isValid(datum[\"a b\"]) && isFinite(+datum[\"a b\"]) && isValid(datum[\"c d\"]) && isFinite(+datum[\"c d\"])"
         }
       ]
     }
@@ -43,8 +43,9 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"a b\": format(datum[\"a b\"], \"\"), \"c d\": format(datum[\"c d\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"a b: \" + (format(datum[\"a b\"], \"\")) + \"; c d: \" + (format(datum[\"c d\"], \"\"))"
           },
           "x": {"scale": "x", "field": "a b"},
           "y": {"scale": "y", "field": "c d"}
@@ -74,34 +75,16 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "a b",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
       "zindex": 0
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "grid": false,
-      "title": "c d",
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
     },
     {
       "scale": "y",
@@ -111,9 +94,29 @@
       "tickCount": {"signal": "ceil(height/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "a b",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
+      "zindex": 0
+    },
+    {
+      "scale": "y",
+      "orient": "left",
+      "grid": false,
+      "title": "c d",
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(height/40)"},
       "zindex": 0
     }
   ]

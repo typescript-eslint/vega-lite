@@ -1,10 +1,36 @@
 import {Legend as VgLegend} from 'vega';
 import {NonPositionScaleChannel} from '../../channel';
-import {Legend} from '../../legend';
+import {COMMON_LEGEND_PROPERTY_INDEX, LegendInternal} from '../../legend';
+import {Flag, keys} from '../../util';
 import {Split} from '../split';
 
-export class LegendComponent extends Split<VgLegend> {}
+export type LegendComponentProps = VgLegend & {
+  labelExpr?: string;
+  selections?: string[];
+  disable?: boolean;
+};
 
-export type LegendComponentIndex = {[P in NonPositionScaleChannel]?: LegendComponent};
+const LEGEND_COMPONENT_PROPERTY_INDEX: Flag<keyof LegendComponentProps> = {
+  ...COMMON_LEGEND_PROPERTY_INDEX,
+  disable: 1,
+  labelExpr: 1,
+  selections: 1,
+  // channel scales
+  opacity: 1,
+  shape: 1,
+  stroke: 1,
+  fill: 1,
+  size: 1,
+  strokeWidth: 1,
+  strokeDash: 1,
+  // encode
+  encode: 1
+};
 
-export type LegendIndex = {[P in NonPositionScaleChannel]?: Legend};
+export const LEGEND_COMPONENT_PROPERTIES = keys(LEGEND_COMPONENT_PROPERTY_INDEX);
+
+export class LegendComponent extends Split<LegendComponentProps> {}
+
+export type LegendComponentIndex = Partial<Record<NonPositionScaleChannel, LegendComponent>>;
+
+export type LegendInternalIndex = Partial<Record<NonPositionScaleChannel, LegendInternal>>;

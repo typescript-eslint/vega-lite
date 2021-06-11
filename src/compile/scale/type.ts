@@ -1,10 +1,12 @@
 import {isBinning} from '../../bin';
-import {Channel, isColorChannel, isScaleChannel, rangeType} from '../../channel';
-import {TypedFieldDef} from '../../channeldef';
+import {Channel, getSizeChannel, isColorChannel, isScaleChannel, rangeType} from '../../channel';
+import {DatumDef, isFieldDef, isPositionFieldOrDatumDef, ScaleDatumDef, TypedFieldDef} from '../../channeldef';
 import * as log from '../../log';
-import {Mark} from '../../mark';
-import {channelSupportScaleType, Scale, ScaleConfig, ScaleType, scaleTypeSupportDataType} from '../../scale';
+import {isRelativeBandSize, MarkDef} from '../../mark';
+import {channelSupportScaleType, Scale, ScaleType, scaleTypeSupportDataType} from '../../scale';
+import {normalizeTimeUnit} from '../../timeunit';
 import * as util from '../../util';
+import {POLAR_POSITION_SCALE_CHANNEL_INDEX, POSITION_SCALE_CHANNEL_INDEX} from './../../channel';
 
 export type RangeType = 'continuous' | 'discrete' | 'flexible' | undefined;
 
@@ -16,11 +18,10 @@ export type RangeType = 'continuous' | 'discrete' | 'flexible' | undefined;
 export function scaleType(
   specifiedScale: Scale,
   channel: Channel,
-  fieldDef: TypedFieldDef<string>,
-  mark: Mark,
-  scaleConfig: ScaleConfig
+  fieldDef: TypedFieldDef<string> | DatumDef,
+  mark: MarkDef
 ): ScaleType {
-  const defaultScaleType = defaultType(channel, fieldDef, mark, specifiedScale, scaleConfig);
+  const defaultScaleType = defaultType(channel, fieldDef, mark);
   const {type} = specifiedScale;
 
   if (!isScaleChannel(channel)) {
@@ -35,7 +36,7 @@ export function scaleType(
     }
 
     // Check if explicitly specified scale type is supported by the data type
-    if (!scaleTypeSupportDataType(type, fieldDef.type)) {
+    if (isFieldDef(fieldDef) && !scaleTypeSupportDataType(type, fieldDef.type)) {
       log.warn(log.message.scaleTypeNotWorkWithFieldDef(type, defaultScaleType));
       return defaultScaleType;
     }
@@ -50,16 +51,10 @@ export function scaleType(
  * Determine appropriate default scale type.
  */
 // NOTE: Voyager uses this method.
-function defaultType(
-  channel: Channel,
-  fieldDef: TypedFieldDef<string>,
-  mark: Mark,
-  specifiedScale: Scale,
-  scaleConfig: ScaleConfig
-): ScaleType {
+function defaultType(channel: Channel, fieldDef: TypedFieldDef<string> | ScaleDatumDef, mark: MarkDef): ScaleType {
   switch (fieldDef.type) {
     case 'nominal':
-    case 'ordinal':
+    case 'ordinal': {
       if (isColorChannel(channel) || rangeType(channel) === 'discrete') {
         if (channel === 'shape' && fieldDef.type === 'ordinal') {
           log.warn(log.message.discreteChannelCannotEncode(channel, 'ordinal'));
@@ -67,18 +62,27 @@ function defaultType(
         return 'ordinal';
       }
 
-      if (util.contains(['x', 'y'], channel)) {
-        if (util.contains(['rect', 'bar', 'rule'], mark)) {
+      if (channel in POSITION_SCALE_CHANNEL_INDEX) {
+        if (util.contains(['rect', 'bar', 'image', 'rule'], mark.type)) {
           // The rect/bar mark should fit into a band.
           // For rule, using band scale to make rule align with axis ticks better https://github.com/vega/vega-lite/issues/3429
           return 'band';
         }
-        if (mark === 'bar') {
-          return 'band';
-        }
+      } else if (mark.type === 'arc' && channel in POLAR_POSITION_SCALE_CHANNEL_INDEX) {
+        return 'band';
+      }
+
+      const dimensionSize = mark[getSizeChannel(channel)];
+      if (isRelativeBandSize(dimensionSize)) {
+        return 'band';
+      }
+
+      if (isPositionFieldOrDatumDef(fieldDef) && fieldDef.axis?.tickBand) {
+        return 'band';
       }
       // Otherwise, use ordinal point scale so we can easily get center positions of the marks.
       return 'point';
+    }
 
     case 'temporal':
       if (isColorChannel(channel)) {
@@ -87,12 +91,14 @@ function defaultType(
         log.warn(log.message.discreteChannelCannotEncode(channel, 'temporal'));
         // TODO: consider using quantize (equivalent to binning) once we have it
         return 'ordinal';
+      } else if (isFieldDef(fieldDef) && fieldDef.timeUnit && normalizeTimeUnit(fieldDef.timeUnit).utc) {
+        return 'utc';
       }
       return 'time';
 
     case 'quantitative':
       if (isColorChannel(channel)) {
-        if (isBinning(fieldDef.bin)) {
+        if (isFieldDef(fieldDef) && isBinning(fieldDef.bin)) {
           return 'bin-ordinal';
         }
 

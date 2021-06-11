@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 500,
   "height": 300,
@@ -43,8 +43,9 @@
         "update": {
           "opacity": {"value": 0.7},
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"longitude\": format(datum[\"longitude\"], \"\"), \"latitude\": format(datum[\"latitude\"], \"\")}"
+          "ariaRoleDescription": {"value": "circle"},
+          "description": {
+            "signal": "\"longitude: \" + (format(datum[\"longitude\"], \"\")) + \"; latitude: \" + (format(datum[\"latitude\"], \"\"))"
           },
           "x": {"field": "x"},
           "y": {"field": "y"},

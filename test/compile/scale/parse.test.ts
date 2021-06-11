@@ -1,22 +1,18 @@
-/* tslint:disable:quotemark */
-
 import {toSet} from 'vega-util';
 import {parseScaleCore, parseScales} from '../../../src/compile/scale/parse';
-import {SELECTION_DOMAIN} from '../../../src/compile/selection';
 import * as log from '../../../src/log';
 import {NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES, SCALE_PROPERTIES} from '../../../src/scale';
-import {without} from '../../../src/util';
-import {parseModel, parseModelWithScale, parseUnitModelWithScale} from '../../util';
+import {parseModel, parseModelWithScale, parseUnitModelWithScale, without} from '../../util';
 
 describe('src/compile', () => {
-  it('NON_TYPE_RANGE_SCALE_PROPERTIES should be SCALE_PROPERTIES wihtout type, domain, and range properties', () => {
+  it('NON_TYPE_RANGE_SCALE_PROPERTIES should be SCALE_PROPERTIES without type, domain, and range properties', () => {
     expect(toSet(NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES)).toEqual(
-      toSet(without(SCALE_PROPERTIES, ['type', 'domain', 'range', 'rangeStep', 'scheme']))
+      toSet(without(SCALE_PROPERTIES, ['type', 'domain', 'range', 'rangeMax', 'rangeMin', 'scheme']))
     );
   });
 
   describe('parseScaleCore', () => {
-    it('respects explicit scale type', () => {
+    it('respects explicit scale type from second layer', () => {
       const model = parseModel({
         data: {url: 'data/seattle-weather.csv'},
         layer: [
@@ -47,7 +43,7 @@ describe('src/compile', () => {
       expect(model.getScaleComponent('y').explicit.type).toBe('log');
     });
 
-    it('respects explicit scale type', () => {
+    it('respects explicit scale type from first layer', () => {
       const model = parseModel({
         data: {url: 'data/seattle-weather.csv'},
         layer: [
@@ -211,7 +207,7 @@ describe('src/compile', () => {
                 y: {
                   field: 'a',
                   type: 'nominal',
-                  scale: {rangeStep: 17}
+                  scale: {padding: 0.2}
                 }
               }
             },
@@ -221,20 +217,39 @@ describe('src/compile', () => {
                 y: {
                   field: 'a',
                   type: 'nominal',
-                  scale: {rangeStep: 17}
+                  scale: {padding: 0.2}
                 }
               }
             }
           ]
         });
         parseScales(model);
-        expect(model.getScaleComponent('y').explicit.range).toEqual({step: 17});
+        expect(model.getScaleComponent('y').explicit.padding).toEqual(0.2);
         expect(logger.warns).toHaveLength(0);
       })
     );
 
+    it('should converts date time object in domainMin/Max to signal', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'point',
+        encoding: {
+          x: {
+            field: 'date',
+            type: 'temporal',
+            scale: {
+              domainMin: {year: 2002},
+              domainMax: {year: 2012}
+            }
+          }
+        }
+      });
+      const scale = model.getScaleComponent('x');
+      expect(scale.explicit.domainMin).toEqual({signal: 'datetime(2002, 0, 1, 0, 0, 0, 0)'});
+      expect(scale.explicit.domainMax).toEqual({signal: 'datetime(2012, 0, 1, 0, 0, 0, 0)'});
+    });
+
     describe('x ordinal point', () => {
-      it('should create an x point scale with rangeStep and no range', () => {
+      it('should create an x point scale with a step-based range', () => {
         const model = parseUnitModelWithScale({
           mark: 'point',
           encoding: {
@@ -289,7 +304,7 @@ describe('src/compile', () => {
       it('should create correct color scale', () => {
         expect(scale.implicit.name).toBe('color');
         expect(scale.implicit.type).toBe('ordinal');
-        expect(scale.domains).toEqual([
+        expect(scale.get('domains')).toEqual([
           {
             data: 'main',
             field: 'origin',
@@ -314,7 +329,7 @@ describe('src/compile', () => {
         expect(scale.implicit.name).toBe('color');
         expect(scale.implicit.type).toBe('ordinal');
 
-        expect(scale.domains).toEqual([
+        expect(scale.get('domains')).toEqual([
           {
             data: 'main',
             field: 'origin',
@@ -339,7 +354,7 @@ describe('src/compile', () => {
         expect(scale.implicit.type).toBe('linear');
         expect(scale.implicit.range).toBe('ramp');
 
-        expect(scale.domains).toEqual([
+        expect(scale.get('domains')).toEqual([
           {
             data: 'main',
             field: 'origin'
@@ -439,27 +454,27 @@ describe('src/compile', () => {
           x: {
             field: 'date',
             type: 'temporal',
-            scale: {domain: {selection: 'brush', encoding: 'x'}}
+            scale: {domain: {param: 'brush', encoding: 'x'}}
           },
           y: {
             field: 'date',
             type: 'temporal',
-            scale: {domain: {selection: 'foobar', field: 'Miles_per_Gallon'}}
+            scale: {domain: {param: 'foobar', field: 'Miles_per_Gallon'}}
           }
         }
       });
 
       const xScale = model.getScaleComponent('x');
-      const yscale = model.getScaleComponent('y');
+      const yScale = model.getScaleComponent('y');
 
-      it('should add a raw selection domain', () => {
-        expect('domainRaw' in xScale.explicit).toBeTruthy();
-        expect(xScale.explicit.domainRaw['signal']).toBe(SELECTION_DOMAIN + '{"encoding":"x","selection":"brush"}');
+      it('should add a selection extent', () => {
+        expect('selectionExtent' in xScale.explicit).toBeTruthy();
+        expect(xScale.explicit.selectionExtent.param).toEqual('brush');
+        expect(xScale.explicit.selectionExtent['encoding']).toEqual('x');
 
-        expect('domainRaw' in yscale.explicit).toBeTruthy();
-        expect(yscale.explicit.domainRaw['signal']).toBe(
-          SELECTION_DOMAIN + '{"field":"Miles_per_Gallon","selection":"foobar"}'
-        );
+        expect('selectionExtent' in yScale.explicit).toBeTruthy();
+        expect(yScale.explicit.selectionExtent.param).toEqual('foobar');
+        expect(yScale.explicit.selectionExtent['field']).toEqual('Miles_per_Gallon');
       });
     });
   });
@@ -480,7 +495,7 @@ describe('src/compile', () => {
           }
         });
 
-        expect(model.component.scales.x.domains).toEqual([
+        expect(model.component.scales.x.get('domains')).toEqual([
           {
             data: 'scale_child_main',
             field: 'a'
@@ -503,7 +518,7 @@ describe('src/compile', () => {
           }
         });
 
-        expect(model.component.scales.x.domains).toEqual([
+        expect(model.component.scales.x.get('domains')).toEqual([
           {
             data: 'child_main',
             field: 'a'
@@ -530,13 +545,42 @@ describe('src/compile', () => {
           }
         });
 
-        expect(model.children[0].component.scales.x.domains).toEqual([
+        expect(model.children[0].component.scales.x.get('domains')).toEqual([
           {
             data: 'child_main',
             field: 'a'
           }
         ]);
       });
+
+      it(
+        'should show warning if two domains are merged',
+        log.wrap(localLogger => {
+          const model = parseModelWithScale({
+            layer: [
+              {
+                mark: 'point',
+                encoding: {
+                  y: {field: 'foo', type: 'nominal', scale: {domain: [1, 2, 3]}}
+                }
+              },
+              {
+                mark: 'point',
+                encoding: {
+                  y: {field: 'foo', type: 'nominal', scale: {domain: [2, 3, 4]}}
+                }
+              }
+            ]
+          });
+
+          expect(model.children[0].component.scales.y.get('domains')).toEqual([[1, 2, 3]]);
+          expect(model.children[1].component.scales.y.get('domains')).toEqual([[2, 3, 4]]);
+
+          expect(localLogger.warns).toEqual([
+            'Conflicting scale property "domains" ([[1,2,3]] and [[2,3,4]]). Using the union of the two domains.'
+          ]);
+        })
+      );
     });
   });
 });

@@ -1,30 +1,32 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "Stock prices of four large companies as a small multiples of area charts.",
-  "transform": [{"filter": "datum.symbol !== 'GOOG'"}],
   "data": {"url": "data/stocks.csv"},
+  "transform": [{"filter": "datum.symbol !== 'GOOG'"}],
   "facet": {
     "row": {
       "field": "symbol",
       "type": "nominal",
-      "header": {"title": "Symbol"},
+      "title": "Symbol",
       "sort": ["MSFT", "AAPL", "IBM", "AMZN"]
     }
   },
   "spec": {
-    "mark": "area",
     "width": 300,
     "height": 40,
+    "mark": "area",
     "encoding": {
       "x": {
         "field": "date",
         "type": "temporal",
-        "axis": {"format": "%Y", "title": "Time", "grid": false}
+        "title": "Time",
+        "axis": {"format": "%Y", "grid": false}
       },
       "y": {
         "field": "price",
         "type": "quantitative",
-        "axis": {"title": "Price", "grid": false}
+        "title": "Price",
+        "axis": {"grid": false}
       },
       "color": {"field": "symbol", "type": "nominal"}
     }

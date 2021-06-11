@@ -1,39 +1,59 @@
-import {isArray} from 'vega-util';
+import {array, isBoolean} from 'vega-util';
 import {SUM_OPS} from './aggregate';
-import {NonPositionChannel, NONPOSITION_CHANNELS, X, X2, Y2} from './channel';
+import {getSecondaryRangeChannel, NonPositionChannel, NONPOSITION_CHANNELS} from './channel';
 import {
-  Field,
-  getTypedFieldDef,
+  channelDefType,
+  FieldName,
+  getFieldDef,
   isFieldDef,
-  isStringFieldDef,
+  isFieldOrDatumDef,
+  PositionDatumDef,
   PositionFieldDef,
   TypedFieldDef,
   vgField
 } from './channeldef';
-import {channelHasField, Encoding} from './encoding';
+import {channelHasField, Encoding, isAggregate} from './encoding';
 import * as log from './log';
-import {AREA, BAR, CIRCLE, isMarkDef, isPathMark, LINE, Mark, MarkDef, POINT, RULE, SQUARE, TEXT, TICK} from './mark';
+import {
+  ARC,
+  AREA,
+  BAR,
+  CIRCLE,
+  isMarkDef,
+  isPathMark,
+  LINE,
+  Mark,
+  MarkDef,
+  POINT,
+  RULE,
+  SQUARE,
+  TEXT,
+  TICK
+} from './mark';
 import {ScaleType} from './scale';
-import {contains, Flag, getFirstDefined} from './util';
+import {contains} from './util';
 
-export type StackOffset = 'zero' | 'center' | 'normalize';
-
-const STACK_OFFSET_INDEX: Flag<StackOffset> = {
+const STACK_OFFSET_INDEX = {
   zero: 1,
   center: 1,
   normalize: 1
-};
+} as const;
+
+export type StackOffset = keyof typeof STACK_OFFSET_INDEX;
 
 export function isStackOffset(s: string): s is StackOffset {
-  return !!STACK_OFFSET_INDEX[s];
+  return s in STACK_OFFSET_INDEX;
 }
 
 export interface StackProperties {
   /** Dimension axis of the stack. */
-  groupbyChannel: 'x' | 'y';
+  groupbyChannel?: 'x' | 'y' | 'theta' | 'radius';
+
+  /** Field for groupbyChannel. */
+  groupbyField?: FieldName;
 
   /** Measure axis of the stack. */
-  fieldChannel: 'x' | 'y';
+  fieldChannel: 'x' | 'y' | 'theta' | 'radius';
 
   /** Stack-by fields e.g., color, detail */
   stackBy: {
@@ -42,7 +62,7 @@ export interface StackProperties {
   }[];
 
   /**
-   * See `"stack"` property of Position Field Def.
+   * See `stack` property of Position Field Def.
    */
   offset: StackOffset;
 
@@ -52,125 +72,180 @@ export interface StackProperties {
   impute: boolean;
 }
 
-export const STACKABLE_MARKS = [BAR, AREA, RULE, POINT, CIRCLE, SQUARE, LINE, TEXT, TICK];
-export const STACK_BY_DEFAULT_MARKS = [BAR, AREA];
+export const STACKABLE_MARKS = new Set<Mark>([ARC, BAR, AREA, RULE, POINT, CIRCLE, SQUARE, LINE, TEXT, TICK]);
+export const STACK_BY_DEFAULT_MARKS = new Set<Mark>([BAR, AREA, ARC]);
 
-function potentialStackedChannel(encoding: Encoding<Field>): 'x' | 'y' | undefined {
-  const xDef = encoding.x;
-  const yDef = encoding.y;
+function potentialStackedChannel(
+  encoding: Encoding<string>,
+  x: 'x' | 'theta'
+): 'x' | 'y' | 'theta' | 'radius' | undefined {
+  const y = x === 'x' ? 'y' : 'radius';
+
+  const xDef = encoding[x];
+  const yDef = encoding[y];
 
   if (isFieldDef(xDef) && isFieldDef(yDef)) {
-    if (xDef.type === 'quantitative' && yDef.type === 'quantitative') {
+    if (channelDefType(xDef) === 'quantitative' && channelDefType(yDef) === 'quantitative') {
       if (xDef.stack) {
-        return 'x';
+        return x;
       } else if (yDef.stack) {
-        return 'y';
+        return y;
       }
+      const xAggregate = isFieldDef(xDef) && !!xDef.aggregate;
+      const yAggregate = isFieldDef(yDef) && !!yDef.aggregate;
       // if there is no explicit stacking, only apply stack if there is only one aggregate for x or y
-      if (!!xDef.aggregate !== !!yDef.aggregate) {
-        return xDef.aggregate ? 'x' : 'y';
+      if (xAggregate !== yAggregate) {
+        return xAggregate ? x : y;
+      } else {
+        const xScale = xDef.scale?.type;
+        const yScale = yDef.scale?.type;
+
+        if (xScale && xScale !== 'linear') {
+          return y;
+        } else if (yScale && yScale !== 'linear') {
+          return x;
+        }
       }
-    } else if (xDef.type === 'quantitative') {
-      return 'x';
-    } else if (yDef.type === 'quantitative') {
-      return 'y';
+    } else if (channelDefType(xDef) === 'quantitative') {
+      return x;
+    } else if (channelDefType(yDef) === 'quantitative') {
+      return y;
     }
-  } else if (isFieldDef(xDef) && xDef.type === 'quantitative') {
-    return 'x';
-  } else if (isFieldDef(yDef) && yDef.type === 'quantitative') {
-    return 'y';
+  } else if (channelDefType(xDef) === 'quantitative') {
+    return x;
+  } else if (channelDefType(yDef) === 'quantitative') {
+    return y;
   }
   return undefined;
 }
 
+function getDimensionChannel(channel: 'x' | 'y' | 'theta' | 'radius') {
+  switch (channel) {
+    case 'x':
+      return 'y';
+    case 'y':
+      return 'x';
+    case 'theta':
+      return 'radius';
+    case 'radius':
+      return 'theta';
+  }
+}
+
 // Note: CompassQL uses this method and only pass in required properties of each argument object.
 // If required properties change, make sure to update CompassQL.
-export function stack(m: Mark | MarkDef, encoding: Encoding<Field>, stackConfig: StackOffset): StackProperties {
+export function stack(
+  m: Mark | MarkDef,
+  encoding: Encoding<string>,
+  opt: {
+    disallowNonLinearStack?: boolean; // This option is for CompassQL
+  } = {}
+): StackProperties {
   const mark = isMarkDef(m) ? m.type : m;
   // Should have stackable mark
-  if (!contains(STACKABLE_MARKS, mark)) {
+  if (!STACKABLE_MARKS.has(mark)) {
     return null;
   }
 
-  const fieldChannel = potentialStackedChannel(encoding);
+  // Run potential stacked twice, one for Cartesian and another for Polar,
+  // so text marks can be stacked in any of the coordinates.
+
+  // Note: The logic here is not perfectly correct.  If we want to support stacked dot plots where each dot is a pie chart with label, we have to change the stack logic here to separate Cartesian stacking for polar stacking.
+  // However, since we probably never want to do that, let's just note the limitation here.
+  const fieldChannel = potentialStackedChannel(encoding, 'x') || potentialStackedChannel(encoding, 'theta');
+
   if (!fieldChannel) {
     return null;
   }
 
-  const stackedFieldDef = encoding[fieldChannel] as PositionFieldDef<string>;
-  const stackedField = isStringFieldDef(stackedFieldDef) ? vgField(stackedFieldDef, {}) : undefined;
+  const stackedFieldDef = encoding[fieldChannel] as PositionFieldDef<string> | PositionDatumDef<string>;
+  const stackedField = isFieldDef(stackedFieldDef) ? vgField(stackedFieldDef, {}) : undefined;
 
-  const dimensionChannel = fieldChannel === 'x' ? 'y' : 'x';
-  const dimensionDef = encoding[dimensionChannel];
-  const dimensionField = isStringFieldDef(dimensionDef) ? vgField(dimensionDef, {}) : undefined;
+  let dimensionChannel: 'x' | 'y' | 'theta' | 'radius' = getDimensionChannel(fieldChannel);
+  let dimensionDef = encoding[dimensionChannel];
+
+  let dimensionField = isFieldDef(dimensionDef) ? vgField(dimensionDef, {}) : undefined;
+
+  // avoid grouping by the stacked field
+  if (dimensionField === stackedField) {
+    dimensionField = undefined;
+    dimensionDef = undefined;
+    dimensionChannel = undefined;
+  }
 
   // Should have grouping level of detail that is different from the dimension field
   const stackBy = NONPOSITION_CHANNELS.reduce((sc, channel) => {
     // Ignore tooltip in stackBy (https://github.com/vega/vega-lite/issues/4001)
     if (channel !== 'tooltip' && channelHasField(encoding, channel)) {
       const channelDef = encoding[channel];
-      (isArray(channelDef) ? channelDef : [channelDef]).forEach(cDef => {
-        const fieldDef = getTypedFieldDef(cDef);
+      for (const cDef of array(channelDef)) {
+        const fieldDef = getFieldDef(cDef);
         if (fieldDef.aggregate) {
-          return;
+          continue;
         }
 
         // Check whether the channel's field is identical to x/y's field or if the channel is a repeat
-        const f = isStringFieldDef(fieldDef) ? vgField(fieldDef, {}) : undefined;
+        const f = vgField(fieldDef, {});
         if (
           // if fielddef is a repeat, just include it in the stack by
           !f ||
           // otherwise, the field must be different from x and y fields.
-          (f !== dimensionField && f !== stackedField)
+          f !== dimensionField
         ) {
           sc.push({channel, fieldDef});
         }
-      });
+      }
     }
     return sc;
   }, []);
 
-  if (stackBy.length === 0) {
-    return null;
-  }
-
   // Automatically determine offset
   let offset: StackOffset;
   if (stackedFieldDef.stack !== undefined) {
-    offset = stackedFieldDef.stack;
-  } else if (contains(STACK_BY_DEFAULT_MARKS, mark)) {
-    // Bar and Area with sum ops are automatically stacked by default
-    offset = getFirstDefined(stackConfig, 'zero');
-  } else {
-    offset = stackConfig;
+    if (isBoolean(stackedFieldDef.stack)) {
+      offset = stackedFieldDef.stack ? 'zero' : null;
+    } else {
+      offset = stackedFieldDef.stack;
+    }
+  } else if (STACK_BY_DEFAULT_MARKS.has(mark)) {
+    offset = 'zero';
   }
 
   if (!offset || !isStackOffset(offset)) {
     return null;
   }
 
+  if (isAggregate(encoding) && stackBy.length === 0) {
+    return null;
+  }
+
   // warn when stacking non-linear
-  if (stackedFieldDef.scale && stackedFieldDef.scale.type && stackedFieldDef.scale.type !== ScaleType.LINEAR) {
-    log.warn(log.message.cannotStackNonLinearScale(stackedFieldDef.scale.type));
+  if (stackedFieldDef?.scale?.type && stackedFieldDef?.scale?.type !== ScaleType.LINEAR) {
+    if (opt.disallowNonLinearStack) {
+      return null;
+    } else {
+      log.warn(log.message.cannotStackNonLinearScale(stackedFieldDef.scale.type));
+    }
   }
 
   // Check if it is a ranged mark
-  if (channelHasField(encoding, fieldChannel === X ? X2 : Y2)) {
+  if (isFieldOrDatumDef(encoding[getSecondaryRangeChannel(fieldChannel)])) {
     if (stackedFieldDef.stack !== undefined) {
       log.warn(log.message.cannotStackRangedMark(fieldChannel));
     }
     return null;
   }
 
-  // Warn if stacking summative aggregate
-  if (stackedFieldDef.aggregate && !contains(SUM_OPS, stackedFieldDef.aggregate)) {
+  // Warn if stacking non-summative aggregate
+  if (isFieldDef(stackedFieldDef) && stackedFieldDef.aggregate && !contains(SUM_OPS, stackedFieldDef.aggregate)) {
     log.warn(log.message.stackNonSummativeAggregate(stackedFieldDef.aggregate));
   }
 
   return {
     groupbyChannel: dimensionDef ? dimensionChannel : undefined,
+    groupbyField: dimensionField,
     fieldChannel,
-    impute: isPathMark(mark),
+    impute: stackedFieldDef.impute === null ? false : isPathMark(mark),
     stackBy,
     offset
   };

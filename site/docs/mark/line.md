@@ -18,13 +18,14 @@ The `line` mark represents the data points stored in a field with a line connect
 
 **Note:** For line segments that connect (x,y) positions to (x2,y2) positions, please use [`rule`](rule.html) marks. For continuous lines with varying size, please use [`trail`](trail.html) marks.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -42,6 +43,8 @@ The `line` mark represents the data points stored in a field with a line connect
   ...
 }
 ```
+
+<span class="vl-example" data-name="line_params" figure-only=true></span>
 
 An line mark definition can contain any [standard mark properties](mark.html#mark-def) and the following line interpolation and point overlay properties:
 
@@ -63,6 +66,24 @@ Adding a field to a [mark property channel](encoding.html#mark-prop) such as `co
 
 <span class="vl-example" data-name="line_color"></span>
 
+We can use text marks and [`argmax`](aggregate.html#argmax) to add labels to each line instead of using legends. Note that here we hide one of the line to avoid collision.
+
+<span class="vl-example" data-name="line_color_label"></span>
+
+We can further apply [`selection`](selection.html) to highlight a certain line on hover.
+
+<span class="vl-example" data-name="interactive_line_hover"></span>
+
+### Multi-series Line Chart with Varying Dashes
+
+Adding a field to `strokeDash` also produces a multi-series line chart.
+
+<span class="vl-example" data-name="line_strokedash"></span>
+
+We can also use line grouping to create a line chart that has multiple parts with varying styles.
+
+<span class="vl-example" data-name="line_dashed_part"></span>
+
 {:#line-detail}
 
 ### Multi-series Line Chart with the Detail Channel
@@ -81,7 +102,7 @@ By setting the `point` property of the mark definition to `true` or an object de
 
 <span class="vl-example" data-name="line_overlay"></span>
 
-This is equilvalent to adding another layer of filled point marks.
+This is equivalent to adding another layer of filled point marks.
 
 <span class="vl-example" data-name="normalized/line_overlay_normalized"></span>
 
@@ -90,6 +111,8 @@ Note that the overlay point marks have `opacity` = 1 by default (instead of semi
 Here we create stroked points by setting their `\"filled\"` to `false` and their `fill` to `\"white\"`.
 
 <span class="vl-example" data-name="line_overlay_stroked"></span>
+
+{:#line-invalid}
 
 ### Line Chart with Invalid Values
 
@@ -129,7 +152,7 @@ We can also set `interpolate` to `"step-after"` to create a step-chart.
 
 <span class="vl-example" data-name="line_step"></span>
 
-For the list of all supported `interpolate` properties, please see the [mark definition](mark.html#mark-def) documentation.
+For the list of all supported `interpolate` properties, please see the [line mark properties](#properties) section.
 
 ### Geo Line
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "The PM2.5 value of Beijing observed 15 days, highlighting the days when PM2.5 level is hazardous to human health. Data source https://chartaccent.github.io/chartaccent.html",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "height": 200,
   "style": "cell",
@@ -26,17 +26,22 @@
         {"Day": 15, "Value": 130.5}
       ]
     },
-    {
-      "name": "source_1",
-      "values": [{"ThresholdValue": 300, "Threshold": "hazardous"}]
-    },
+    {"name": "source_1", "values": [{}]},
     {
       "name": "data_1",
       "source": "source_0",
       "transform": [
         {
+          "type": "stack",
+          "groupby": ["Day"],
+          "field": "Value",
+          "sort": {"field": [], "order": []},
+          "as": ["Value_start", "Value_end"],
+          "offset": "zero"
+        },
+        {
           "type": "filter",
-          "expr": "datum[\"Value\"] !== null && !isNaN(datum[\"Value\"])"
+          "expr": "isValid(datum[\"Value\"]) && isFinite(+datum[\"Value\"])"
         }
       ]
     },
@@ -48,27 +53,7 @@
         {"type": "formula", "expr": "300", "as": "baseline"},
         {
           "type": "filter",
-          "expr": "datum[\"baseline\"] !== null && !isNaN(datum[\"baseline\"])"
-        }
-      ]
-    },
-    {
-      "name": "data_4",
-      "source": "source_1",
-      "transform": [
-        {
-          "type": "filter",
-          "expr": "datum[\"ThresholdValue\"] !== null && !isNaN(datum[\"ThresholdValue\"])"
-        }
-      ]
-    },
-    {
-      "name": "data_5",
-      "source": "source_1",
-      "transform": [
-        {
-          "type": "filter",
-          "expr": "datum[\"ThresholdValue\"] !== null && !isNaN(datum[\"ThresholdValue\"])"
+          "expr": "isValid(datum[\"baseline\"]) && isFinite(+datum[\"baseline\"])"
         }
       ]
     }
@@ -89,13 +74,14 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"Day\": ''+datum[\"Day\"], \"Value\": format(datum[\"Value\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"Day: \" + (isValid(datum[\"Day\"]) ? datum[\"Day\"] : \"\"+datum[\"Day\"]) + \"; Value: \" + (format(datum[\"Value\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Day"},
-          "width": {"scale": "x", "band": true},
-          "y": {"scale": "y", "field": "Value"},
-          "y2": {"scale": "y", "value": 0}
+          "width": {"scale": "x", "band": 1},
+          "y": {"scale": "y", "field": "Value_end"},
+          "y2": {"scale": "y", "field": "Value_start"}
         }
       }
     },
@@ -107,11 +93,12 @@
       "encode": {
         "update": {
           "fill": {"value": "#e45755"},
-          "tooltip": {
-            "signal": "{\"Day\": ''+datum[\"Day\"], \"baseline\": format(datum[\"baseline\"], \"\"), \"Value\": format(datum[\"Value\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"Day: \" + (isValid(datum[\"Day\"]) ? datum[\"Day\"] : \"\"+datum[\"Day\"]) + \"; PM2.5 Value: \" + (format(datum[\"baseline\"], \"\")) + \"; Value: \" + (format(datum[\"Value\"], \"\"))"
           },
           "x": {"scale": "x", "field": "Day"},
-          "width": {"scale": "x", "band": true},
+          "width": {"scale": "x", "band": 1},
           "y": {"scale": "y", "field": "baseline"},
           "y2": {"scale": "y", "field": "Value"}
         }
@@ -121,16 +108,13 @@
       "name": "layer_1_layer_0_marks",
       "type": "rule",
       "style": ["rule"],
-      "from": {"data": "data_4"},
+      "from": {"data": "source_1"},
       "encode": {
         "update": {
           "stroke": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"ThresholdValue\": format(datum[\"ThresholdValue\"], \"\")}"
-          },
-          "x": {"value": 0},
-          "y": {"scale": "y", "field": "ThresholdValue"},
-          "x2": {"field": {"group": "width"}}
+          "x": {"field": {"group": "width"}},
+          "x2": {"value": 0},
+          "y": {"scale": "y", "value": 300}
         }
       }
     },
@@ -138,20 +122,17 @@
       "name": "layer_1_layer_1_marks",
       "type": "text",
       "style": ["text"],
-      "from": {"data": "data_5"},
+      "from": {"data": "source_1"},
       "encode": {
         "update": {
           "align": {"value": "right"},
           "baseline": {"value": "bottom"},
+          "text": {"value": "hazardous"},
           "dx": {"value": -2},
           "dy": {"value": -2},
           "fill": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"PM2.5 Value\": format(datum[\"ThresholdValue\"], \"\"), \"Threshold\": ''+datum[\"Threshold\"]}"
-          },
           "x": {"field": {"group": "width"}},
-          "y": {"scale": "y", "field": "ThresholdValue"},
-          "text": {"signal": "''+datum[\"Threshold\"]"}
+          "y": {"scale": "y", "value": 300}
         }
       }
     }
@@ -176,11 +157,11 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_1", "field": "Value"},
+          {"data": "data_1", "field": "Value_start"},
+          {"data": "data_1", "field": "Value_end"},
           {"data": "data_2", "field": "baseline"},
           {"data": "data_2", "field": "Value"},
-          {"data": "data_4", "field": "ThresholdValue"},
-          {"data": "data_5", "field": "ThresholdValue"}
+          [300]
         ]
       },
       "range": [{"signal": "height"}, 0],
@@ -190,15 +171,27 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
       "title": "Day",
       "labelAngle": 0,
-      "labelAlign": "center",
       "labelBaseline": "top",
-      "labelOverlap": true,
-      "zindex": 1
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -207,19 +200,6 @@
       "title": "PM2.5 Value",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ]

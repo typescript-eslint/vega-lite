@@ -1,22 +1,125 @@
-import {Align, AxisOrient, SignalRef} from 'vega';
-import {Axis} from '../../axis';
-import {isBinning} from '../../bin';
-import {PositionScaleChannel, X, Y} from '../../channel';
-import {TypedFieldDef, valueArray} from '../../channeldef';
-import * as log from '../../log';
-import {hasDiscreteDomain, ScaleType} from '../../scale';
-import {NOMINAL, ORDINAL} from '../../type';
+import {Align, AxisOrient, Orient, SignalRef} from 'vega';
+import {isArray, isObject} from 'vega-util';
+import {AxisInternal} from '../../axis';
+import {isBinned, isBinning} from '../../bin';
+import {PositionScaleChannel, X} from '../../channel';
+import {
+  DatumDef,
+  isDiscrete,
+  isFieldDef,
+  PositionDatumDef,
+  PositionFieldDef,
+  toFieldDefBase,
+  TypedFieldDef,
+  valueArray
+} from '../../channeldef';
+import {Config, StyleConfigIndex} from '../../config';
+import {Mark} from '../../mark';
+import {hasDiscreteDomain} from '../../scale';
+import {Sort} from '../../sort';
+import {normalizeTimeUnit} from '../../timeunit';
+import {NOMINAL, ORDINAL, Type} from '../../type';
 import {contains, normalizeAngle} from '../../util';
+import {isSignalRef} from '../../vega.schema';
+import {mergeTitle, mergeTitleFieldDefs} from '../common';
+import {guideFormat, guideFormatType} from '../format';
 import {UnitModel} from '../unit';
-import {getAxisConfig} from './config';
+import {ScaleType} from './../../scale';
+import {AxisComponentProps} from './component';
+import {AxisConfigs, getAxisConfig} from './config';
+
+export interface AxisRuleParams {
+  fieldOrDatumDef: PositionFieldDef<string> | PositionDatumDef<string>;
+  axis: AxisInternal;
+  channel: PositionScaleChannel;
+  model: UnitModel;
+
+  mark: Mark;
+  scaleType: ScaleType;
+  orient: Orient | SignalRef;
+  labelAngle: number | SignalRef;
+  config: Config;
+}
+
+export const axisRules: {
+  [k in keyof AxisComponentProps]?: (params: AxisRuleParams) => AxisComponentProps[k];
+} = {
+  scale: ({model, channel}) => model.scaleName(channel),
+
+  format: ({fieldOrDatumDef, config, axis}) => {
+    const {format, formatType} = axis;
+    return guideFormat(fieldOrDatumDef, fieldOrDatumDef.type, format, formatType, config, true);
+  },
+
+  formatType: ({axis, fieldOrDatumDef, scaleType}) => {
+    const {formatType} = axis;
+    return guideFormatType(formatType, fieldOrDatumDef, scaleType);
+  },
+
+  grid: ({fieldOrDatumDef, axis, scaleType}) => axis.grid ?? defaultGrid(scaleType, fieldOrDatumDef),
+
+  gridScale: ({model, channel}) => gridScale(model, channel),
+
+  labelAlign: ({axis, labelAngle, orient, channel}) =>
+    axis.labelAlign || defaultLabelAlign(labelAngle, orient, channel),
+
+  labelAngle: ({labelAngle}) => labelAngle, // we already calculate this in parse
+
+  labelBaseline: ({axis, labelAngle, orient, channel}) =>
+    axis.labelBaseline || defaultLabelBaseline(labelAngle, orient, channel),
+
+  labelFlush: ({axis, fieldOrDatumDef, channel}) => axis.labelFlush ?? defaultLabelFlush(fieldOrDatumDef.type, channel),
+
+  labelOverlap: ({axis, fieldOrDatumDef, scaleType}) =>
+    axis.labelOverlap ??
+    defaultLabelOverlap(
+      fieldOrDatumDef.type,
+      scaleType,
+      isFieldDef(fieldOrDatumDef) && !!fieldOrDatumDef.timeUnit,
+      isFieldDef(fieldOrDatumDef) ? fieldOrDatumDef.sort : undefined
+    ),
+
+  // we already calculate orient in parse
+  orient: ({orient}) => orient as AxisOrient, // Need to cast until Vega supports signal
+
+  tickCount: ({channel, model, axis, fieldOrDatumDef, scaleType}) => {
+    const sizeType = channel === 'x' ? 'width' : channel === 'y' ? 'height' : undefined;
+    const size = sizeType ? model.getSizeSignalRef(sizeType) : undefined;
+    return axis.tickCount ?? defaultTickCount({fieldOrDatumDef, scaleType, size, values: axis.values});
+  },
+
+  title: ({axis, model, channel}) => {
+    if (axis.title !== undefined) {
+      return axis.title;
+    }
+    const fieldDefTitle = getFieldDefTitle(model, channel);
+    if (fieldDefTitle !== undefined) {
+      return fieldDefTitle;
+    }
+    const fieldDef = model.typedFieldDef(channel);
+    const channel2 = channel === 'x' ? 'x2' : 'y2';
+    const fieldDef2 = model.fieldDef(channel2);
+
+    // If title not specified, store base parts of fieldDef (and fieldDef2 if exists)
+    return mergeTitleFieldDefs(
+      fieldDef ? [toFieldDefBase(fieldDef)] : [],
+      isFieldDef(fieldDef2) ? [toFieldDefBase(fieldDef2)] : []
+    );
+  },
+
+  values: ({axis, fieldOrDatumDef}) => values(axis, fieldOrDatumDef),
+
+  zindex: ({axis, fieldOrDatumDef, mark}) => axis.zindex ?? defaultZindex(mark, fieldOrDatumDef)
+};
 
 // TODO: we need to refactor this method after we take care of config refactoring
 /**
  * Default rules for whether to show a grid should be shown for a channel.
  * If `grid` is unspecified, the default value is `true` for ordinal scales that are not binned
  */
-export function defaultGrid(scaleType: ScaleType, fieldDef: TypedFieldDef<string>) {
-  return !hasDiscreteDomain(scaleType) && !isBinning(fieldDef.bin);
+
+export function defaultGrid(scaleType: ScaleType, fieldDef: TypedFieldDef<string> | DatumDef) {
+  return !hasDiscreteDomain(scaleType) && isFieldDef(fieldDef) && !isBinning(fieldDef?.bin) && !isBinned(fieldDef?.bin);
 }
 
 export function gridScale(model: UnitModel, channel: PositionScaleChannel) {
@@ -27,29 +130,29 @@ export function gridScale(model: UnitModel, channel: PositionScaleChannel) {
   return undefined;
 }
 
-export function labelAngle(
-  model: UnitModel,
-  specifiedAxis: Axis,
+export function getLabelAngle(
+  fieldOrDatumDef: PositionFieldDef<string> | PositionDatumDef<string>,
+  axis: AxisInternal,
   channel: PositionScaleChannel,
-  fieldDef: TypedFieldDef<string>
+  styleConfig: StyleConfigIndex<SignalRef>,
+  axisConfigs?: AxisConfigs
 ) {
+  const labelAngle = axis?.labelAngle;
   // try axis value
-  if (specifiedAxis.labelAngle !== undefined) {
-    return normalizeAngle(specifiedAxis.labelAngle);
+  if (labelAngle !== undefined) {
+    return isSignalRef(labelAngle) ? labelAngle : normalizeAngle(labelAngle);
   } else {
     // try axis config value
-    const angle = getAxisConfig(
-      'labelAngle',
-      model.config,
-      channel,
-      orient(channel),
-      model.getScaleComponent(channel).get('type')
-    );
+    const {configValue: angle} = getAxisConfig('labelAngle', styleConfig, axis?.style, axisConfigs);
     if (angle !== undefined) {
       return normalizeAngle(angle);
     } else {
       // get default value
-      if (channel === X && contains([NOMINAL, ORDINAL], fieldDef.type)) {
+      if (
+        channel === X &&
+        contains([NOMINAL, ORDINAL], fieldOrDatumDef.type) &&
+        !(isFieldDef(fieldOrDatumDef) && fieldOrDatumDef.timeUnit)
+      ) {
         return 270;
       }
       // no default
@@ -58,65 +161,117 @@ export function labelAngle(
   }
 }
 
-export function defaultLabelBaseline(angle: number, axisOrient: AxisOrient) {
+export function normalizeAngleExpr(angle: SignalRef) {
+  return `(((${angle.signal} % 360) + 360) % 360)`;
+}
+
+export function defaultLabelBaseline(
+  angle: number | SignalRef,
+  orient: AxisOrient | SignalRef,
+  channel: 'x' | 'y',
+  alwaysIncludeMiddle?: boolean
+) {
   if (angle !== undefined) {
-    angle = normalizeAngle(angle);
-    if (axisOrient === 'top' || axisOrient === 'bottom') {
-      if (angle <= 45 || 315 <= angle) {
-        return axisOrient === 'top' ? 'bottom' : 'top';
-      } else if (135 <= angle && angle <= 225) {
-        return axisOrient === 'top' ? 'top' : 'bottom';
-      } else {
+    if (channel === 'x') {
+      if (isSignalRef(angle)) {
+        const a = normalizeAngleExpr(angle);
+        const orientIsTop = isSignalRef(orient) ? `(${orient.signal} === "top")` : orient === 'top';
+        return {
+          signal:
+            `(45 < ${a} && ${a} < 135) || (225 < ${a} && ${a} < 315) ? "middle" :` +
+            `(${a} <= 45 || 315 <= ${a}) === ${orientIsTop} ? "bottom" : "top"`
+        };
+      }
+
+      if ((45 < angle && angle < 135) || (225 < angle && angle < 315)) {
         return 'middle';
       }
+
+      if (isSignalRef(orient)) {
+        const op = angle <= 45 || 315 <= angle ? '===' : '!==';
+        return {signal: `${orient.signal} ${op} "top" ? "bottom" : "top"`};
+      }
+
+      return (angle <= 45 || 315 <= angle) === (orient === 'top') ? 'bottom' : 'top';
     } else {
+      if (isSignalRef(angle)) {
+        const a = normalizeAngleExpr(angle);
+        const orientIsLeft = isSignalRef(orient) ? `(${orient.signal} === "left")` : orient === 'left';
+        const middle = alwaysIncludeMiddle ? '"middle"' : 'null';
+        return {
+          signal: `${a} <= 45 || 315 <= ${a} || (135 <= ${a} && ${a} <= 225) ? ${middle} : (45 <= ${a} && ${a} <= 135) === ${orientIsLeft} ? "top" : "bottom"`
+        };
+      }
+
       if (angle <= 45 || 315 <= angle || (135 <= angle && angle <= 225)) {
-        return 'middle';
-      } else if (45 <= angle && angle <= 135) {
-        return axisOrient === 'left' ? 'top' : 'bottom';
-      } else {
-        return axisOrient === 'left' ? 'bottom' : 'top';
+        return alwaysIncludeMiddle ? 'middle' : null;
       }
+
+      if (isSignalRef(orient)) {
+        const op = 45 <= angle && angle <= 135 ? '===' : '!==';
+        return {signal: `${orient.signal} ${op} "left" ? "top" : "bottom"`};
+      }
+
+      return (45 <= angle && angle <= 135) === (orient === 'left') ? 'top' : 'bottom';
     }
   }
   return undefined;
 }
 
-export function defaultLabelAlign(angle: number, axisOrient: AxisOrient): Align {
-  if (angle !== undefined) {
-    angle = normalizeAngle(angle);
-    if (axisOrient === 'top' || axisOrient === 'bottom') {
-      if (angle % 180 === 0) {
-        return 'center';
-      } else if (0 < angle && angle < 180) {
-        return axisOrient === 'top' ? 'right' : 'left';
-      } else {
-        return axisOrient === 'top' ? 'left' : 'right';
-      }
-    } else {
-      if ((angle + 90) % 180 === 0) {
-        return 'center';
-      } else if (90 <= angle && angle < 270) {
-        return axisOrient === 'left' ? 'left' : 'right';
-      } else {
-        return axisOrient === 'left' ? 'right' : 'left';
-      }
-    }
+export function defaultLabelAlign(
+  angle: number | SignalRef,
+  orient: AxisOrient | SignalRef,
+  channel: 'x' | 'y'
+): Align | SignalRef {
+  if (angle === undefined) {
+    return undefined;
   }
-  return undefined;
+
+  const isX = channel === 'x';
+  const startAngle = isX ? 0 : 90;
+  const mainOrient = isX ? 'bottom' : 'left';
+
+  if (isSignalRef(angle)) {
+    const a = normalizeAngleExpr(angle);
+    const orientIsMain = isSignalRef(orient) ? `(${orient.signal} === "${mainOrient}")` : orient === mainOrient;
+    return {
+      signal:
+        `(${startAngle ? `(${a} + 90)` : a} % 180 === 0) ? ${isX ? null : '"center"'} :` +
+        `(${startAngle} < ${a} && ${a} < ${180 + startAngle}) === ${orientIsMain} ? "left" : "right"`
+    };
+  }
+
+  if ((angle + startAngle) % 180 === 0) {
+    // For bottom, use default label align so label flush still works
+    return isX ? null : 'center';
+  }
+
+  if (isSignalRef(orient)) {
+    const op = startAngle < angle && angle < 180 + startAngle ? '===' : '!==';
+    const orientIsMain = `${orient.signal} ${op} "${mainOrient}"`;
+    return {
+      signal: `${orientIsMain} ? "left" : "right"`
+    };
+  }
+
+  if ((startAngle < angle && angle < 180 + startAngle) === (orient === mainOrient)) {
+    return 'left';
+  }
+
+  return 'right';
 }
 
-export function defaultLabelFlush(fieldDef: TypedFieldDef<string>, channel: PositionScaleChannel) {
-  if (channel === 'x' && contains(['quantitative', 'temporal'], fieldDef.type)) {
+export function defaultLabelFlush(type: Type, channel: PositionScaleChannel) {
+  if (channel === 'x' && contains(['quantitative', 'temporal'], type)) {
     return true;
   }
   return undefined;
 }
 
-export function defaultLabelOverlap(fieldDef: TypedFieldDef<string>, scaleType: ScaleType) {
+export function defaultLabelOverlap(type: Type, scaleType: ScaleType, hasTimeUnit: boolean, sort?: Sort<string>) {
   // do not prevent overlap for nominal data because there is no way to infer what the missing labels are
-  if (fieldDef.type !== 'nominal') {
-    if (scaleType === 'log') {
+  if ((hasTimeUnit && !isObject(sort)) || (type !== 'nominal' && type !== 'ordinal')) {
+    if (scaleType === 'log' || scaleType === 'symlog') {
       return 'greedy';
     }
     return true;
@@ -124,56 +279,82 @@ export function defaultLabelOverlap(fieldDef: TypedFieldDef<string>, scaleType: 
   return undefined;
 }
 
-export function orient(channel: PositionScaleChannel) {
-  switch (channel) {
-    case X:
-      return 'bottom';
-    case Y:
-      return 'left';
-  }
-  /* istanbul ignore next: This should never happen. */
-  throw new Error(log.message.INVALID_CHANNEL_FOR_AXIS);
+export function defaultOrient(channel: PositionScaleChannel) {
+  return channel === 'x' ? 'bottom' : 'left';
 }
 
 export function defaultTickCount({
-  fieldDef,
+  fieldOrDatumDef,
   scaleType,
   size,
-  scaleName,
-  specifiedAxis = {}
+  values: vals
 }: {
-  fieldDef: TypedFieldDef<string>;
+  fieldOrDatumDef: TypedFieldDef<string> | DatumDef;
   scaleType: ScaleType;
   size?: SignalRef;
-  scaleName?: string;
-  specifiedAxis?: Axis;
+  values?: AxisInternal['values'];
 }) {
-  if (
-    !hasDiscreteDomain(scaleType) &&
-    scaleType !== 'log' &&
-    !contains(['month', 'hours', 'day', 'quarter'], fieldDef.timeUnit)
-  ) {
-    if (isBinning(fieldDef.bin)) {
-      // for binned data, we don't want more ticks than maxbins
-      return {signal: `ceil(${size.signal}/10)`};
+  if (!vals && !hasDiscreteDomain(scaleType) && scaleType !== 'log') {
+    if (isFieldDef(fieldOrDatumDef)) {
+      if (isBinning(fieldOrDatumDef.bin)) {
+        // for binned data, we don't want more ticks than maxbins
+        return {signal: `ceil(${size.signal}/10)`};
+      }
+
+      if (
+        fieldOrDatumDef.timeUnit &&
+        contains(['month', 'hours', 'day', 'quarter'], normalizeTimeUnit(fieldOrDatumDef.timeUnit)?.unit)
+      ) {
+        return undefined;
+      }
     }
+
     return {signal: `ceil(${size.signal}/40)`};
   }
 
   return undefined;
 }
 
-export function values(
-  specifiedAxis: Axis,
-  model: UnitModel,
-  fieldDef: TypedFieldDef<string>,
-  channel: PositionScaleChannel
-) {
-  const vals = specifiedAxis.values;
+export function getFieldDefTitle(model: UnitModel, channel: 'x' | 'y') {
+  const channel2 = channel === 'x' ? 'x2' : 'y2';
+  const fieldDef = model.fieldDef(channel);
+  const fieldDef2 = model.fieldDef(channel2);
 
-  if (vals) {
-    return valueArray(fieldDef, vals);
+  const title1 = fieldDef ? fieldDef.title : undefined;
+  const title2 = fieldDef2 ? fieldDef2.title : undefined;
+
+  if (title1 && title2) {
+    return mergeTitle(title1, title2);
+  } else if (title1) {
+    return title1;
+  } else if (title2) {
+    return title2;
+  } else if (title1 !== undefined) {
+    // falsy value to disable config
+    return title1;
+  } else if (title2 !== undefined) {
+    // falsy value to disable config
+    return title2;
   }
 
   return undefined;
+}
+
+export function values(axis: AxisInternal, fieldOrDatumDef: TypedFieldDef<string> | DatumDef) {
+  const vals = axis.values;
+
+  if (isArray(vals)) {
+    return valueArray(fieldOrDatumDef, vals);
+  } else if (isSignalRef(vals)) {
+    return vals;
+  }
+
+  return undefined;
+}
+
+export function defaultZindex(mark: Mark, fieldDef: TypedFieldDef<string> | DatumDef) {
+  if (mark === 'rect' && isDiscrete(fieldDef)) {
+    return 1;
+  }
+  return 0;
 }

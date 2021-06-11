@@ -17,13 +17,14 @@ permalink: /docs/text.html
 
 `text` mark represents each data point with a text instead of a point.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#properties}
 
@@ -42,9 +43,11 @@ permalink: /docs/text.html
 }
 ```
 
+<span class="vl-example" data-name="text_params" figure-only=true></span>
+
 A text mark definition can contain any [standard mark properties](mark.html#mark-def) and the following special properties:
 
-{% include table.html props="angle,align,baseline,dir,dx,dy,ellipsis,font,fontSize,fontStyle,fontWeight,limit,radius,text,theta" source="MarkDef" %}
+{% include table.html props="angle,align,baseline,dir,dx,dy,ellipsis,font,fontSize,fontStyle,fontWeight,limit,lineHeight,radius,text,theta" source="MarkDef" %}
 
 ## Examples
 
@@ -86,7 +89,3 @@ By mapping geographic coordinate data to `longitude` and `latitude` channels of 
 ```
 
 The `text` property of the top-level [`config`](config.html) object sets the default properties for all text marks. If [mark property encoding channels](encoding.html#mark-prop) are specified for marks, these config values will be overridden.
-
-Besides standard [mark properties](mark.html#config) and [special properties for text marks](#properties), text config can contain the following additional properties:
-
-{% include table.html props="shortTimeLabels" source="TextConfig" %}

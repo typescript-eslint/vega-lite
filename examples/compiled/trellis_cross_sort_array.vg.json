@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {
@@ -34,16 +34,6 @@
           "ops": ["median"],
           "fields": ["y"],
           "groupby": ["b"]
-        },
-        {
-          "type": "formula",
-          "expr": "datum[\"a\"]===\"B\" ? 0 : datum[\"a\"]===\"C\" ? 1 : datum[\"a\"]===\"A\" ? 2 : 3",
-          "as": "column_a_sort_index"
-        },
-        {
-          "type": "formula",
-          "expr": "datum[\"b\"]===\"Y\" ? 0 : datum[\"b\"]===\"X\" ? 1 : datum[\"b\"]===\"Z\" ? 2 : 3",
-          "as": "row_b_sort_index"
         },
         {
           "type": "formula",
@@ -89,7 +79,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"x\"] !== null && !isNaN(datum[\"x\"]) && datum[\"y\"] !== null && !isNaN(datum[\"y\"])"
+          "expr": "isValid(datum[\"x\"]) && isFinite(+datum[\"x\"]) && isValid(datum[\"y\"]) && isFinite(+datum[\"y\"])"
         }
       ]
     },
@@ -103,6 +93,26 @@
           "ops": ["median", "median"],
           "fields": ["median_y_by_b", "median_x_by_a"],
           "as": ["median_median_y_by_b", "median_median_x_by_a"]
+        }
+      ]
+    },
+    {
+      "name": "data_4",
+      "source": "data_3",
+      "transform": [
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"median_median_y_by_b\"]) && isFinite(+datum[\"median_median_y_by_b\"])"
+        }
+      ]
+    },
+    {
+      "name": "data_5",
+      "source": "data_3",
+      "transform": [
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"median_median_x_by_a\"]) && isFinite(+datum[\"median_median_x_by_a\"])"
         }
       ]
     }
@@ -143,7 +153,9 @@
       "from": {"data": "row_domain"},
       "sort": {"field": "datum[\"row_b_sort_index\"]", "order": "ascending"},
       "title": {
-        "text": {"signal": "''+parent[\"b\"]"},
+        "text": {
+          "signal": "isValid(parent[\"b\"]) ? parent[\"b\"] : \"\"+parent[\"b\"]"
+        },
         "orient": "left",
         "style": "guide-label",
         "frame": "group",
@@ -158,7 +170,7 @@
           "title": "y",
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_height/40)"},
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -169,7 +181,9 @@
       "from": {"data": "column_domain"},
       "sort": {"field": "datum[\"column_a_sort_index\"]", "order": "ascending"},
       "title": {
-        "text": {"signal": "''+parent[\"a\"]"},
+        "text": {
+          "signal": "isValid(parent[\"a\"]) ? parent[\"a\"] : \"\"+parent[\"a\"]"
+        },
         "style": "guide-label",
         "frame": "group",
         "offset": 10
@@ -192,7 +206,7 @@
           "labelFlush": true,
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_width/40)"},
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -227,7 +241,7 @@
           "transform": [
             {
               "type": "filter",
-              "expr": "datum[\"x\"] !== null && !isNaN(datum[\"x\"]) && datum[\"y\"] !== null && !isNaN(datum[\"y\"])"
+              "expr": "isValid(datum[\"x\"]) && isFinite(+datum[\"x\"]) && isValid(datum[\"y\"]) && isFinite(+datum[\"y\"])"
             }
           ]
         },
@@ -241,6 +255,26 @@
               "ops": ["median", "median"],
               "fields": ["median_y_by_b", "median_x_by_a"],
               "as": ["median_median_y_by_b", "median_median_x_by_a"]
+            }
+          ]
+        },
+        {
+          "name": "data_2",
+          "source": "data_1",
+          "transform": [
+            {
+              "type": "filter",
+              "expr": "isValid(datum[\"median_median_y_by_b\"]) && isFinite(+datum[\"median_median_y_by_b\"])"
+            }
+          ]
+        },
+        {
+          "name": "data_3",
+          "source": "data_1",
+          "transform": [
+            {
+              "type": "filter",
+              "expr": "isValid(datum[\"median_median_x_by_a\"]) && isFinite(+datum[\"median_median_x_by_a\"])"
             }
           ]
         }
@@ -262,8 +296,9 @@
               "opacity": {"value": 0.7},
               "fill": {"value": "transparent"},
               "stroke": {"value": "#4c78a8"},
-              "tooltip": {
-                "signal": "{\"x\": format(datum[\"x\"], \"\"), \"y\": format(datum[\"y\"], \"\")}"
+              "ariaRoleDescription": {"value": "point"},
+              "description": {
+                "signal": "\"x: \" + (format(datum[\"x\"], \"\")) + \"; y: \" + (format(datum[\"y\"], \"\"))"
               },
               "x": {"scale": "x", "field": "x"},
               "y": {"scale": "y", "field": "y"}
@@ -274,16 +309,16 @@
           "name": "child_layer_1_marks",
           "type": "rule",
           "style": ["rule"],
-          "from": {"data": "data_1"},
+          "from": {"data": "data_3"},
           "encode": {
             "update": {
               "stroke": {"value": "black"},
-              "tooltip": {
-                "signal": "{\"Median of median_x_by_a\": format(datum[\"median_median_x_by_a\"], \"\")}"
+              "description": {
+                "signal": "\"Median of median_x_by_a: \" + (format(datum[\"median_median_x_by_a\"], \"\"))"
               },
               "x": {"scale": "x", "field": "median_median_x_by_a"},
-              "y": {"field": {"group": "height"}},
-              "y2": {"value": 0}
+              "y": {"value": 0},
+              "y2": {"field": {"group": "height"}}
             }
           }
         },
@@ -291,16 +326,16 @@
           "name": "child_layer_2_marks",
           "type": "rule",
           "style": ["rule"],
-          "from": {"data": "data_1"},
+          "from": {"data": "data_2"},
           "encode": {
             "update": {
               "stroke": {"value": "black"},
-              "tooltip": {
-                "signal": "{\"Median of median_y_by_b\": format(datum[\"median_median_y_by_b\"], \"\")}"
+              "description": {
+                "signal": "\"Median of median_y_by_b: \" + (format(datum[\"median_median_y_by_b\"], \"\"))"
               },
-              "x": {"value": 0},
-              "y": {"scale": "y", "field": "median_median_y_by_b"},
-              "x2": {"field": {"group": "width"}}
+              "x": {"field": {"group": "width"}},
+              "x2": {"value": 0},
+              "y": {"scale": "y", "field": "median_median_y_by_b"}
             }
           }
         }
@@ -314,6 +349,7 @@
           "tickCount": {"signal": "ceil(child_width/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
@@ -327,6 +363,7 @@
           "tickCount": {"signal": "ceil(child_height/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,
@@ -342,7 +379,7 @@
       "domain": {
         "fields": [
           {"data": "data_2", "field": "x"},
-          {"data": "data_3", "field": "median_median_x_by_a"}
+          {"data": "data_5", "field": "median_median_x_by_a"}
         ]
       },
       "range": [0, {"signal": "child_width"}],
@@ -355,7 +392,7 @@
       "domain": {
         "fields": [
           {"data": "data_2", "field": "y"},
-          {"data": "data_3", "field": "median_median_y_by_b"}
+          {"data": "data_4", "field": "median_median_y_by_b"}
         ]
       },
       "range": [{"signal": "child_height"}, 0],

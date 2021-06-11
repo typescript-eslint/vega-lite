@@ -1,22 +1,42 @@
-import {X2, Y2} from '../src/channel';
-import {isPositionFieldDef} from '../src/channeldef';
+import {
+  COLOR,
+  DETAIL,
+  FILLOPACITY,
+  OPACITY,
+  SIZE,
+  STROKEOPACITY,
+  STROKEWIDTH,
+  UNIT_CHANNELS,
+  X2,
+  Y2
+} from '../src/channel';
+import {isPositionFieldOrDatumDef} from '../src/channeldef';
 import {defaultConfig} from '../src/config';
-import {Encoding, extractTransformsFromEncoding, markChannelCompatible, normalizeEncoding} from '../src/encoding';
+import {
+  Encoding,
+  extractTransformsFromEncoding,
+  fieldDefs,
+  initEncoding,
+  markChannelCompatible,
+  pathGroupingFields
+} from '../src/encoding';
 import * as log from '../src/log';
 import {CIRCLE, POINT, SQUARE, TICK} from '../src/mark';
 import {internalField} from '../src/util';
 
 describe('encoding', () => {
-  describe('normalizeEncoding', () => {
+  describe('initEncoding', () => {
     it(
-      'should drop color channel if fill is specified',
+      'should drop color channel if fill is specified and filled = true',
       log.wrap(logger => {
-        const encoding = normalizeEncoding(
+        const encoding = initEncoding(
           {
             color: {field: 'a', type: 'quantitative'},
             fill: {field: 'b', type: 'quantitative'}
           },
-          'rule'
+          'bar',
+          true,
+          defaultConfig
         );
 
         expect(encoding).toEqual({
@@ -27,14 +47,37 @@ describe('encoding', () => {
     );
 
     it(
-      'should drop color channel if stroke is specified',
+      'should replace angle channel for arc marks with theta',
       log.wrap(logger => {
-        const encoding = normalizeEncoding(
+        const encoding = initEncoding(
+          {
+            color: {field: 'a', type: 'quantitative'},
+            angle: {field: 'b', type: 'quantitative'}
+          },
+          'arc',
+          undefined,
+          defaultConfig
+        );
+
+        expect(encoding).toEqual({
+          color: {field: 'a', type: 'quantitative'},
+          theta: {field: 'b', type: 'quantitative'}
+        });
+        expect(logger.warns[0]).toEqual(log.message.REPLACE_ANGLE_WITH_THETA);
+      })
+    );
+
+    it(
+      'should drop color channel if stroke is specified and filled is false',
+      log.wrap(logger => {
+        const encoding = initEncoding(
           {
             color: {field: 'a', type: 'quantitative'},
             stroke: {field: 'b', type: 'quantitative'}
           },
-          'rule'
+          'point',
+          false,
+          defaultConfig
         );
 
         expect(encoding).toEqual({
@@ -57,7 +100,7 @@ describe('encoding', () => {
 
       const x = encoding.x;
       expect(x).toBeDefined();
-      if (isPositionFieldDef(x)) {
+      if (isPositionFieldOrDatumDef(x)) {
         expect(x.axis).toBeDefined();
         expect(x.axis.labelAngle).toBe(15);
       } else {
@@ -66,28 +109,27 @@ describe('encoding', () => {
     });
     it('should extract time unit from encoding field definition and add axis format', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {timeUnit: 'yearmonthdatehoursminutes', field: 'a', type: 'temporal'},
             y: {field: 'b', type: 'quantitative'}
           },
-          'line'
+          'line',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
       expect(output).toEqual({
         bins: [],
-        timeUnits: [{timeUnit: 'yearmonthdatehoursminutes', field: 'a', as: 'yearmonthdatehoursminutes_a'}],
+        timeUnits: [{timeUnit: {unit: 'yearmonthdatehoursminutes'}, field: 'a', as: 'yearmonthdatehoursminutes_a'}],
         aggregate: [],
         groupby: ['yearmonthdatehoursminutes_a', 'b'],
         encoding: {
           x: {
             field: 'yearmonthdatehoursminutes_a',
             type: 'temporal',
-            title: 'a (year-month-date-hours-minutes)',
-            axis: {
-              format: '%b %d, %Y %H:%M'
-            }
+            title: 'a (year-month-date-hours-minutes)'
           },
           y: {field: 'b', type: 'quantitative'}
         }
@@ -95,19 +137,20 @@ describe('encoding', () => {
     });
     it('should produce format and formatType in axis when there is timeUnit', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'quantitative'},
             y: {timeUnit: 'year', field: 'b', type: 'ordinal'}
           },
-          'line'
+          'line',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
 
       expect(output.encoding.y).toEqual({
         axis: {
-          format: '%Y',
           formatType: 'time'
         },
         field: 'year_b',
@@ -117,20 +160,19 @@ describe('encoding', () => {
     });
     it('should not produce formatType in axis when there is timeUnit with type temporal', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'quantitative'},
             y: {timeUnit: 'year', field: 'b', type: 'temporal'}
           },
-          'line'
+          'line',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
 
       expect(output.encoding.y).toEqual({
-        axis: {
-          format: '%Y'
-        },
         field: 'year_b',
         title: 'b (year)',
         type: 'temporal'
@@ -138,20 +180,21 @@ describe('encoding', () => {
     });
     it('should produce format and formatType in legend when there is timeUnit', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'quantitative'},
             y: {field: 'b', type: 'ordinal'},
             detail: {field: 'c', timeUnit: 'month', type: 'nominal'}
           },
-          'line'
+          'line',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
 
       expect(output.encoding.detail).toEqual({
         legend: {
-          format: '%b',
           formatType: 'time'
         },
         field: 'month_c',
@@ -161,21 +204,20 @@ describe('encoding', () => {
     });
     it('should not produce formatType in legend when there is timeUnit with type temporal', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'quantitative'},
             y: {field: 'b', type: 'ordinal'},
             detail: {field: 'c', timeUnit: 'month', type: 'temporal'}
           },
-          'line'
+          'line',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
 
       expect(output.encoding.detail).toEqual({
-        legend: {
-          format: '%b'
-        },
         field: 'month_c',
         title: 'c (month)',
         type: 'temporal'
@@ -183,26 +225,26 @@ describe('encoding', () => {
     });
     it('should produce format and formatType when there is timeUnit in tooltip channel or tooltip channel', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'quantitative'},
             y: {field: 'b', type: 'ordinal'},
             tooltip: {field: 'c', timeUnit: 'month', type: 'nominal'},
             text: {field: 'c', timeUnit: 'month', type: 'nominal'}
           },
-          'text'
+          'text',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
       expect(output.encoding.tooltip).toEqual({
-        format: '%b',
         formatType: 'time',
         field: 'month_c',
         title: 'c (month)',
         type: 'nominal'
       });
       expect(output.encoding.text).toEqual({
-        format: '%b',
         formatType: 'time',
         field: 'month_c',
         title: 'c (month)',
@@ -211,7 +253,7 @@ describe('encoding', () => {
     });
     it('should extract aggregates from encoding', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'quantitative'},
             y: {
@@ -220,7 +262,9 @@ describe('encoding', () => {
               type: 'quantitative'
             }
           },
-          'line'
+          'line',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
@@ -241,12 +285,14 @@ describe('encoding', () => {
     });
     it('should extract binning from encoding', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'ordinal', bin: true},
             y: {type: 'quantitative', aggregate: 'count'}
           },
-          'bar'
+          'bar',
+          true,
+          defaultConfig
         ),
         defaultConfig
       );
@@ -254,7 +300,7 @@ describe('encoding', () => {
         bins: [{bin: {maxbins: 10}, field: 'a', as: 'bin_maxbins_10_a'}],
         timeUnits: [],
         aggregate: [{op: 'count', as: internalField('count')}],
-        groupby: ['bin_maxbins_10_a_end', 'bin_maxbins_10_a_range', 'bin_maxbins_10_a'],
+        groupby: ['bin_maxbins_10_a', 'bin_maxbins_10_a_end', 'bin_maxbins_10_a_range'],
         encoding: {
           x: {field: 'bin_maxbins_10_a', type: 'quantitative', title: 'a (binned)', bin: 'binned'},
           x2: {field: 'bin_maxbins_10_a_end'},
@@ -264,7 +310,7 @@ describe('encoding', () => {
     });
     it('should preserve auxiliary properties (i.e. axis) in encoding', () => {
       const output = extractTransformsFromEncoding(
-        normalizeEncoding(
+        initEncoding(
           {
             x: {field: 'a', type: 'quantitative'},
             y: {
@@ -275,7 +321,9 @@ describe('encoding', () => {
               axis: {title: 'foo', format: '.2e'}
             }
           },
-          'line'
+          'line',
+          false,
+          defaultConfig
         ),
         defaultConfig
       );
@@ -390,6 +438,71 @@ describe('encoding', () => {
       expect(markChannelCompatible(encoding, Y2, POINT)).toBe(false);
       expect(markChannelCompatible(encoding, Y2, SQUARE)).toBe(false);
       expect(markChannelCompatible(encoding, Y2, TICK)).toBe(false);
+    });
+  });
+
+  describe('pathGroupingFields()', () => {
+    it('should return fields for unaggregate detail, color, size, opacity fieldDefs.', () => {
+      for (const channel of [DETAIL, COLOR, SIZE, OPACITY, FILLOPACITY, STROKEOPACITY, STROKEWIDTH]) {
+        expect(pathGroupingFields('line', {[channel]: {field: 'a', type: 'nominal'}})).toEqual(['a']);
+      }
+    });
+
+    it('should not return a field for size of a trail mark.', () => {
+      expect(pathGroupingFields('trail', {size: {field: 'a', type: 'nominal'}})).toEqual([]);
+    });
+
+    it('should not return fields for aggregate detail, color, size, opacity fieldDefs.', () => {
+      for (const channel of [DETAIL, COLOR, SIZE, OPACITY, FILLOPACITY, STROKEOPACITY, STROKEWIDTH]) {
+        expect(pathGroupingFields('line', {[channel]: {aggregate: 'mean', field: 'a', type: 'nominal'}})).toEqual([]);
+      }
+    });
+
+    it('should return condition detail fields for color, size, shape', () => {
+      for (const channel of [COLOR, SIZE, OPACITY, FILLOPACITY, STROKEOPACITY, STROKEWIDTH]) {
+        expect(
+          pathGroupingFields('line', {
+            [channel]: {
+              condition: {param: 'sel', field: 'a', type: 'nominal'}
+            }
+          })
+        ).toEqual(['a']);
+      }
+    });
+
+    it('should not return errors for all channels', () => {
+      for (const channel of UNIT_CHANNELS) {
+        expect(() => {
+          pathGroupingFields('line', {
+            [channel]: {field: 'a', type: 'nominal'}
+          });
+        }).not.toThrow();
+      }
+    });
+
+    it('should not include fields from tooltip', () => {
+      expect(pathGroupingFields('line', {tooltip: {field: 'a', type: 'nominal'}})).toEqual([]);
+    });
+  });
+
+  describe('fieldDefs', () => {
+    it('should return field defs', () => {
+      expect(
+        fieldDefs<string>({
+          x: {field: 'foo', type: 'quantitative'},
+          color: {
+            condition: {
+              test: 'datum.val > 12',
+              field: 'bar',
+              type: 'quantitative'
+            },
+            value: 'red'
+          }
+        })
+      ).toEqual([
+        {field: 'foo', type: 'quantitative'},
+        {field: 'bar', test: 'datum.val > 12', type: 'quantitative'}
+      ]);
     });
   });
 });

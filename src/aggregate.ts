@@ -1,6 +1,7 @@
 import {AggregateOp} from 'vega';
 import {isString, toSet} from 'vega-util';
-import {contains, Flag, flagKeys} from './util';
+import {FieldName} from './channeldef';
+import {contains, Flag, keys} from './util';
 
 const AGGREGATE_OP_INDEX: Flag<AggregateOp> = {
   argmax: 1,
@@ -8,6 +9,7 @@ const AGGREGATE_OP_INDEX: Flag<AggregateOp> = {
   average: 1,
   count: 1,
   distinct: 1,
+  product: 1,
   max: 1,
   mean: 1,
   median: 1,
@@ -27,15 +29,23 @@ const AGGREGATE_OP_INDEX: Flag<AggregateOp> = {
   variancep: 1
 };
 
+export const MULTIDOMAIN_SORT_OP_INDEX = {
+  count: 1,
+  min: 1,
+  max: 1
+};
+
 export interface ArgminDef {
-  argmin: string;
+  argmin: FieldName;
 }
 
 export interface ArgmaxDef {
-  argmax: string;
+  argmax: FieldName;
 }
 
-export type Aggregate = AggregateOp | ArgmaxDef | ArgminDef;
+export type NonArgAggregateOp = Exclude<AggregateOp, 'argmin' | 'argmax'>;
+
+export type Aggregate = NonArgAggregateOp | ArgmaxDef | ArgminDef;
 
 export function isArgminDef(a: Aggregate | string): a is ArgminDef {
   return !!a && !!a['argmin'];
@@ -45,24 +55,24 @@ export function isArgmaxDef(a: Aggregate | string): a is ArgmaxDef {
   return !!a && !!a['argmax'];
 }
 
-export const AGGREGATE_OPS = flagKeys(AGGREGATE_OP_INDEX);
+export const AGGREGATE_OPS = keys(AGGREGATE_OP_INDEX);
 
 export function isAggregateOp(a: string | ArgminDef | ArgmaxDef): a is AggregateOp {
   return isString(a) && !!AGGREGATE_OP_INDEX[a];
 }
 
-export const COUNTING_OPS: AggregateOp[] = ['count', 'valid', 'missing', 'distinct'];
+export const COUNTING_OPS: NonArgAggregateOp[] = ['count', 'valid', 'missing', 'distinct'];
 
-export function isCountingAggregateOp(aggregate: string | Aggregate): boolean {
-  return aggregate && isString(aggregate) && contains(COUNTING_OPS, aggregate);
+export function isCountingAggregateOp(aggregate?: string | Aggregate): boolean {
+  return isString(aggregate) && contains(COUNTING_OPS, aggregate);
 }
 
-export function isMinMaxOp(aggregate: Aggregate | string): boolean {
-  return aggregate && isString(aggregate) && contains(['min', 'max'], aggregate);
+export function isMinMaxOp(aggregate?: Aggregate | string): boolean {
+  return isString(aggregate) && contains(['min', 'max'], aggregate);
 }
 
-/** Additive-based aggregation operations.  These can be applied to stack. */
-export const SUM_OPS: AggregateOp[] = ['count', 'sum', 'distinct', 'valid', 'missing'];
+/** Additive-based aggregation operations. These can be applied to stack. */
+export const SUM_OPS: NonArgAggregateOp[] = ['count', 'sum', 'distinct', 'valid', 'missing'];
 
 /**
  * Aggregation operators that always produce values within the range [domainMin, domainMax].

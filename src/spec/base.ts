@@ -1,26 +1,27 @@
-import {isArray, isNumber} from 'vega-util';
-import {Config} from '../config';
+import {Color, Cursor, SignalRef, Text} from 'vega';
+import {isNumber, isObject} from 'vega-util';
+import {NormalizedSpec} from '.';
 import {Data} from '../data';
+import {ExprRef} from '../expr';
+import {MarkConfig} from '../mark';
 import {Resolve} from '../resolve';
 import {TitleParams} from '../title';
 import {Transform} from '../transform';
-import {Flag, flagKeys} from '../util';
-import {BaseMarkConfig, LayoutAlign, RowCol} from '../vega.schema';
-import {isConcatSpec} from './concat';
+import {Flag, keys} from '../util';
+import {LayoutAlign, RowCol} from '../vega.schema';
+import {isConcatSpec, isVConcatSpec} from './concat';
 import {isFacetMapping, isFacetSpec} from './facet';
-import {NormalizedSpec} from './index';
-import {isRepeatSpec} from './repeat';
 
 export {TopLevel} from './toplevel';
 
 /**
  * Common properties for all types of specification
  */
-export type BaseSpec = Partial<DataMixins> & {
+export interface BaseSpec {
   /**
    * Title for the plot.
    */
-  title?: string | TitleParams;
+  title?: Text | TitleParams<ExprRef | SignalRef>;
 
   /**
    * Name of the visualization for later reference.
@@ -33,21 +34,32 @@ export type BaseSpec = Partial<DataMixins> & {
   description?: string;
 
   /**
-   * An object describing the data source
+   * An object describing the data source. Set to `null` to ignore the parent's data source. If no data is set, it is derived from the parent.
    */
-  data?: Data;
+  data?: Data | null;
 
   /**
    * An array of data transformations such as filter and new field calculation.
    */
   transform?: Transform[];
-};
+}
 
 export interface DataMixins {
   /**
-   * An object describing the data source
+   * An object describing the data source.
    */
   data: Data;
+}
+
+export interface Step {
+  /**
+   * The size (width/height) per discrete step.
+   */
+  step: number;
+}
+
+export function isStep(size: number | Step | 'container' | 'merged'): size is Step {
+  return isObject(size) && size['step'] !== undefined;
 }
 
 // TODO(https://github.com/vega/vega-lite/issues/2503): Make this generic so we can support some form of top-down sizing.
@@ -58,40 +70,46 @@ export interface LayoutSizeMixins {
   /**
    * The width of a visualization.
    *
-   * __Default value:__ This will be determined by the following rules:
+   * - For a plot with a continuous x-field, width should be a number.
+   * - For a plot with either a discrete x-field or no x-field, width can be either a number indicating a fixed width or an object in the form of `{step: number}` defining the width per discrete step. (No x-field is equivalent to having one discrete step.)
+   * - To enable responsive sizing on width, it should be set to `"container"`.
    *
-   * - If a view's [`autosize`](https://vega.github.io/vega-lite/docs/size.html#autosize) type is `"fit"` or its x-channel has a [continuous scale](https://vega.github.io/vega-lite/docs/scale.html#continuous), the width will be the value of [`config.view.width`](https://vega.github.io/vega-lite/docs/spec.html#config).
-   * - For x-axis with a band or point scale: if [`rangeStep`](https://vega.github.io/vega-lite/docs/scale.html#band) is a numeric value or unspecified, the width is [determined by the range step, paddings, and the cardinality of the field mapped to x-channel](https://vega.github.io/vega-lite/docs/scale.html#band).   Otherwise, if the `rangeStep` is `null`, the width will be the value of [`config.view.width`](https://vega.github.io/vega-lite/docs/spec.html#config).
-   * - If no field is mapped to `x` channel, the `width` will be the value of [`config.scale.textXRangeStep`](https://vega.github.io/vega-lite/docs/size.html#default-width-and-height) for `text` mark and the value of `rangeStep` for other marks.
+   * __Default value:__
+   * Based on `config.view.continuousWidth` for a plot with a continuous x-field and `config.view.discreteWidth` otherwise.
    *
-   * __Note:__ For plots with [`row` and `column` channels](https://vega.github.io/vega-lite/docs/encoding.html#facet), this represents the width of a single view.
+   * __Note:__ For plots with [`row` and `column` channels](https://vega.github.io/vega-lite/docs/encoding.html#facet), this represents the width of a single view and the `"container"` option cannot be used.
    *
-   * __See also:__ The documentation for [width and height](https://vega.github.io/vega-lite/docs/size.html) contains more examples.
+   * __See also:__ [`width`](https://vega.github.io/vega-lite/docs/size.html) documentation.
    */
-  width?: number;
+  width?: number | 'container' | Step; // Vega also supports SignalRef for width and height. However, we need to know if width is a step or not in VL and it's very difficult to check this at runtime, so we intentionally do not support SignalRef here.
 
   /**
    * The height of a visualization.
    *
-   * __Default value:__
-   * - If a view's [`autosize`](https://vega.github.io/vega-lite/docs/size.html#autosize) type is `"fit"` or its y-channel has a [continuous scale](https://vega.github.io/vega-lite/docs/scale.html#continuous), the height will be the value of [`config.view.height`](https://vega.github.io/vega-lite/docs/spec.html#config).
-   * - For y-axis with a band or point scale: if [`rangeStep`](https://vega.github.io/vega-lite/docs/scale.html#band) is a numeric value or unspecified, the height is [determined by the range step, paddings, and the cardinality of the field mapped to y-channel](https://vega.github.io/vega-lite/docs/scale.html#band). Otherwise, if the `rangeStep` is `null`, the height will be the value of [`config.view.height`](https://vega.github.io/vega-lite/docs/spec.html#config).
-   * - If no field is mapped to `y` channel, the `height` will be the value of `rangeStep`.
+   * - For a plot with a continuous y-field, height should be a number.
+   * - For a plot with either a discrete y-field or no y-field, height can be either a number indicating a fixed height or an object in the form of `{step: number}` defining the height per discrete step. (No y-field is equivalent to having one discrete step.)
+   * - To enable responsive sizing on height, it should be set to `"container"`.
    *
-   * __Note__: For plots with [`row` and `column` channels](https://vega.github.io/vega-lite/docs/encoding.html#facet), this represents the height of a single view.
+   * __Default value:__ Based on `config.view.continuousHeight` for a plot with a continuous y-field and `config.view.discreteHeight` otherwise.
    *
-   * __See also:__ The documentation for [width and height](https://vega.github.io/vega-lite/docs/size.html) contains more examples.
+   * __Note:__ For plots with [`row` and `column` channels](https://vega.github.io/vega-lite/docs/encoding.html#facet), this represents the height of a single view and the `"container"` option cannot be used.
+   *
+   * __See also:__ [`height`](https://vega.github.io/vega-lite/docs/size.html) documentation.
    */
-  height?: number;
+  height?: number | 'container' | Step; // Vega also supports SignalRef for width and height. However, we need to know if width is a step or not in VL and it's very difficult to check this at runtime, so we intentionally do not support SignalRef here.
 }
 
-export interface LayerUnitMixins extends LayoutSizeMixins {
+export function isFrameMixins(o: any): o is FrameMixins<any> {
+  return o['view'] || o['width'] || o['height'];
+}
+
+export interface FrameMixins<ES extends ExprRef | SignalRef = ExprRef | SignalRef> extends LayoutSizeMixins {
   /**
    * An object defining the view background's fill and stroke.
    *
    * __Default value:__ none (transparent)
    */
-  view?: ViewBackground;
+  view?: ViewBackground<ES>;
 }
 
 export interface ResolveMixins {
@@ -101,10 +119,10 @@ export interface ResolveMixins {
   resolve?: Resolve;
 }
 
-export interface BaseViewBackground
+export interface BaseViewBackground<ES extends ExprRef | SignalRef>
   extends Partial<
     Pick<
-      BaseMarkConfig,
+      MarkConfig<ES>,
       | 'cornerRadius'
       | 'fillOpacity'
       | 'opacity'
@@ -117,30 +135,35 @@ export interface BaseViewBackground
       | 'strokeWidth'
     >
   > {
-  // Override documentations for fill and stroke
+  // Override documentations for fill, stroke, and cursor
   /**
    * The fill color.
    *
    * __Default value:__ `undefined`
    */
-  fill?: string | null;
+  fill?: Color | null | ES;
 
   /**
    * The stroke color.
    *
    * __Default value:__ `"#ddd"`
    */
-  stroke?: string | null;
+  stroke?: Color | null | ES;
+
+  /**
+   * The mouse cursor used over the view. Any valid [CSS cursor type](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#Values) can be used.
+   */
+  cursor?: Cursor;
 }
 
-export interface ViewBackground extends BaseViewBackground {
+export interface ViewBackground<ES extends ExprRef | SignalRef> extends BaseViewBackground<ES> {
   /**
    * A string or array of strings indicating the name of custom styles to apply to the view background. A style is a named collection of mark property defaults defined within the [style configuration](https://vega.github.io/vega-lite/docs/mark.html#style-config). If style is an array, later styles will override earlier styles.
    *
    * __Default value:__ `"cell"`
    * __Note:__ Any specified view background properties will augment the default style.
    */
-  style?: string;
+  style?: string | string[];
 }
 
 export interface BoundsMixins {
@@ -230,11 +253,8 @@ export interface CompositionConfigMixins {
   /** Default configuration for the `facet` view composition operator */
   facet?: CompositionConfig;
 
-  /** Default configuration for all concatenation view composition operators (`concat`, `hconcat`, and `vconcat`) */
+  /** Default configuration for all concatenation and repeat view composition operators (`concat`, `hconcat`, `vconcat`, and `repeat`) */
   concat?: CompositionConfig;
-
-  /** Default configuration for the `repeat` view composition operator */
-  repeat?: CompositionConfig;
 }
 
 const COMPOSITION_LAYOUT_INDEX: Flag<keyof GenericCompositionLayoutWithColumns> = {
@@ -245,14 +265,14 @@ const COMPOSITION_LAYOUT_INDEX: Flag<keyof GenericCompositionLayoutWithColumns> 
   spacing: 1
 };
 
-const COMPOSITION_LAYOUT_PROPERTIES = flagKeys(COMPOSITION_LAYOUT_INDEX);
+const COMPOSITION_LAYOUT_PROPERTIES = keys(COMPOSITION_LAYOUT_INDEX);
 
-export type SpecType = 'unit' | 'facet' | 'layer' | 'concat' | 'repeat';
+export type SpecType = 'unit' | 'facet' | 'layer' | 'concat';
 
 export function extractCompositionLayout(
   spec: NormalizedSpec,
-  specType: SpecType,
-  config: Config
+  specType: keyof CompositionConfigMixins,
+  config: CompositionConfigMixins
 ): GenericCompositionLayoutWithColumns {
   const compositionConfig = config[specType];
   const layout: GenericCompositionLayoutWithColumns = {};
@@ -264,30 +284,29 @@ export function extractCompositionLayout(
   }
 
   if (columns !== undefined) {
-    if (
-      (isFacetSpec(spec) && !isFacetMapping(spec.facet)) ||
-      (isRepeatSpec(spec) && isArray(spec.repeat)) ||
-      isConcatSpec(spec)
-    ) {
+    if ((isFacetSpec(spec) && !isFacetMapping(spec.facet)) || isConcatSpec(spec)) {
       layout.columns = columns;
     }
   }
 
-  // Then copy properties from the spec
+  if (isVConcatSpec(spec)) {
+    layout.columns = 1;
+  }
 
+  // Then copy properties from the spec
   for (const prop of COMPOSITION_LAYOUT_PROPERTIES) {
     if (spec[prop] !== undefined) {
       if (prop === 'spacing') {
-        const spacing = spec[prop];
+        const spacing: number | RowCol<number> = spec[prop];
 
         layout[prop] = isNumber(spacing)
           ? spacing
           : {
-              row: spacing.row || spacingConfig,
-              column: spacing.column || spacingConfig
+              row: spacing.row ?? spacingConfig,
+              column: spacing.column ?? spacingConfig
             };
       } else {
-        layout[prop] = spec[prop];
+        (layout[prop] as any) = spec[prop];
       }
     }
   }

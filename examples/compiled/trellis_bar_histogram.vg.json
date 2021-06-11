@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {
@@ -18,8 +18,8 @@
           "field": "Horsepower",
           "as": ["bin_maxbins_15_Horsepower", "bin_maxbins_15_Horsepower_end"],
           "signal": "child_bin_maxbins_15_Horsepower_bins",
-          "maxbins": 15,
-          "extent": {"signal": "child_bin_maxbins_15_Horsepower_extent"}
+          "extent": {"signal": "child_bin_maxbins_15_Horsepower_extent"},
+          "maxbins": 15
         },
         {
           "type": "aggregate",
@@ -34,7 +34,7 @@
         },
         {
           "type": "filter",
-          "expr": "datum[\"bin_maxbins_15_Horsepower\"] !== null && !isNaN(datum[\"bin_maxbins_15_Horsepower\"])"
+          "expr": "isValid(datum[\"bin_maxbins_15_Horsepower\"]) && isFinite(+datum[\"bin_maxbins_15_Horsepower\"])"
         }
       ]
     },
@@ -74,7 +74,9 @@
       "from": {"data": "row_domain"},
       "sort": {"field": "datum[\"Origin\"]", "order": "ascending"},
       "title": {
-        "text": {"signal": "''+parent[\"Origin\"]"},
+        "text": {
+          "signal": "isValid(parent[\"Origin\"]) ? parent[\"Origin\"] : \"\"+parent[\"Origin\"]"
+        },
         "orient": "left",
         "style": "guide-label",
         "frame": "group",
@@ -89,7 +91,7 @@
           "title": "Count of Records",
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_height/40)"},
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -107,7 +109,7 @@
           "labelFlush": true,
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_width/10)"},
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -134,12 +136,13 @@
           "encode": {
             "update": {
               "fill": {"value": "#4c78a8"},
-              "tooltip": {
-                "signal": "{\"Horsepower (binned)\": datum[\"bin_maxbins_15_Horsepower\"] === null || isNaN(datum[\"bin_maxbins_15_Horsepower\"]) ? \"null\" : format(datum[\"bin_maxbins_15_Horsepower\"], \"\") + \" - \" + format(datum[\"bin_maxbins_15_Horsepower_end\"], \"\"), \"Count of Records\": format(datum[\"__count\"], \"\")}"
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"Horsepower (binned): \" + (!isValid(datum[\"bin_maxbins_15_Horsepower\"]) || !isFinite(+datum[\"bin_maxbins_15_Horsepower\"]) ? \"null\" : format(datum[\"bin_maxbins_15_Horsepower\"], \"\") + \" – \" + format(datum[\"bin_maxbins_15_Horsepower_end\"], \"\")) + \"; Count of Records: \" + (format(datum[\"__count\"], \"\"))"
               },
               "x2": [
                 {
-                  "test": "datum[\"bin_maxbins_15_Horsepower\"] === null || isNaN(datum[\"bin_maxbins_15_Horsepower\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_15_Horsepower\"]) || !isFinite(+datum[\"bin_maxbins_15_Horsepower\"])",
                   "value": 0
                 },
                 {
@@ -150,7 +153,7 @@
               ],
               "x": [
                 {
-                  "test": "datum[\"bin_maxbins_15_Horsepower\"] === null || isNaN(datum[\"bin_maxbins_15_Horsepower\"])",
+                  "test": "!isValid(datum[\"bin_maxbins_15_Horsepower\"]) || !isFinite(+datum[\"bin_maxbins_15_Horsepower\"])",
                   "value": 0
                 },
                 {"scale": "x", "field": "bin_maxbins_15_Horsepower_end"}
@@ -170,6 +173,7 @@
           "tickCount": {"signal": "ceil(child_height/40)"},
           "domain": false,
           "labels": false,
+          "aria": false,
           "maxExtent": 0,
           "minExtent": 0,
           "ticks": false,

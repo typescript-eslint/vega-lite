@@ -1,30 +1,35 @@
+import {SignalRef} from 'vega';
+import {Field} from '../src/channeldef';
 import {buildModel} from '../src/compile/buildmodel';
 import {ConcatModel} from '../src/compile/concat';
 import {FacetModel} from '../src/compile/facet';
 import {LayerModel} from '../src/compile/layer';
 import {Model} from '../src/compile/model';
-import {RepeatModel} from '../src/compile/repeat';
+import {parseScales} from '../src/compile/scale/parse';
 import {UnitModel} from '../src/compile/unit';
 import {initConfig} from '../src/config';
-import {normalize} from '../src/normalize/index';
+import {normalize} from '../src/normalize';
 import {
+  GenericLayerSpec,
   isLayerSpec,
   isUnitSpec,
   NormalizedConcatSpec,
   NormalizedFacetSpec,
   NormalizedLayerSpec,
-  NormalizedRepeatSpec,
   NormalizedUnitSpec,
   TopLevel,
   TopLevelSpec
 } from '../src/spec';
-import {normalizeAutoSize} from '../src/spec/toplevel';
+import {BaseSpec, FrameMixins} from '../src/spec/base';
+import {FacetedUnitSpec} from '../src/spec/unit';
+import {contains} from '../src/util';
+
+export type TopLevelNormalizedUnitSpecForTest = TopLevel<NormalizedUnitSpec> & FrameMixins<SignalRef>;
 
 export function parseModel(inputSpec: TopLevelSpec): Model {
   const config = initConfig(inputSpec.config);
   const spec = normalize(inputSpec, config);
-  const autosize = normalizeAutoSize(inputSpec.autosize, config.autosize, isLayerSpec(spec) || isUnitSpec(spec));
-  return buildModel(spec, null, '', undefined, undefined, config, autosize.type === 'fit');
+  return buildModel(spec, null, '', undefined, config);
 }
 
 export function parseModelWithScale(inputSpec: TopLevelSpec): Model {
@@ -33,44 +38,47 @@ export function parseModelWithScale(inputSpec: TopLevelSpec): Model {
   return model;
 }
 
-export function parseUnitModel(spec: TopLevel<NormalizedUnitSpec>) {
-  return new UnitModel(
-    spec,
-    null,
-    '',
-    undefined,
-    undefined,
-    initConfig(spec.config),
-    normalizeAutoSize(spec.autosize, spec.config ? spec.config.autosize : undefined, true).type === 'fit'
-  );
+export function parseUnitModel(spec: TopLevelNormalizedUnitSpecForTest) {
+  return new UnitModel(spec, null, '', undefined, initConfig(spec.config));
 }
 
-export function parseUnitModelWithScale(spec: TopLevel<NormalizedUnitSpec>) {
+export function parseUnitModelWithScale(spec: TopLevelNormalizedUnitSpecForTest) {
   const model = parseUnitModel(spec);
   model.parseScale();
   return model;
 }
 
-export function parseUnitModelWithScaleAndLayoutSize(spec: TopLevel<NormalizedUnitSpec>) {
+export function parseUnitModelWithScaleAndSelection(spec: TopLevelNormalizedUnitSpecForTest) {
+  const model = parseUnitModel(spec);
+  model.parseScale();
+  model.parseSelections();
+  return model;
+}
+
+export function parseUnitModelWithScaleExceptRange(spec: TopLevelNormalizedUnitSpecForTest) {
+  const model = parseUnitModel(spec);
+  parseScales(model, {ignoreRange: true});
+  return model;
+}
+
+export function parseUnitModelWithScaleAndLayoutSize(spec: TopLevelNormalizedUnitSpecForTest) {
   const model = parseUnitModelWithScale(spec);
   model.parseLayoutSize();
   return model;
 }
 
+export function parseModelWithScaleAndLayoutSize(spec: TopLevelSpec) {
+  const model = parseModelWithScale(spec);
+  model.parseLayoutSize();
+  return model;
+}
+
 export function parseLayerModel(spec: TopLevel<NormalizedLayerSpec>) {
-  return new LayerModel(
-    spec,
-    null,
-    '',
-    undefined,
-    undefined,
-    initConfig(spec.config),
-    normalizeAutoSize(spec.autosize, spec.config ? spec.config.autosize : undefined, true).type === 'fit'
-  );
+  return new LayerModel(spec, null, '', undefined, initConfig(spec.config));
 }
 
 export function parseFacetModel(spec: TopLevel<NormalizedFacetSpec>) {
-  return new FacetModel(spec, null, '', undefined, initConfig(spec.config));
+  return new FacetModel(spec, null, '', initConfig(spec.config));
 }
 
 export function parseFacetModelWithScale(spec: TopLevel<NormalizedFacetSpec>) {
@@ -79,10 +87,23 @@ export function parseFacetModelWithScale(spec: TopLevel<NormalizedFacetSpec>) {
   return model;
 }
 
-export function parseRepeatModel(spec: TopLevel<NormalizedRepeatSpec>) {
-  return new RepeatModel(spec, null, '', undefined, initConfig(spec.config));
+export function parseConcatModel(spec: TopLevel<NormalizedConcatSpec>) {
+  return new ConcatModel(spec, null, '', initConfig(spec.config));
 }
 
-export function parseConcatModel(spec: TopLevel<NormalizedConcatSpec>) {
-  return new ConcatModel(spec, null, '', undefined, initConfig(spec.config));
+export function assertIsUnitSpec(spec: BaseSpec): asserts spec is FacetedUnitSpec<Field> | NormalizedUnitSpec {
+  if (!isUnitSpec(spec)) {
+    throw new Error('Spec is not a unit spec!');
+  }
+}
+
+export function assertIsLayerSpec(spec: BaseSpec): asserts spec is GenericLayerSpec<any> {
+  if (!isLayerSpec(spec)) {
+    throw new Error('Spec is not a layer spec!');
+  }
+}
+
+/** Returns the array without the elements in excludedItems */
+export function without<T>(array: readonly T[], excludedItems: readonly T[]) {
+  return array.filter(item => !contains(excludedItems, item));
 }

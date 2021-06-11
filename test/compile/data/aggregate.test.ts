@@ -2,7 +2,7 @@ import {AggregateNode} from '../../../src/compile/data/aggregate';
 import {AggregateTransform} from '../../../src/transform';
 import {internalField} from '../../../src/util';
 import {parseUnitModel} from '../../util';
-import {DataFlowNode} from './../../../src/compile/data/dataflow';
+import {PlaceholderDataFlowNode} from './util';
 
 describe('compile/data/aggregate', () => {
   describe('clone', () => {
@@ -22,7 +22,7 @@ describe('compile/data/aggregate', () => {
     });
 
     it('should never clone parent', () => {
-      const parent = new DataFlowNode(null);
+      const parent = new PlaceholderDataFlowNode(null);
       const aggregate = new AggregateNode(parent, new Set(), {});
       expect(aggregate.clone().parent).toBeNull();
     });
@@ -89,8 +89,8 @@ describe('compile/data/aggregate', () => {
         encoding: {
           latitude: {field: 'latitude', type: 'quantitative'},
           longitude: {field: 'longitude', type: 'quantitative'},
-          latitude2: {field: 'latitude2', type: 'quantitative'},
-          longitude2: {field: 'longitude2', type: 'quantitative'},
+          latitude2: {field: 'latitude2'},
+          longitude2: {field: 'longitude2'},
           color: {
             aggregate: 'count',
             type: 'quantitative'
@@ -113,7 +113,10 @@ describe('compile/data/aggregate', () => {
         mark: 'point',
         encoding: {
           x: {aggregate: 'mean', field: 'Displacement', type: 'quantitative'},
-          detail: [{field: 'Origin', type: 'ordinal'}, {field: 'Cylinders', type: 'quantitative'}]
+          detail: [
+            {field: 'Origin', type: 'ordinal'},
+            {field: 'Cylinders', type: 'quantitative'}
+          ]
         }
       });
 
@@ -133,7 +136,7 @@ describe('compile/data/aggregate', () => {
         encoding: {
           x: {aggregate: 'mean', field: 'Displacement', type: 'quantitative'},
           color: {
-            condition: {selection: 'a', field: 'Origin', type: 'ordinal'},
+            condition: {param: 'a', field: 'Origin', type: 'ordinal'},
             value: 'red'
           }
         }
@@ -271,19 +274,32 @@ describe('compile/data/aggregate', () => {
 
   describe('merge', () => {
     it('should not merge AggregateNodes with different dimensions', () => {
-      const parent = new DataFlowNode(null);
+      const parent = new PlaceholderDataFlowNode(null);
       const agg1 = new AggregateNode(parent, new Set(['a', 'b']), {});
       const agg2 = new AggregateNode(parent, new Set(['a']), {});
 
       expect(agg1.merge(agg2)).toBe(false);
     });
     it('should merge AggregateNodes with same dimensions', () => {
-      const parent = new DataFlowNode(null);
+      const parent = new PlaceholderDataFlowNode(null);
       const agg1 = new AggregateNode(parent, new Set(['a', 'b']), {a: {mean: new Set(['a_mean'])}});
       const agg2 = new AggregateNode(parent, new Set(['a', 'b']), {b: {mean: new Set(['b_mean'])}});
 
       expect(agg1.merge(agg2)).toBe(true);
       expect(agg1.producedFields()).toEqual(new Set(['a_mean', 'b_mean']));
+    });
+  });
+
+  describe('assemble()', () => {
+    it('should escape nested accesses', () => {
+      const agg = new AggregateNode(null, new Set(['foo.bar']), {'foo.baz': {mean: new Set(['foo_baz_mean'])}});
+      expect(agg.assemble()).toEqual({
+        as: ['foo_baz_mean'],
+        fields: ['foo\\.baz'],
+        groupby: ['foo\\.bar'],
+        ops: ['mean'],
+        type: 'aggregate'
+      });
     });
   });
 });

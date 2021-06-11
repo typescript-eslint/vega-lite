@@ -17,13 +17,15 @@ permalink: /docs/rect.html
 
 The `rect` mark represents an arbitrary rectangle.
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
+
 {:#properties}
 
 ## Rect Mark Properties
@@ -41,7 +43,11 @@ The `rect` mark represents an arbitrary rectangle.
 }
 ```
 
-A rect mark definition can contain any [standard mark properties](mark.html#mark-def) and the following special properties: {% include table.html props="cornerRadius" source="MarkConfig" %}
+<span class="vl-example" data-name="rect_params" figure-only=true></span>
+
+A rect mark definition can contain any [standard mark properties](mark.html#mark-def) and the following special properties:
+
+{% include table.html props="width,height,align,baseline,cornerRadius" source="MarkConfig" %}
 
 ## Examples
 
@@ -66,10 +72,6 @@ Specifying both `x` and `x2` and/or `y` and `y2` creates a rectangle that spans 
 For example, we can use `rect` to create an annotation [`layer`](layer.html) that provides a shading between global `min` and `max` values.
 
 <span class="vl-example" data-name="layer_rect_extent"></span>
-
-We can also use `rect` to show a band covering one standard deviation over and below the global mean value.
-
-<span class="vl-example" data-name="layer_global_mean_dev"></span>
 
 {:#config}
 

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "description": "An interactive visualization of connections among major U.S. airports in 2008. Based on a U.S. airports example by Mike Bostock.",
   "layer": [
     {
@@ -18,7 +18,7 @@
       "mark": {"type": "rule", "color": "#000", "opacity": 0.35},
       "data": {"url": "data/flights-airport.csv"},
       "transform": [
-        {"filter": {"selection": "single"}},
+        {"filter": {"param": "org", "empty": false}},
         {
           "lookup": "origin",
           "from": {
@@ -38,8 +38,8 @@
         }
       ],
       "encoding": {
-        "latitude": {"field": "latitude", "type": "quantitative"},
-        "longitude": {"field": "longitude", "type": "quantitative"},
+        "latitude": {"field": "latitude"},
+        "longitude": {"field": "longitude"},
         "latitude2": {"field": "lat2"},
         "longitude2": {"field": "lon2"}
       }
@@ -59,27 +59,26 @@
         },
         {"filter": "datum.state !== 'PR' && datum.state !== 'VI'"}
       ],
-      "selection": {
-        "single": {
-          "type": "single",
+      "params": [{
+        "name": "org",
+        "select": {
+          "type": "point",
           "on": "mouseover",
           "nearest": true,
-          "fields": ["origin"],
-          "empty": "none"
+          "fields": ["origin"]
         }
-      },
+      }],
       "encoding": {
-        "latitude": {"field": "latitude", "type": "quantitative"},
-        "longitude": {"field": "longitude", "type": "quantitative"},
+        "latitude": {"field": "latitude"},
+        "longitude": {"field": "longitude"},
         "size": {
           "field": "routes",
           "type": "quantitative",
-          "scale": {"range": [0, 1000]},
+          "scale": {"rangeMax": 1000},
           "legend": null
         },
         "order": {
           "field": "routes",
-          "type": "quantitative",
           "sort": "descending"
         }
       }

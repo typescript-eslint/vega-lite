@@ -1,10 +1,8 @@
-/* tslint:disable:quotemark */
-
 import {StackNode} from '../../../src/compile/data/stack';
 import {UnitModel} from '../../../src/compile/unit';
 import {Transform} from '../../../src/transform';
 import {parseUnitModelWithScale} from '../../util';
-import {DataFlowNode} from './../../../src/compile/data/dataflow';
+import {PlaceholderDataFlowNode} from './util';
 
 function parse(model: UnitModel) {
   return StackNode.makeFromEncoding(null, model).stack;
@@ -13,6 +11,7 @@ function parse(model: UnitModel) {
 function assemble(model: UnitModel) {
   return StackNode.makeFromEncoding(null, model).assemble();
 }
+
 describe('compile/data/stack', () => {
   describe('StackNode.makeFromEncoding', () => {
     it('should produce correct stack component for bar with color', () => {
@@ -32,11 +31,36 @@ describe('compile/data/stack', () => {
         stackby: ['c'],
         sort: {
           field: ['c'],
-          order: ['descending']
+          order: ['ascending']
         },
         offset: 'zero',
         impute: false,
         as: ['sum_a_start', 'sum_a_end']
+      });
+    });
+
+    it('should remove escaping from fields for as', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'bar',
+        encoding: {
+          x: {aggregate: 'sum', field: 'a\\[foo\\]', type: 'quantitative'},
+          y: {field: 'b', type: 'nominal'},
+          color: {field: 'c', type: 'ordinal'}
+        }
+      });
+
+      expect(parse(model)).toEqual({
+        dimensionFieldDef: {field: 'b', type: 'nominal'},
+        facetby: [],
+        stackField: 'sum_a\\[foo\\]',
+        stackby: ['c'],
+        sort: {
+          field: ['c'],
+          order: ['ascending']
+        },
+        offset: 'zero',
+        impute: false,
+        as: ['sum_a[foo]_start', 'sum_a[foo]_end']
       });
     });
 
@@ -57,7 +81,7 @@ describe('compile/data/stack', () => {
         stackby: ['c'],
         sort: {
           field: ['c'],
-          order: ['descending']
+          order: ['ascending']
         },
         offset: 'zero',
         impute: false,
@@ -81,7 +105,7 @@ describe('compile/data/stack', () => {
         stackby: ['c'],
         sort: {
           field: ['c'],
-          order: ['descending']
+          order: ['ascending']
         },
         offset: 'zero',
         impute: false,
@@ -95,7 +119,7 @@ describe('compile/data/stack', () => {
           field: 'sum_a',
           sort: {
             field: ['c'],
-            order: ['descending']
+            order: ['ascending']
           },
           as: ['sum_a_start', 'sum_a_end'],
           offset: 'zero'
@@ -168,7 +192,7 @@ describe('compile/data/stack', () => {
         stackby: ['c'],
         sort: {
           field: ['c'],
-          order: ['descending']
+          order: ['ascending']
         },
         offset: 'zero',
         impute: true,
@@ -178,7 +202,7 @@ describe('compile/data/stack', () => {
       expect(assemble(model)).toEqual([
         {
           type: 'formula',
-          expr: '(datum["bin_maxbins_10_b"]+datum["bin_maxbins_10_b_end"])/2',
+          expr: '0.5*datum["bin_maxbins_10_b"]+0.5*datum["bin_maxbins_10_b_end"]',
           as: 'bin_maxbins_10_b_mid'
         },
         {
@@ -195,7 +219,7 @@ describe('compile/data/stack', () => {
           field: 'sum_a',
           sort: {
             field: ['c'],
-            order: ['descending']
+            order: ['ascending']
           },
           as: ['sum_a_start', 'sum_a_end'],
           offset: 'zero'
@@ -218,7 +242,7 @@ describe('compile/data/stack', () => {
           groupby: ['age'],
           field: 'people',
           offset: 'zero',
-          sort: {field: [] as string[], order: []},
+          sort: {field: [], order: []},
           as: ['v1', 'v2']
         }
       ]);
@@ -238,7 +262,7 @@ describe('compile/data/stack', () => {
           groupby: ['age', 'gender'],
           field: 'people',
           offset: 'normalize',
-          sort: {field: [] as string[], order: []},
+          sort: {field: [], order: []},
           as: ['val', 'val_end']
         }
       ]);
@@ -249,7 +273,10 @@ describe('compile/data/stack', () => {
         stack: 'people',
         groupby: ['age', 'gender'],
         offset: 'normalize',
-        sort: [{field: 'height', order: 'ascending'}, {field: 'weight', order: 'descending'}],
+        sort: [
+          {field: 'height', order: 'ascending'},
+          {field: 'weight', order: 'descending'}
+        ],
         as: 'val'
       };
       const stack = StackNode.makeFromTransform(null, transform);
@@ -287,8 +314,9 @@ describe('compile/data/stack', () => {
       ]);
     });
   });
+
   describe('StackNode.producedFields', () => {
-    it('should give producedfields correctly', () => {
+    it('should give producedFields correctly', () => {
       const transform: Transform = {
         stack: 'people',
         groupby: ['age'],
@@ -322,14 +350,39 @@ describe('compile/data/stack', () => {
       });
       const stack = StackNode.makeFromEncoding(null, model);
       expect(stack.hash()).toEqual(
-        'Stack {"as":["sum_a_start","sum_a_end"],"dimensionFieldDef":{"field":"b","type":"nominal"},"facetby":[],"impute":false,"offset":"zero","sort":{"field":["c"],"order":["descending"]},"stackField":"sum_a","stackby":["c"]}'
+        'Stack {"as":["sum_a_start","sum_a_end"],"dimensionFieldDef":{"field":"b","type":"nominal"},"facetby":[],"impute":false,"offset":"zero","sort":{"field":["c"],"order":["ascending"]},"stackField":"sum_a","stackby":["c"]}'
       );
     });
 
     it('should never clone parent', () => {
-      const parent = new DataFlowNode(null);
+      const parent = new PlaceholderDataFlowNode(null);
       const stack = new StackNode(parent, null);
       expect(stack.clone().parent).toBeNull();
+    });
+  });
+
+  describe('StackNode.dependentFields', () => {
+    it('should give dependentFields correctly', () => {
+      const transform: Transform = {
+        stack: 'foo',
+        groupby: ['bar', 'baz'],
+        as: 'qux'
+      };
+      const stack = StackNode.makeFromTransform(null, transform);
+      expect(stack.dependentFields()).toEqual(new Set(['foo', 'bar', 'baz']));
+    });
+
+    it('should give dependentFields correctly when derived from encoding channel', () => {
+      const model = parseUnitModelWithScale({
+        mark: 'bar',
+        encoding: {
+          x: {aggregate: 'sum', field: 'a', type: 'quantitative'},
+          y: {field: 'b', type: 'nominal'},
+          color: {field: 'c', type: 'ordinal'}
+        }
+      });
+      const stack = StackNode.makeFromEncoding(null, model);
+      expect(stack.dependentFields()).toEqual(new Set(['sum_a', 'b', 'c']));
     });
   });
 });

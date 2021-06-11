@@ -1,65 +1,64 @@
-import {toSet} from 'vega-util';
+import {
+  RangeEnum,
+  ScaleBins,
+  ScaleInterpolateEnum,
+  ScaleInterpolateParams,
+  SignalRef,
+  TimeInterval,
+  TimeIntervalStep
+} from 'vega';
+import {isString, toSet} from 'vega-util';
 import * as CHANNEL from './channel';
-import {Channel, CHANNELS, isColorChannel} from './channel';
+import {Channel, isColorChannel} from './channel';
 import {DateTime} from './datetime';
+import {ExprRef} from './expr';
 import * as log from './log';
-import * as TYPE from './type';
-import {Type, TYPE_INDEX} from './type';
-import {contains, Flag, flagKeys, keys} from './util';
-import {ScaleInterpolate, ScaleInterpolateParams} from './vega.schema';
+import {ParameterExtent} from './selection';
+import {NOMINAL, ORDINAL, QUANTITATIVE, TEMPORAL, Type} from './type';
+import {contains, Flag, keys} from './util';
 
-export namespace ScaleType {
+export const ScaleType = {
   // Continuous - Quantitative
-  export const LINEAR: 'linear' = 'linear';
-  export const LOG: 'log' = 'log';
-  export const POW: 'pow' = 'pow';
-  export const SQRT: 'sqrt' = 'sqrt';
-  export const SYMLOG: 'symlog' = 'symlog';
+  LINEAR: 'linear',
+  LOG: 'log',
+  POW: 'pow',
+  SQRT: 'sqrt',
+  SYMLOG: 'symlog',
+
+  IDENTITY: 'identity',
+  SEQUENTIAL: 'sequential',
+
   // Continuous - Time
-  export const TIME: 'time' = 'time';
-  export const UTC: 'utc' = 'utc';
+  TIME: 'time',
+  UTC: 'utc',
 
   // Discretizing scales
-  export const QUANTILE: 'quantile' = 'quantile';
-  export const QUANTIZE: 'quantize' = 'quantize';
-  export const THRESHOLD: 'threshold' = 'threshold';
-  export const BIN_ORDINAL: 'bin-ordinal' = 'bin-ordinal';
+  QUANTILE: 'quantile',
+  QUANTIZE: 'quantize',
+  THRESHOLD: 'threshold',
+  BIN_ORDINAL: 'bin-ordinal',
 
   // Discrete scales
-  export const ORDINAL: 'ordinal' = 'ordinal';
-  export const POINT: 'point' = 'point';
-  export const BAND: 'band' = 'band';
-}
+  ORDINAL: 'ordinal',
+  POINT: 'point',
+  BAND: 'band'
+} as const;
 
-export type ScaleType =
-  | typeof ScaleType.LINEAR
-  | typeof ScaleType.LOG
-  | typeof ScaleType.POW
-  | typeof ScaleType.SQRT
-  | typeof ScaleType.SYMLOG
-  | typeof ScaleType.TIME
-  | typeof ScaleType.UTC
-  | typeof ScaleType.QUANTILE
-  | typeof ScaleType.QUANTIZE
-  | typeof ScaleType.THRESHOLD
-  | typeof ScaleType.BIN_ORDINAL
-  | typeof ScaleType.ORDINAL
-  | typeof ScaleType.POINT
-  | typeof ScaleType.BAND;
+type ValueOf<T> = T[keyof T];
+export type ScaleType = ValueOf<typeof ScaleType>;
 
 /**
  * Index for scale categories -- only scale of the same categories can be merged together.
  * Current implementation is trying to be conservative and avoid merging scale type that might not work together
  */
-const SCALE_CATEGORY_INDEX: {
-  // Using Mapped Type to declare type (https://www.typescriptlang.org/docs/handbook/advanced-types.html#mapped-types)
-  [k in ScaleType]: ScaleType | 'numeric' | 'ordinal-position' | 'discretizing'
-} = {
+export const SCALE_CATEGORY_INDEX: Record<ScaleType, ScaleType | 'numeric' | 'ordinal-position' | 'discretizing'> = {
   linear: 'numeric',
   log: 'numeric',
   pow: 'numeric',
   sqrt: 'numeric',
   symlog: 'numeric',
+  identity: 'numeric',
+  sequential: 'numeric',
   time: 'time',
   utc: 'time',
   ordinal: 'ordinal',
@@ -71,7 +70,7 @@ const SCALE_CATEGORY_INDEX: {
   threshold: 'discretizing'
 };
 
-export const SCALE_TYPES = keys(SCALE_CATEGORY_INDEX) as ScaleType[];
+export const SCALE_TYPES: ScaleType[] = keys(SCALE_CATEGORY_INDEX);
 
 /**
  * Whether the two given scale types can be merged together.
@@ -89,16 +88,15 @@ export function scaleCompatible(scaleType1: ScaleType, scaleType2: ScaleType) {
 /**
  * Index for scale precedence -- high score = higher priority for merging.
  */
-const SCALE_PRECEDENCE_INDEX: {
-  // Using Mapped Type to declare type (https://www.typescriptlang.org/docs/handbook/advanced-types.html#mapped-types)
-  [k in ScaleType]: number
-} = {
+const SCALE_PRECEDENCE_INDEX: Record<ScaleType, number> = {
   // numeric
   linear: 0,
   log: 1,
   pow: 1,
   sqrt: 1,
   symlog: 1,
+  identity: 1,
+  sequential: 1,
   // time
   time: 0,
   utc: 0,
@@ -123,13 +121,23 @@ export function scaleTypePrecedence(scaleType: ScaleType): number {
 export const CONTINUOUS_TO_CONTINUOUS_SCALES: ScaleType[] = ['linear', 'log', 'pow', 'sqrt', 'symlog', 'time', 'utc'];
 const CONTINUOUS_TO_CONTINUOUS_INDEX = toSet(CONTINUOUS_TO_CONTINUOUS_SCALES);
 
+export const QUANTITATIVE_SCALES: ScaleType[] = ['linear', 'log', 'pow', 'sqrt', 'symlog'];
+
+const QUANTITATIVE_SCALES_INDEX = toSet(QUANTITATIVE_SCALES);
+
+export function isQuantitative(type: ScaleType): type is 'linear' | 'log' | 'pow' | 'sqrt' | 'symlog' {
+  return type in QUANTITATIVE_SCALES_INDEX;
+}
+
 export const CONTINUOUS_TO_DISCRETE_SCALES: ScaleType[] = ['quantile', 'quantize', 'threshold'];
 const CONTINUOUS_TO_DISCRETE_INDEX = toSet(CONTINUOUS_TO_DISCRETE_SCALES);
 
 export const CONTINUOUS_DOMAIN_SCALES: ScaleType[] = CONTINUOUS_TO_CONTINUOUS_SCALES.concat([
   'quantile',
   'quantize',
-  'threshold'
+  'threshold',
+  'sequential',
+  'identity'
 ]);
 const CONTINUOUS_DOMAIN_INDEX = toSet(CONTINUOUS_DOMAIN_SCALES);
 
@@ -158,38 +166,18 @@ export function isContinuousToDiscrete(type: ScaleType): type is 'quantile' | 'q
   return type in CONTINUOUS_TO_DISCRETE_INDEX;
 }
 
-export type NiceTime = 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
-
-export interface ScaleConfig {
+export interface ScaleConfig<ES extends ExprRef | SignalRef> {
   /**
    * If true, rounds numeric output values to integers.
    * This can be helpful for snapping to the pixel grid.
    * (Only available for `x`, `y`, and `size` scales.)
    */
-  round?: boolean;
+  round?: boolean | ES;
 
   /**
    * If true, values that exceed the data domain are clamped to either the minimum or maximum range value
    */
-  clamp?: boolean;
-  /**
-   *  Default range step for `x` band and point scales of text marks.
-   *
-   * __Default value:__ `90`
-   *
-   *  @minimum 0
-   */
-  textXRangeStep?: number; // FIXME: consider if we will rename this "tableColumnWidth"
-
-  /**
-   * Default range step for band and point scales of (1) the `y` channel
-   * and (2) the `x` channel when the mark is not `text`.
-   *
-   * __Default value:__ `20`
-   *
-   * @minimum 0
-   */
-  rangeStep?: number | null;
+  clamp?: boolean | ES;
 
   /**
    * Default inner padding for `x` and `y` band-ordinal scales.
@@ -201,16 +189,17 @@ export interface ScaleConfig {
    * @minimum 0
    * @maximum 1
    */
-  bandPaddingInner?: number;
+  bandPaddingInner?: number | ES;
 
   /**
    * Default outer padding for `x` and `y` band-ordinal scales.
    *
-   * If not specified, by default, band scale's paddingOuter is paddingInner/2.
+   * __Default value:__ `paddingInner/2` (which makes _width/height = number of unique values * step_)
+   *
    * @minimum 0
    * @maximum 1
    */
-  bandPaddingOuter?: number;
+  bandPaddingOuter?: number | ES;
 
   /**
    * Default inner padding for `x` and `y` band-ordinal scales of `"bar"` marks.
@@ -220,15 +209,7 @@ export interface ScaleConfig {
    * @minimum 0
    * @maximum 1
    */
-  barBandPaddingInner?: number;
-
-  /**
-   * Default outer padding for `x` and `y` band-ordinal scales of `"bar"` marks.
-   * If not specified, by default, band scale's paddingOuter is paddingInner/2.
-   * @minimum 0
-   * @maximum 1
-   */
-  barBandPaddingOuter?: number;
+  barBandPaddingInner?: number | ES;
 
   /**
    * Default inner padding for `x` and `y` band-ordinal scales of `"rect"` marks.
@@ -238,15 +219,7 @@ export interface ScaleConfig {
    * @minimum 0
    * @maximum 1
    */
-  rectBandPaddingInner?: number;
-
-  /**
-   * Default outer padding for `x` and `y` band-ordinal scales of `"rect"` marks.
-   * If not specified, by default, band scale's paddingOuter is paddingInner/2.
-   * @minimum 0
-   * @maximum 1
-   */
-  rectBandPaddingOuter?: number;
+  rectBandPaddingInner?: number | ES;
 
   /**
    * Default padding for continuous scales.
@@ -255,17 +228,17 @@ export interface ScaleConfig {
    *
    * @minimum 0
    */
-  continuousPadding?: number;
+  continuousPadding?: number | ES;
 
   /**
    * Default outer padding for `x` and `y` point-ordinal scales.
    *
-   * __Default value:__ `0.5`
+   * __Default value:__ `0.5` (which makes _width/height = number of unique values * step_)
    *
    * @minimum 0
    * @maximum 1
    */
-  pointPadding?: number;
+  pointPadding?: number | ES;
 
   /**
    * Use the source data range before aggregation as scale domain instead of aggregated data for aggregate axis.
@@ -286,7 +259,7 @@ export interface ScaleConfig {
   /**
    * The default max value for mapping quantitative fields to bar's size/bandSize.
    *
-   * If undefined (default), we will use the scale's `rangeStep` - 1.
+   * If undefined (default), we will use the axis's size (width or height) - 1.
    * @minimum 0
    */
   maxBandSize?: number;
@@ -388,11 +361,14 @@ export interface ScaleConfig {
    * @minimum 0
    */
   quantizeCount?: number;
+
+  /**
+   * Reverse x-scale by default (useful for right-to-left charts).
+   */
+  xReverse?: boolean | ES;
 }
 
-export const defaultScaleConfig: ScaleConfig = {
-  textXRangeStep: 90,
-  rangeStep: 20,
+export const defaultScaleConfig: ScaleConfig<SignalRef> = {
   pointPadding: 0.5,
 
   barBandPaddingInner: 0.1,
@@ -406,7 +382,7 @@ export const defaultScaleConfig: ScaleConfig = {
   minOpacity: 0.3,
   maxOpacity: 0.8,
 
-  // FIXME: revise if these *can* become ratios of rangeStep
+  // FIXME: revise if these *can* become ratios of width/height step
   minSize: 9, // Point size is area. For square point, 9 = 3 pixel ^ 2, not too small!
 
   minStrokeWidth: 1,
@@ -421,57 +397,51 @@ export interface SchemeParams {
    *
    * For the full list of supported schemes, please refer to the [Vega Scheme](https://vega.github.io/vega/docs/schemes/#reference) reference.
    */
-  name: string;
+  name: string | SignalRef;
 
   /**
    * The extent of the color range to use. For example `[0.2, 1]` will rescale the color scheme such that color values in the range _[0, 0.2)_ are excluded from the scheme.
    */
-  extent?: number[];
+  extent?: (number | SignalRef)[] | SignalRef;
 
   /**
    * The number of colors to use in the scheme. This can be useful for scale types such as `"quantize"`, which use the length of the scale range to determine the number of discrete bins for the scale domain.
    */
-  count?: number;
+  count?: number | SignalRef;
 }
 
-export type SelectionDomain =
-  | {
-      /**
-       * The name of a selection.
-       */
-      selection: string;
-      /**
-       * The field name to extract selected values for, when a selection is [projected](https://vega.github.io/vega-lite/docs/project.html)
-       * over multiple fields or encodings.
-       */
-      field?: string;
-    }
-  | {
-      /**
-       * The name of a selection.
-       */
-      selection: string;
-      /**
-       * The encoding channel to extract selected values for, when a selection is [projected](https://vega.github.io/vega-lite/docs/project.html)
-       * over multiple fields or encodings.
-       */
-      encoding?: string;
-    };
+export type Domain =
+  | (null | string | number | boolean | DateTime | SignalRef)[]
+  | 'unaggregated'
+  | ParameterExtent
+  | SignalRef
+  | DomainUnionWith;
 
-export type Domain = number[] | string[] | boolean[] | DateTime[] | 'unaggregated' | SelectionDomain;
 export type Scheme = string | SchemeParams;
 
-export function isExtendedScheme(scheme: string | SchemeParams): scheme is SchemeParams {
-  return scheme && !!scheme['name'];
+export function isExtendedScheme(scheme: Scheme | SignalRef): scheme is SchemeParams {
+  return !isString(scheme) && !!scheme['name'];
 }
 
-export function isSelectionDomain(domain: Domain): domain is SelectionDomain {
-  return domain && domain['selection'];
+export function isParameterDomain(domain: Domain): domain is ParameterExtent {
+  return domain?.['param'];
 }
 
-export interface Scale {
+export interface DomainUnionWith {
   /**
-   * The type of scale.  Vega-Lite supports the following categories of scale types:
+   * Customized domain values to be union with the field's values or explicitly defined domain.
+   * Should be an array of valid scale domain values.
+   */
+  unionWith: number[] | string[] | boolean[] | DateTime[];
+}
+
+export function isDomainUnionWith(domain: Domain): domain is DomainUnionWith {
+  return domain && domain['unionWith'];
+}
+
+export interface Scale<ES extends ExprRef | SignalRef = ExprRef | SignalRef> {
+  /**
+   * The type of scale. Vega-Lite supports the following categories of scale types:
    *
    * 1) [**Continuous Scales**](https://vega.github.io/vega-lite/docs/scale.html#continuous) -- mapping continuous domains to continuous output ranges ([`"linear"`](https://vega.github.io/vega-lite/docs/scale.html#linear), [`"pow"`](https://vega.github.io/vega-lite/docs/scale.html#pow), [`"sqrt"`](https://vega.github.io/vega-lite/docs/scale.html#sqrt), [`"symlog"`](https://vega.github.io/vega-lite/docs/scale.html#symlog), [`"log"`](https://vega.github.io/vega-lite/docs/scale.html#log), [`"time"`](https://vega.github.io/vega-lite/docs/scale.html#time), [`"utc"`](https://vega.github.io/vega-lite/docs/scale.html#utc).
    *
@@ -484,27 +454,49 @@ export interface Scale {
   type?: ScaleType;
 
   /**
-   * Customized domain values.
+   * Customized domain values in the form of constant values or dynamic values driven by a parameter.
    *
-   * For _quantitative_ fields, `domain` can take the form of a two-element array with minimum and maximum values.  [Piecewise scales](https://vega.github.io/vega-lite/docs/scale.html#piecewise) can be created by providing a `domain` with more than two entries.
-   * If the input field is aggregated, `domain` can also be a string value `"unaggregated"`, indicating that the domain should include the raw data values prior to the aggregation.
+   * 1) Constant `domain` for _quantitative_ fields can take one of the following forms:
    *
-   * For _temporal_ fields, `domain` can be a two-element array minimum and maximum values, in the form of either timestamps or the [DateTime definition objects](https://vega.github.io/vega-lite/docs/types.html#datetime).
+   * - A two-element array with minimum and maximum values. To create a diverging scale, this two-element array can be combined with the `domainMid` property.
+   * - An array with more than two entries, for [Piecewise quantitative scales](https://vega.github.io/vega-lite/docs/scale.html#piecewise).
+   * - A string value `"unaggregated"`, if the input field is aggregated, to indicate that the domain should include the raw data values prior to the aggregation.
    *
-   * For _ordinal_ and _nominal_ fields, `domain` can be an array that lists valid input values.
+   * 2) Constant `domain` for _temporal_ fields can be a two-element array with minimum and maximum values, in the form of either timestamps or the [DateTime definition objects](https://vega.github.io/vega-lite/docs/types.html#datetime).
    *
-   * The `selection` property can be used to [interactively determine](https://vega.github.io/vega-lite/docs/selection.html#scale-domains) the scale domain.
+   * 3) Constant `domain` for _ordinal_ and _nominal_ fields can be an array that lists valid input values.
+   *
+   * 4) To combine (union) specified constant domain with the field's values, `domain` can be an object with a `unionWith` property that specify constant domain to be combined. For example, `domain: {unionWith: [0, 100]}` for a quantitative scale means that the scale domain always includes `[0, 100]`, but will include other values in the fields beyond `[0, 100]`.
+   *
+   * 5) Domain can also takes an object defining a field or encoding of a parameter that [interactively determines](https://vega.github.io/vega-lite/docs/selection.html#scale-domains) the scale domain.
    */
-  domain?: number[] | string[] | boolean[] | DateTime[] | 'unaggregated' | SelectionDomain;
+  domain?:
+    | (null | string | number | boolean | DateTime | ES)[]
+    | 'unaggregated'
+    | ParameterExtent
+    | DomainUnionWith
+    | ES;
 
-  // Hide because we might not really need this.
+  /**
+   * Inserts a single mid-point value into a two-element domain. The mid-point value must lie between the domain minimum and maximum values. This property can be useful for setting a midpoint for [diverging color scales](https://vega.github.io/vega-lite/docs/scale.html#piecewise). The domainMid property is only intended for use with scales supporting continuous, piecewise domains.
+   */
+  domainMid?: number | ES;
+
+  /**
+   * Sets the maximum value in the scale domain, overriding the `domain` property. This property is only intended for use with scales having continuous domains.
+   */
+  domainMax?: number | DateTime | ES;
+
+  /**
+   * Sets the minimum value in the scale domain, overriding the domain property. This property is only intended for use with scales having continuous domains.
+   */
+  domainMin?: number | DateTime | ES;
+
   /**
    * If true, reverses the order of the scale range.
    * __Default value:__ `false`.
-   *
-   * @hide
    */
-  reverse?: boolean;
+  reverse?: boolean | ES;
 
   /**
    * The range of the scale. One of:
@@ -513,29 +505,27 @@ export interface Scale {
    *
    * - For [continuous scales](https://vega.github.io/vega-lite/docs/scale.html#continuous), two-element array indicating  minimum and maximum values, or an array with more than two entries for specifying a [piecewise scale](https://vega.github.io/vega-lite/docs/scale.html#piecewise).
    *
-   * - For [discrete](https://vega.github.io/vega-lite/docs/scale.html#discrete) and [discretizing](https://vega.github.io/vega-lite/docs/scale.html#discretizing) scales, an array of desired output values.
+   * - For [discrete](https://vega.github.io/vega-lite/docs/scale.html#discrete) and [discretizing](https://vega.github.io/vega-lite/docs/scale.html#discretizing) scales, an array of desired output values or an object with a `field` property representing the range values.  For example, if a field `color` contains CSS color names, we can set `range` to `{field: "color"}`.
    *
    * __Notes:__
    *
    * 1) For color scales you can also specify a color [`scheme`](https://vega.github.io/vega-lite/docs/scale.html#scheme) instead of `range`.
    *
-   * 2) Any directly specified `range` for `x` and `y` channels will be ignored. Range can be customized via the view's corresponding [size](https://vega.github.io/vega-lite/docs/size.html) (`width` and `height`) or via [range steps and paddings properties](#range-step) for [band](#band) and [point](#point) scales.
+   * 2) Any directly specified `range` for `x` and `y` channels will be ignored. Range can be customized via the view's corresponding [size](https://vega.github.io/vega-lite/docs/size.html) (`width` and `height`).
    */
-  range?: number[] | string[] | string;
+  range?: RangeEnum | (number | string | number[] | ES)[] | {field: string};
+
+  /**
+   * Sets the maximum value in the scale range, overriding the `range` property or the default range. This property is only intended for use with scales having continuous ranges.
+   */
+  rangeMax?: number | string | ES;
+
+  /**
+   * Sets the minimum value in the scale range, overriding the `range` property or the default range. This property is only intended for use with scales having continuous ranges.
+   */
+  rangeMin?: number | string | ES;
 
   // ordinal
-  /**
-   * The distance between the starts of adjacent bands or points in [band](https://vega.github.io/vega-lite/docs/scale.html#band) and [point](https://vega.github.io/vega-lite/docs/scale.html#point) scales.
-   *
-   * If `rangeStep` is `null` or if the view contains the scale's corresponding [size](https://vega.github.io/vega-lite/docs/size.html) (`width` for `x` scales and `height` for `y` scales), `rangeStep` will be automatically determined to fit the size of the view.
-   *
-   * __Default value:__  derived the [scale config](https://vega.github.io/vega-lite/docs/config.html#scale-config)'s `textXRangeStep` (`90` by default) for x-scales of `text` marks and `rangeStep` (`21` by default) for x-scales of other marks and y-scales.
-   *
-   * __Warning__: If `rangeStep` is `null` and the cardinality of the scale's domain is higher than `width` or `height`, the rangeStep might become less than one pixel and the mark might not appear correctly.
-   *
-   * @minimum 0
-   */
-  rangeStep?: number | null;
 
   /**
    * A string indicating a color [scheme](https://vega.github.io/vega-lite/docs/scale.html#scheme) name (e.g., `"category10"` or `"blues"`) or a [scheme parameter object](https://vega.github.io/vega-lite/docs/scale.html#scheme-params).
@@ -544,33 +534,46 @@ export interface Scale {
    *
    * For the full list of supported schemes, please refer to the [Vega Scheme](https://vega.github.io/vega/docs/schemes/#reference) reference.
    */
-  scheme?: string | SchemeParams;
+  scheme?: string | SchemeParams | ES;
 
   /**
-   * An array of bin boundaries over the scale domain. If provided, axes and legends will use the bin boundaries to inform the choice of tick marks and text labels.
+   * The alignment of the steps within the scale range.
+   *
+   * This value must lie in the range `[0,1]`. A value of `0.5` indicates that the steps should be centered within the range. A value of `0` or `1` may be used to shift the bands to one side, say to position them adjacent to an axis.
+   *
+   * __Default value:__ `0.5`
    */
-  bins?: number[];
+  align?: number | ES;
+
+  /**
+   * Bin boundaries can be provided to scales as either an explicit array of bin boundaries or as a bin specification object. The legal values are:
+   * - An [array](../types/#Array) literal of bin boundary values. For example, `[0, 5, 10, 15, 20]`. The array must include both starting and ending boundaries. The previous example uses five values to indicate a total of four bin intervals: [0-5), [5-10), [10-15), [15-20]. Array literals may include signal references as elements.
+   * - A [bin specification object](https://vega.github.io/vega-lite/docs/scale.html#bins) that indicates the bin _step_ size, and optionally the _start_ and _stop_ boundaries.
+   * - An array of bin boundaries over the scale domain. If provided, axes and legends will use the bin boundaries to inform the choice of tick marks and text labels.
+   */
+  // TODO: add - A [signal reference](../types/#Signal) that resolves to either an array or bin specification object.
+  bins?: ScaleBins;
 
   /**
    * If `true`, rounds numeric output values to integers. This can be helpful for snapping to the pixel grid.
    *
    * __Default value:__ `false`.
    */
-  round?: boolean;
+  round?: boolean | ES;
 
   /**
-   * For _[continuous](https://vega.github.io/vega-lite/docs/scale.html#continuous)_ scales, expands the scale domain to accommodate the specified number of pixels on each of the scale range. The scale range must represent pixels for this parameter to function as intended. Padding adjustment is performed prior to all other adjustments, including the effects of the zero, nice, domainMin, and domainMax properties.
+   * For _[continuous](https://vega.github.io/vega-lite/docs/scale.html#continuous)_ scales, expands the scale domain to accommodate the specified number of pixels on each of the scale range. The scale range must represent pixels for this parameter to function as intended. Padding adjustment is performed prior to all other adjustments, including the effects of the `zero`, `nice`, `domainMin`, and `domainMax` properties.
    *
    * For _[band](https://vega.github.io/vega-lite/docs/scale.html#band)_ scales, shortcut for setting `paddingInner` and `paddingOuter` to the same value.
    *
    * For _[point](https://vega.github.io/vega-lite/docs/scale.html#point)_ scales, alias for `paddingOuter`.
    *
    * __Default value:__ For _continuous_ scales, derived from the [scale config](https://vega.github.io/vega-lite/docs/scale.html#config)'s `continuousPadding`.
-   * For _band and point_ scales, see `paddingInner` and `paddingOuter`.
+   * For _band and point_ scales, see `paddingInner` and `paddingOuter`. By default, Vega-Lite sets padding such that _width/height = number of unique values * step_.
    *
    * @minimum 0
    */
-  padding?: number;
+  padding?: number | ES;
 
   /**
    * The inner padding (spacing) within each band step of band scales, as a fraction of the step size. This value must lie in the range [0,1].
@@ -582,18 +585,19 @@ export interface Scale {
    * @minimum 0
    * @maximum 1
    */
-  paddingInner?: number;
+  paddingInner?: number | ES;
 
   /**
    * The outer padding (spacing) at the ends of the range of band and point scales,
    * as a fraction of the step size. This value must lie in the range [0,1].
    *
    * __Default value:__ derived from the [scale config](https://vega.github.io/vega-lite/docs/scale.html#config)'s `bandPaddingOuter` for band scales and `pointPadding` for point scales.
+   * By default, Vega-Lite sets outer padding such that _width/height = number of unique values * step_.
    *
    * @minimum 0
    * @maximum 1
    */
-  paddingOuter?: number;
+  paddingOuter?: number | ES;
 
   // typical
   /**
@@ -601,7 +605,7 @@ export interface Scale {
    *
    * __Default value:__ derived from the [scale config](https://vega.github.io/vega-lite/docs/config.html#scale-config)'s `clamp` (`true` by default).
    */
-  clamp?: boolean;
+  clamp?: boolean | ES;
 
   /**
    * Extending the domain so that it starts and ends on nice round values. This method typically modifies the scale’s domain, and may only extend the bounds to the nearest round value. Nicing is useful if the domain is computed from data and may be irregular. For example, for a domain of _[0.201479…, 0.996679…]_, a nice domain might be _[0.2, 1.0]_.
@@ -613,24 +617,24 @@ export interface Scale {
    * __Default value:__ `true` for unbinned _quantitative_ fields; `false` otherwise.
    *
    */
-  nice?: boolean | number | NiceTime | {interval: string; step: number};
+  nice?: boolean | number | TimeInterval | TimeIntervalStep | ES;
 
   /**
    * The logarithm base of the `log` scale (default `10`).
    */
-  base?: number;
+  base?: number | ES;
 
   /**
    * The exponent of the `pow` scale.
    */
-  exponent?: number;
+  exponent?: number | ES;
 
   /**
    * A constant determining the slope of the symlog function around zero. Only used for `symlog` scales.
    *
    * __Default value:__ `1`
    */
-  constant?: number;
+  constant?: number | ES;
 
   /**
    * If `true`, ensures that a zero baseline value is included in the scale domain.
@@ -639,21 +643,26 @@ export interface Scale {
    *
    * __Note:__ Log, time, and utc scales do not support `zero`.
    */
-  zero?: boolean;
+  zero?: boolean | ES;
 
   /**
    * The interpolation method for range values. By default, a general interpolator for numbers, dates, strings and colors (in HCL space) is used. For color ranges, this property allows interpolation in alternative color spaces. Legal values include `rgb`, `hsl`, `hsl-long`, `lab`, `hcl`, `hcl-long`, `cubehelix` and `cubehelix-long` ('-long' variants use longer paths in polar coordinate spaces). If object-valued, this property accepts an object with a string-valued _type_ property and an optional numeric _gamma_ property applicable to rgb and cubehelix interpolators. For more, see the [d3-interpolate documentation](https://github.com/d3/d3-interpolate).
    *
    * * __Default value:__ `hcl`
    */
-  interpolate?: ScaleInterpolate | ScaleInterpolateParams;
+  interpolate?: ScaleInterpolateEnum | ES | ScaleInterpolateParams;
 }
 
-const SCALE_PROPERTY_INDEX: Flag<keyof Scale> = {
+const SCALE_PROPERTY_INDEX: Flag<keyof Scale<any>> = {
   type: 1,
   domain: 1,
+  domainMax: 1,
+  domainMin: 1,
+  domainMid: 1,
+  align: 1,
   range: 1,
-  rangeStep: 1,
+  rangeMax: 1,
+  rangeMin: 1,
   scheme: 1,
   bins: 1,
   // Other properties
@@ -674,22 +683,14 @@ const SCALE_PROPERTY_INDEX: Flag<keyof Scale> = {
   paddingOuter: 1
 };
 
-export const SCALE_PROPERTIES = flagKeys(SCALE_PROPERTY_INDEX);
+export const SCALE_PROPERTIES = keys(SCALE_PROPERTY_INDEX);
 
-const {
-  type,
-  domain,
-  range,
-  rangeStep,
-  scheme,
-  ...NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTY_INDEX
-} = SCALE_PROPERTY_INDEX;
+const {type, domain, range, rangeMax, rangeMin, scheme, ...NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTY_INDEX} =
+  SCALE_PROPERTY_INDEX;
 
-export const NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES = flagKeys(NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTY_INDEX);
+export const NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES = keys(NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTY_INDEX);
 
-export const SCALE_TYPE_INDEX = generateScaleTypeIndex();
-
-export function scaleTypeSupportProperty(scaleType: ScaleType, propName: keyof Scale) {
+export function scaleTypeSupportProperty(scaleType: ScaleType, propName: keyof Scale): boolean {
   switch (propName) {
     case 'type':
     case 'domain':
@@ -698,18 +699,23 @@ export function scaleTypeSupportProperty(scaleType: ScaleType, propName: keyof S
       return true;
     case 'scheme':
     case 'interpolate':
-      return !contains(['point', 'band', 'identity'], scaleType);
+      return !['point', 'band', 'identity'].includes(scaleType);
     case 'bins':
-      return !contains(['point', 'band', 'identity', 'ordinal'], scaleType);
+      return !['point', 'band', 'identity', 'ordinal'].includes(scaleType);
     case 'round':
       return isContinuousToContinuous(scaleType) || scaleType === 'band' || scaleType === 'point';
     case 'padding':
-      return isContinuousToContinuous(scaleType) || contains(['point', 'band'], scaleType);
+    case 'rangeMin':
+    case 'rangeMax':
+      return isContinuousToContinuous(scaleType) || ['point', 'band'].includes(scaleType);
     case 'paddingOuter':
-    case 'rangeStep':
-      return contains(['point', 'band'], scaleType);
+    case 'align':
+      return ['point', 'band'].includes(scaleType);
     case 'paddingInner':
       return scaleType === 'band';
+    case 'domainMax':
+    case 'domainMid':
+    case 'domainMin':
     case 'clamp':
       return isContinuousToContinuous(scaleType);
     case 'nice':
@@ -735,8 +741,6 @@ export function scaleTypeSupportProperty(scaleType: ScaleType, propName: keyof S
         )
       );
   }
-  /* istanbul ignore next: should never reach here*/
-  throw new Error(`Invalid scale property ${propName}.`);
 }
 
 /**
@@ -746,13 +750,17 @@ export function channelScalePropertyIncompatability(channel: Channel, propName: 
   switch (propName) {
     case 'interpolate':
     case 'scheme':
+    case 'domainMid':
       if (!isColorChannel(channel)) {
         return log.message.cannotUseScalePropertyWithNonColor(channel);
       }
       return undefined;
+    case 'align':
     case 'type':
     case 'bins':
     case 'domain':
+    case 'domainMax':
+    case 'domainMin':
     case 'range':
     case 'base':
     case 'exponent':
@@ -761,23 +769,22 @@ export function channelScalePropertyIncompatability(channel: Channel, propName: 
     case 'padding':
     case 'paddingInner':
     case 'paddingOuter':
-    case 'rangeStep':
+    case 'rangeMax':
+    case 'rangeMin':
     case 'reverse':
     case 'round':
     case 'clamp':
     case 'zero':
       return undefined; // GOOD!
   }
-  /* istanbul ignore next: it should never reach here */
-  throw new Error(`Invalid scale property "${propName}".`);
 }
 
 export function scaleTypeSupportDataType(specifiedType: ScaleType, fieldDefType: Type): boolean {
-  if (contains([TYPE.ORDINAL, TYPE.NOMINAL], fieldDefType)) {
+  if (contains([ORDINAL, NOMINAL], fieldDefType)) {
     return specifiedType === undefined || hasDiscreteDomain(specifiedType);
-  } else if (fieldDefType === TYPE.TEMPORAL) {
+  } else if (fieldDefType === TEMPORAL) {
     return contains([ScaleType.TIME, ScaleType.UTC, undefined], specifiedType);
-  } else if (fieldDefType === TYPE.QUANTITATIVE) {
+  } else if (fieldDefType === QUANTITATIVE) {
     return contains(
       [
         ScaleType.LOG,
@@ -798,58 +805,34 @@ export function scaleTypeSupportDataType(specifiedType: ScaleType, fieldDefType:
 }
 
 export function channelSupportScaleType(channel: Channel, scaleType: ScaleType): boolean {
+  if (!CHANNEL.isScaleChannel(channel)) {
+    return false;
+  }
   switch (channel) {
     case CHANNEL.X:
     case CHANNEL.Y:
+    case CHANNEL.THETA:
+    case CHANNEL.RADIUS:
       return isContinuousToContinuous(scaleType) || contains(['band', 'point'], scaleType);
     case CHANNEL.SIZE: // TODO: size and opacity can support ordinal with more modification
     case CHANNEL.STROKEWIDTH:
     case CHANNEL.OPACITY:
     case CHANNEL.FILLOPACITY:
     case CHANNEL.STROKEOPACITY:
+    case CHANNEL.ANGLE:
       // Although it generally doesn't make sense to use band with size and opacity,
       // it can also work since we use band: 0.5 to get midpoint.
       return (
         isContinuousToContinuous(scaleType) ||
         isContinuousToDiscrete(scaleType) ||
-        contains(['band', 'point'], scaleType)
+        contains(['band', 'point', 'ordinal'], scaleType)
       );
     case CHANNEL.COLOR:
     case CHANNEL.FILL:
     case CHANNEL.STROKE:
       return scaleType !== 'band'; // band does not make sense with color
+    case CHANNEL.STROKEDASH:
     case CHANNEL.SHAPE:
-      return scaleType === 'ordinal'; // shape = lookup only
+      return scaleType === 'ordinal' || isContinuousToDiscrete(scaleType);
   }
-  /* istanbul ignore next: it should never reach here */
-  return false;
-}
-
-export function getSupportedScaleType(channel: Channel, fieldDefType: Type) {
-  return SCALE_TYPE_INDEX[generateScaleTypeIndexKey(channel, fieldDefType)];
-}
-
-export interface ScaleTypeIndex {
-  [channel: string]: ScaleType[];
-}
-
-// generates ScaleTypeIndex where keys are encoding channels and values are list of valid ScaleTypes
-function generateScaleTypeIndex() {
-  const index: ScaleTypeIndex = {};
-  for (const channel of CHANNELS) {
-    for (const fieldDefType of keys(TYPE_INDEX)) {
-      for (const scaleType of SCALE_TYPES) {
-        const key = generateScaleTypeIndexKey(channel, fieldDefType);
-        if (channelSupportScaleType(channel, scaleType) && scaleTypeSupportDataType(scaleType, fieldDefType)) {
-          index[key] = index[key] || [];
-          index[key].push(scaleType);
-        }
-      }
-    }
-  }
-  return index;
-}
-
-function generateScaleTypeIndexKey(channel: Channel, fieldDefType: Type) {
-  return channel + '_' + fieldDefType;
 }

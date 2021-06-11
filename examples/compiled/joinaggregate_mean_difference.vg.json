@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "style": "cell",
@@ -10,16 +10,16 @@
       "url": "data/movies.json",
       "format": {"type": "json"},
       "transform": [
-        {"type": "filter", "expr": "datum.IMDB_Rating != null"},
+        {"type": "filter", "expr": "datum['IMDB Rating'] != null"},
         {
           "type": "joinaggregate",
           "as": ["AverageRating"],
           "ops": ["mean"],
-          "fields": ["IMDB_Rating"]
+          "fields": ["IMDB Rating"]
         },
         {
           "type": "filter",
-          "expr": "(datum.IMDB_Rating - datum.AverageRating) > 2.5"
+          "expr": "(datum['IMDB Rating'] - datum.AverageRating) > 2.5"
         }
       ]
     },
@@ -28,8 +28,16 @@
       "source": "source_0",
       "transform": [
         {
+          "type": "stack",
+          "groupby": ["Title"],
+          "field": "IMDB Rating",
+          "sort": {"field": [], "order": []},
+          "as": ["IMDB Rating_start", "IMDB Rating_end"],
+          "offset": "zero"
+        },
+        {
           "type": "filter",
-          "expr": "datum[\"IMDB_Rating\"] !== null && !isNaN(datum[\"IMDB_Rating\"])"
+          "expr": "isValid(datum[\"IMDB Rating\"]) && isFinite(+datum[\"IMDB Rating\"])"
         }
       ]
     },
@@ -43,6 +51,10 @@
           "ops": ["average"],
           "fields": ["AverageRating"],
           "as": ["average_AverageRating"]
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"average_AverageRating\"]) && isFinite(+datum[\"average_AverageRating\"])"
         }
       ]
     }
@@ -63,13 +75,14 @@
       "encode": {
         "update": {
           "fill": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"IMDB Rating\": format(datum[\"IMDB_Rating\"], \"\"), \"Title\": ''+datum[\"Title\"]}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"IMDB Rating: \" + (format(datum[\"IMDB Rating\"], \"\")) + \"; Title: \" + (isValid(datum[\"Title\"]) ? datum[\"Title\"] : \"\"+datum[\"Title\"])"
           },
-          "x": {"scale": "x", "field": "IMDB_Rating"},
-          "x2": {"scale": "x", "value": 0},
+          "x": {"scale": "x", "field": "IMDB Rating_end"},
+          "x2": {"scale": "x", "field": "IMDB Rating_start"},
           "y": {"scale": "y", "field": "Title"},
-          "height": {"scale": "y", "band": true}
+          "height": {"scale": "y", "band": 1}
         }
       }
     },
@@ -81,12 +94,12 @@
       "encode": {
         "update": {
           "stroke": {"value": "red"},
-          "tooltip": {
-            "signal": "{\"Average of AverageRating\": format(datum[\"average_AverageRating\"], \"\")}"
+          "description": {
+            "signal": "\"Average of AverageRating: \" + (format(datum[\"average_AverageRating\"], \"\"))"
           },
           "x": {"scale": "x", "field": "average_AverageRating"},
-          "y": {"field": {"group": "height"}},
-          "y2": {"value": 0}
+          "y": {"value": 0},
+          "y2": {"field": {"group": "height"}}
         }
       }
     }
@@ -97,7 +110,8 @@
       "type": "linear",
       "domain": {
         "fields": [
-          {"data": "data_0", "field": "IMDB_Rating"},
+          {"data": "data_0", "field": "IMDB Rating_start"},
+          {"data": "data_0", "field": "IMDB Rating_end"},
           {"data": "data_1", "field": "average_AverageRating"}
         ]
       },
@@ -118,24 +132,25 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "IMDB Rating",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "gridScale": "y",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "IMDB Rating",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
       "zindex": 0
     },
     {
@@ -143,8 +158,7 @@
       "orient": "left",
       "grid": false,
       "title": "Title",
-      "labelOverlap": true,
-      "zindex": 1
+      "zindex": 0
     }
   ]
 }

@@ -1,8 +1,8 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
-  "width": 90,
+  "width": 50,
   "style": "cell",
   "data": [
     {
@@ -25,8 +25,7 @@
     {
       "name": "height",
       "update": "bandspace(domain('y').length, 1, 0.5) * y_step"
-    },
-    {"name": "width", "update": "width"}
+    }
   ],
   "marks": [
     {
@@ -37,8 +36,8 @@
       "encode": {
         "update": {
           "fill": {"value": "black"},
-          "tooltip": {
-            "signal": "{\"Origin\": ''+datum[\"Origin\"], \"Mean of Horsepower\": format(datum[\"mean_Horsepower\"], \".2f\")}"
+          "description": {
+            "signal": "\"Origin: \" + (isValid(datum[\"Origin\"]) ? datum[\"Origin\"] : \"\"+datum[\"Origin\"]) + \"; Mean of Horsepower: \" + (format(datum[\"mean_Horsepower\"], \".2f\"))"
           },
           "x": {"signal": "width", "mult": 0.5},
           "y": {"scale": "y", "field": "Origin"},
@@ -64,8 +63,7 @@
       "orient": "left",
       "grid": false,
       "title": "Origin",
-      "labelOverlap": true,
-      "zindex": 1
+      "zindex": 0
     }
   ]
 }

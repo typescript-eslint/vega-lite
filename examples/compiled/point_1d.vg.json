@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 200,
   "height": 20,
@@ -13,12 +13,11 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"IMDB_Rating\"] !== null && !isNaN(datum[\"IMDB_Rating\"])"
+          "expr": "isValid(datum[\"IMDB Rating\"]) && isFinite(+datum[\"IMDB Rating\"])"
         }
       ]
     }
   ],
-  "signals": [{"name": "height", "update": "height"}],
   "marks": [
     {
       "name": "marks",
@@ -30,10 +29,11 @@
           "opacity": {"value": 0.7},
           "fill": {"value": "transparent"},
           "stroke": {"value": "#4c78a8"},
-          "tooltip": {
-            "signal": "{\"IMDB_Rating\": format(datum[\"IMDB_Rating\"], \"\")}"
+          "ariaRoleDescription": {"value": "point"},
+          "description": {
+            "signal": "\"IMDB Rating: \" + (format(datum[\"IMDB Rating\"], \"\"))"
           },
-          "x": {"scale": "x", "field": "IMDB_Rating"},
+          "x": {"scale": "x", "field": "IMDB Rating"},
           "y": {"signal": "height", "mult": 0.5}
         }
       }
@@ -43,7 +43,7 @@
     {
       "name": "x",
       "type": "linear",
-      "domain": {"data": "source_0", "field": "IMDB_Rating"},
+      "domain": {"data": "source_0", "field": "IMDB Rating"},
       "range": [0, {"signal": "width"}],
       "nice": true,
       "zero": true
@@ -53,23 +53,24 @@
     {
       "scale": "x",
       "orient": "bottom",
-      "grid": false,
-      "title": "IMDB_Rating",
-      "labelFlush": true,
-      "labelOverlap": true,
-      "tickCount": {"signal": "ceil(width/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "x",
-      "orient": "bottom",
       "grid": true,
       "tickCount": {"signal": "ceil(width/40)"},
       "domain": false,
       "labels": false,
+      "aria": false,
       "maxExtent": 0,
       "minExtent": 0,
       "ticks": false,
+      "zindex": 0
+    },
+    {
+      "scale": "x",
+      "orient": "bottom",
+      "grid": false,
+      "title": "IMDB Rating",
+      "labelFlush": true,
+      "labelOverlap": true,
+      "tickCount": {"signal": "ceil(width/40)"},
       "zindex": 0
     }
   ]

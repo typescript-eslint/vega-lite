@@ -1,193 +1,176 @@
-import {Legend as VgLegend, LegendEncode, SignalRef} from 'vega';
-import {
-  COLOR,
-  FILL,
-  FILLOPACITY,
-  NonPositionScaleChannel,
-  OPACITY,
-  SHAPE,
-  SIZE,
-  STROKE,
-  STROKEOPACITY,
-  STROKEWIDTH
-} from '../../channel';
-import {
-  getTypedFieldDef,
-  isFieldDef,
-  isTimeFormatFieldDef,
-  title as fieldDefTitle,
-  TypedFieldDef
-} from '../../channeldef';
-import {Legend, LEGEND_PROPERTIES, VG_LEGEND_PROPERTIES} from '../../legend';
+import {Legend as VgLegend, LegendEncode} from 'vega';
+import {COLOR, NonPositionScaleChannel, SHAPE} from '../../channel';
+import {DatumDef, FieldDef, getFieldOrDatumDef, isFieldDef, MarkPropDatumDef, MarkPropFieldDef} from '../../channeldef';
+import {LegendInternal, LEGEND_SCALE_CHANNELS} from '../../legend';
+import {normalizeTimeUnit} from '../../timeunit';
 import {GEOJSON} from '../../type';
-import {deleteNestedProperty, getFirstDefined, keys} from '../../util';
-import {mergeTitleComponent, numberFormat} from '../common';
+import {deleteNestedProperty, isEmpty, keys, varName} from '../../util';
+import {mergeTitleComponent} from '../common';
 import {guideEncodeEntry} from '../guide';
 import {isUnitModel, Model} from '../model';
 import {parseGuideResolve} from '../resolve';
+import {parseInteractiveLegend} from '../selection/legends';
 import {defaultTieBreaker, Explicit, makeImplicit, mergeValuesWithExplicit} from '../split';
 import {UnitModel} from '../unit';
-import {LegendComponent, LegendComponentIndex} from './component';
-import * as encode from './encode';
-import * as properties from './properties';
-import {direction, type} from './properties';
+import {LegendComponent, LegendComponentIndex, LegendComponentProps, LEGEND_COMPONENT_PROPERTIES} from './component';
+import {LegendEncodeParams, legendEncodeRules} from './encode';
+import {getDirection, getLegendType, LegendRuleParams, legendRules} from './properties';
 
 export function parseLegend(model: Model) {
-  if (isUnitModel(model)) {
-    model.component.legends = parseUnitLegend(model);
-  } else {
-    model.component.legends = parseNonUnitLegend(model);
-  }
+  const legendComponent = isUnitModel(model) ? parseUnitLegend(model) : parseNonUnitLegend(model);
+  model.component.legends = legendComponent;
+  return legendComponent;
 }
 
 function parseUnitLegend(model: UnitModel): LegendComponentIndex {
   const {encoding} = model;
-  return [COLOR, FILL, STROKE, STROKEWIDTH, SIZE, SHAPE, OPACITY, FILLOPACITY, STROKEOPACITY].reduce(
-    (legendComponent, channel) => {
-      const def = encoding[channel];
-      if (
-        model.legend(channel) &&
-        model.getScaleComponent(channel) &&
-        !(isFieldDef(def) && (channel === SHAPE && def.type === GEOJSON))
-      ) {
-        legendComponent[channel] = parseLegendForChannel(model, channel);
-      }
-      return legendComponent;
-    },
-    {}
-  );
+
+  const legendComponent: LegendComponentIndex = {};
+
+  for (const channel of [COLOR, ...LEGEND_SCALE_CHANNELS]) {
+    const def = getFieldOrDatumDef(encoding[channel]) as MarkPropFieldDef<string> | MarkPropDatumDef<string>;
+
+    if (!def || !model.getScaleComponent(channel)) {
+      continue;
+    }
+
+    if (channel === SHAPE && isFieldDef(def) && def.type === GEOJSON) {
+      continue;
+    }
+
+    legendComponent[channel] = parseLegendForChannel(model, channel);
+  }
+
+  return legendComponent;
 }
 
 function getLegendDefWithScale(model: UnitModel, channel: NonPositionScaleChannel): VgLegend {
-  const scale = model.scaleName(COLOR);
+  const scale = model.scaleName(channel);
+  if (model.mark === 'trail') {
+    if (channel === 'color') {
+      // trail is a filled mark, but its default symbolType ("stroke") should use "stroke"
+      return {stroke: scale};
+    } else if (channel === 'size') {
+      return {strokeWidth: scale};
+    }
+  }
+
   if (channel === 'color') {
     return model.markDef.filled ? {fill: scale} : {stroke: scale};
   }
-  return {[channel]: model.scaleName(channel)};
+  return {[channel]: scale};
 }
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 function isExplicit<T extends string | number | object | boolean>(
   value: T,
-  property: keyof VgLegend,
-  legend: Legend,
-  fieldDef: TypedFieldDef<string>
+  property: keyof LegendComponentProps,
+  legend: LegendInternal,
+  fieldDef: FieldDef<string>
 ) {
   switch (property) {
+    case 'disable':
+      return legend !== undefined; // if axis is specified or null/false, then its enable/disable state is explicit
     case 'values':
       // specified legend.values is already respected, but may get transformed.
-      return !!legend.values;
+      return !!legend?.values;
     case 'title':
       // title can be explicit if fieldDef.title is set
-      if (property === 'title' && value === fieldDef.title) {
+      if (property === 'title' && value === fieldDef?.title) {
         return true;
       }
   }
   // Otherwise, things are explicit if the returned value matches the specified property
-  return value === legend[property];
+  return value === (legend || {})[property];
 }
 
 export function parseLegendForChannel(model: UnitModel, channel: NonPositionScaleChannel): LegendComponent {
-  const fieldDef = model.fieldDef(channel);
-  const legend = model.legend(channel);
+  let legend = model.legend(channel);
 
+  const {markDef, encoding, config} = model;
+  const legendConfig = config.legend;
   const legendCmpt = new LegendComponent({}, getLegendDefWithScale(model, channel));
+  parseInteractiveLegend(model, channel, legendCmpt);
 
-  for (const property of LEGEND_PROPERTIES) {
-    const value = getProperty(property, legend, channel, model);
+  const disable = legend !== undefined ? !legend : legendConfig.disable;
+  legendCmpt.set('disable', disable, legend !== undefined);
+  if (disable) {
+    return legendCmpt;
+  }
+
+  legend = legend || {};
+
+  const scaleType = model.getScaleComponent(channel).get('type');
+  const fieldOrDatumDef = getFieldOrDatumDef(encoding[channel]) as MarkPropFieldDef<string> | DatumDef;
+  const timeUnit = isFieldDef(fieldOrDatumDef) ? normalizeTimeUnit(fieldOrDatumDef.timeUnit)?.unit : undefined;
+
+  const orient = legend.orient || config.legend.orient || 'right';
+  const legendType = getLegendType({legend, channel, timeUnit, scaleType});
+
+  const direction = getDirection({legend, legendType, orient, legendConfig});
+
+  const ruleParams: LegendRuleParams = {
+    legend,
+    channel,
+    model,
+    markDef,
+    encoding,
+    fieldOrDatumDef,
+    legendConfig,
+    config,
+    scaleType,
+    orient,
+    legendType,
+    direction
+  };
+
+  for (const property of LEGEND_COMPONENT_PROPERTIES) {
+    if (
+      (legendType === 'gradient' && property.startsWith('symbol')) ||
+      (legendType === 'symbol' && property.startsWith('gradient'))
+    ) {
+      continue;
+    }
+
+    const value = property in legendRules ? legendRules[property](ruleParams) : legend[property];
     if (value !== undefined) {
-      const explicit = isExplicit(value, property, legend, fieldDef);
-      if (explicit || model.config.legend[property] === undefined) {
+      const explicit = isExplicit(value, property, legend, model.fieldDef(channel));
+      if (explicit || config.legend[property] === undefined) {
         legendCmpt.set(property, value, explicit);
       }
     }
   }
 
-  const legendEncoding = legend.encoding || {};
-  const legendEncode = ['labels', 'legend', 'title', 'symbols', 'gradient'].reduce(
-    (e: LegendEncode, part) => {
-      const legendEncodingPart = guideEncodeEntry(legendEncoding[part] || {}, model);
-      const value = encode[part]
-        ? encode[part](fieldDef, legendEncodingPart, model, channel, legendCmpt) // apply rule
-        : legendEncodingPart; // no rule -- just default values
-      if (value !== undefined && keys(value).length > 0) {
-        e[part] = {update: value};
-      }
-      return e;
-    },
-    {} as LegendEncode
-  );
+  const legendEncoding = legend?.encoding ?? {};
+  const selections = legendCmpt.get('selections');
+  const legendEncode: LegendEncode = {};
 
-  if (keys(legendEncode).length > 0) {
-    legendCmpt.set('encode', legendEncode, !!legend.encoding);
+  const legendEncodeParams: LegendEncodeParams = {fieldOrDatumDef, model, channel, legendCmpt, legendType};
+
+  for (const part of ['labels', 'legend', 'title', 'symbols', 'gradient', 'entries']) {
+    const legendEncodingPart = guideEncodeEntry(legendEncoding[part] ?? {}, model);
+
+    const value =
+      part in legendEncodeRules
+        ? legendEncodeRules[part](legendEncodingPart, legendEncodeParams) // apply rule
+        : legendEncodingPart; // no rule -- just default values
+
+    if (value !== undefined && !isEmpty(value)) {
+      legendEncode[part] = {
+        ...(selections?.length && isFieldDef(fieldOrDatumDef)
+          ? {name: `${varName(fieldOrDatumDef.field)}_legend_${part}`}
+          : {}),
+        ...(selections?.length ? {interactive: !!selections} : {}),
+        update: value
+      };
+    }
+  }
+
+  if (!isEmpty(legendEncode)) {
+    legendCmpt.set('encode', legendEncode, !!legend?.encoding);
   }
 
   return legendCmpt;
-}
-
-function getProperty<K extends keyof VgLegend>(
-  property: K,
-  legend: Legend,
-  channel: NonPositionScaleChannel,
-  model: UnitModel
-): VgLegend[K] {
-  const {encoding, mark} = model;
-  const fieldDef = getTypedFieldDef(encoding[channel]);
-  const legendConfig = model.config.legend;
-  const {timeUnit} = fieldDef;
-
-  const scaleType = model.getScaleComponent(channel).get('type');
-
-  switch (property) {
-    case 'format':
-      // We don't include temporal field here as we apply format in encode block
-      if (isTimeFormatFieldDef(fieldDef)) {
-        return undefined;
-      }
-      return numberFormat(fieldDef, legend.format, model.config);
-    case 'formatType':
-      // Same as format, We don't include temporal field here as we apply format in encode block
-      if (isTimeFormatFieldDef(fieldDef)) {
-        return undefined;
-      }
-      return legend.formatType;
-    case 'title':
-      return fieldDefTitle(fieldDef, model.config, {allowDisabling: true}) || undefined;
-
-    case 'type':
-      return type({legend, channel, timeUnit, scaleType, alwaysReturn: false});
-
-    case 'direction':
-      return direction({legend, legendConfig, timeUnit, channel, scaleType});
-
-    // TODO: enable when https://github.com/vega/vega/issues/1351 is fixed
-    // case 'clipHeight':
-    //   return getFirstDefined(specifiedLegend.clipHeight, properties.clipHeight(properties.type(...)));
-    case 'labelOverlap':
-      return getFirstDefined(legend.labelOverlap, properties.defaultLabelOverlap(scaleType));
-    case 'gradientLength':
-      return getFirstDefined<number | SignalRef>(
-        // do specified gradientLength first
-        legend.gradientLength,
-        legendConfig.gradientLength,
-        // Otherwise, use smart default based on plot height
-        properties.defaultGradientLength({
-          model,
-          legend,
-          legendConfig,
-          channel,
-          scaleType
-        })
-      );
-
-    case 'symbolType':
-      return getFirstDefined(legend.symbolType, properties.defaultSymbolType(mark));
-
-    case 'values':
-      return properties.values(legend, fieldDef);
-  }
-
-  // Otherwise, return specified property.
-  return (legend as VgLegend)[property];
 }
 
 function parseNonUnitLegend(model: Model) {
@@ -196,7 +179,7 @@ function parseNonUnitLegend(model: Model) {
   for (const child of model.children) {
     parseLegend(child);
 
-    keys(child.component.legends).forEach((channel: NonPositionScaleChannel) => {
+    for (const channel of keys(child.component.legends)) {
       resolve.legend[channel] = parseGuideResolve(model.component.resolve, channel);
 
       if (resolve.legend[channel] === 'shared') {
@@ -212,10 +195,10 @@ function parseNonUnitLegend(model: Model) {
           delete legends[channel];
         }
       }
-    });
+    }
   }
 
-  keys(legends).forEach((channel: NonPositionScaleChannel) => {
+  for (const channel of keys(legends)) {
     for (const child of model.children) {
       if (!child.component.legends[channel]) {
         // skip if the child does not have a particular legend
@@ -227,7 +210,8 @@ function parseNonUnitLegend(model: Model) {
         delete child.component.legends[channel];
       }
     }
-  });
+  }
+
   return legends;
 }
 
@@ -246,8 +230,8 @@ export function mergeLegendComponent(mergedLegend: LegendComponent, childLegend:
 
   let typeMerged = false;
   // Otherwise, let's merge
-  for (const prop of VG_LEGEND_PROPERTIES) {
-    const mergedValueWithExplicit = mergeValuesWithExplicit<VgLegend, any>(
+  for (const prop of LEGEND_COMPONENT_PROPERTIES) {
+    const mergedValueWithExplicit = mergeValuesWithExplicit<LegendComponentProps, any>(
       mergedLegend.getWithExplicit(prop),
       childLegend.getWithExplicit(prop),
       prop,
@@ -265,16 +249,16 @@ export function mergeLegendComponent(mergedLegend: LegendComponent, childLegend:
             typeMerged = true;
             return makeImplicit('symbol');
         }
-        return defaultTieBreaker<VgLegend, any>(v1, v2, prop, 'legend');
+        return defaultTieBreaker<LegendComponentProps, any>(v1, v2, prop, 'legend');
       }
     );
     mergedLegend.setWithExplicit(prop, mergedValueWithExplicit);
   }
   if (typeMerged) {
-    if (((mergedLegend.implicit || {}).encode || {}).gradient) {
+    if (mergedLegend.implicit?.encode?.gradient) {
       deleteNestedProperty(mergedLegend.implicit, ['encode', 'gradient']);
     }
-    if (((mergedLegend.explicit || {}).encode || {}).gradient) {
+    if (mergedLegend.explicit?.encode?.gradient) {
       deleteNestedProperty(mergedLegend.explicit, ['encode', 'gradient']);
     }
   }

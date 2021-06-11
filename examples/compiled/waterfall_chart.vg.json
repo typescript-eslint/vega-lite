@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "width": 800,
   "height": 450,
@@ -88,7 +88,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"previous_sum\"] !== null && !isNaN(datum[\"previous_sum\"])"
+          "expr": "isValid(datum[\"previous_sum\"]) && isFinite(+datum[\"previous_sum\"])"
         }
       ]
     },
@@ -98,7 +98,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"sum\"] !== null && !isNaN(datum[\"sum\"])"
+          "expr": "isValid(datum[\"sum\"]) && isFinite(+datum[\"sum\"])"
         }
       ]
     },
@@ -108,7 +108,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"sum_inc\"] !== null && !isNaN(datum[\"sum_inc\"])"
+          "expr": "isValid(datum[\"sum_inc\"]) && isFinite(+datum[\"sum_inc\"])"
         }
       ]
     },
@@ -118,7 +118,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"sum_dec\"] !== null && !isNaN(datum[\"sum_dec\"])"
+          "expr": "isValid(datum[\"sum_dec\"]) && isFinite(+datum[\"sum_dec\"])"
         }
       ]
     },
@@ -128,7 +128,7 @@
       "transform": [
         {
           "type": "filter",
-          "expr": "datum[\"center\"] !== null && !isNaN(datum[\"center\"])"
+          "expr": "isValid(datum[\"center\"]) && isFinite(+datum[\"center\"])"
         }
       ]
     }
@@ -149,8 +149,9 @@
             {"test": "datum.sum < datum.previous_sum", "value": "#f78a64"},
             {"value": "#93c4aa"}
           ],
-          "tooltip": {
-            "signal": "{\"Months\": ''+datum[\"label\"], \"Amount\": format(datum[\"previous_sum\"], \"\"), \"sum\": format(datum[\"sum\"], \"\")}"
+          "ariaRoleDescription": {"value": "bar"},
+          "description": {
+            "signal": "\"label: \" + (isValid(datum[\"label\"]) ? datum[\"label\"] : \"\"+datum[\"label\"]) + \"; Amount: \" + (format(datum[\"previous_sum\"], \"\")) + \"; sum: \" + (format(datum[\"sum\"], \"\"))"
           },
           "xc": {"scale": "x", "field": "label", "band": 0.5},
           "width": {"value": 45},
@@ -169,12 +170,12 @@
           "opacity": {"value": 1},
           "strokeWidth": {"value": 2},
           "stroke": {"value": "#404040"},
-          "tooltip": {
-            "signal": "{\"Months\": ''+datum[\"label\"], \"lead\": ''+datum[\"lead\"], \"sum\": format(datum[\"sum\"], \"\")}"
+          "description": {
+            "signal": "\"label: \" + (isValid(datum[\"label\"]) ? datum[\"label\"] : \"\"+datum[\"label\"]) + \"; lead: \" + (isValid(datum[\"lead\"]) ? datum[\"lead\"] : \"\"+datum[\"lead\"]) + \"; sum: \" + (format(datum[\"sum\"], \"\"))"
           },
           "x": {"scale": "x", "field": "label", "offset": -22.5, "band": 0.5},
-          "y": {"scale": "y", "field": "sum"},
-          "x2": {"scale": "x", "field": "lead", "offset": 22.5, "band": 0.5}
+          "x2": {"scale": "x", "field": "lead", "offset": 22.5, "band": 0.5},
+          "y": {"scale": "y", "field": "sum"}
         }
       }
     },
@@ -188,12 +189,14 @@
           "baseline": {"value": "bottom"},
           "dy": {"value": -4},
           "fill": {"value": "#404040"},
-          "tooltip": {
-            "signal": "{\"Months\": ''+datum[\"label\"], \"sum_inc\": format(datum[\"sum_inc\"], \"\")}"
+          "description": {
+            "signal": "\"label: \" + (isValid(datum[\"label\"]) ? datum[\"label\"] : \"\"+datum[\"label\"]) + \"; sum_inc: \" + (format(datum[\"sum_inc\"], \"\"))"
           },
           "x": {"scale": "x", "field": "label", "band": 0.5},
           "y": {"scale": "y", "field": "sum_inc"},
-          "text": {"signal": "''+datum[\"sum_inc\"]"},
+          "text": {
+            "signal": "isValid(datum[\"sum_inc\"]) ? datum[\"sum_inc\"] : \"\"+datum[\"sum_inc\"]"
+          },
           "align": {"value": "center"}
         }
       }
@@ -208,12 +211,14 @@
           "baseline": {"value": "top"},
           "dy": {"value": 4},
           "fill": {"value": "#404040"},
-          "tooltip": {
-            "signal": "{\"Months\": ''+datum[\"label\"], \"sum_dec\": format(datum[\"sum_dec\"], \"\")}"
+          "description": {
+            "signal": "\"label: \" + (isValid(datum[\"label\"]) ? datum[\"label\"] : \"\"+datum[\"label\"]) + \"; sum_dec: \" + (format(datum[\"sum_dec\"], \"\"))"
           },
           "x": {"scale": "x", "field": "label", "band": 0.5},
           "y": {"scale": "y", "field": "sum_dec"},
-          "text": {"signal": "''+datum[\"sum_dec\"]"},
+          "text": {
+            "signal": "isValid(datum[\"sum_dec\"]) ? datum[\"sum_dec\"] : \"\"+datum[\"sum_dec\"]"
+          },
           "align": {"value": "center"}
         }
       }
@@ -234,12 +239,14 @@
             },
             {"value": "white"}
           ],
-          "tooltip": {
-            "signal": "{\"Months\": ''+datum[\"label\"], \"center\": format(datum[\"center\"], \"\"), \"text_amount\": ''+datum[\"text_amount\"]}"
+          "description": {
+            "signal": "\"label: \" + (isValid(datum[\"label\"]) ? datum[\"label\"] : \"\"+datum[\"label\"]) + \"; center: \" + (format(datum[\"center\"], \"\")) + \"; text_amount: \" + (isValid(datum[\"text_amount\"]) ? datum[\"text_amount\"] : \"\"+datum[\"text_amount\"])"
           },
           "x": {"scale": "x", "field": "label", "band": 0.5},
           "y": {"scale": "y", "field": "center"},
-          "text": {"signal": "''+datum[\"text_amount\"]"},
+          "text": {
+            "signal": "isValid(datum[\"text_amount\"]) ? datum[\"text_amount\"] : \"\"+datum[\"text_amount\"]"
+          },
           "align": {"value": "center"}
         }
       }
@@ -283,15 +290,27 @@
   ],
   "axes": [
     {
+      "scale": "y",
+      "orient": "left",
+      "gridScale": "x",
+      "grid": true,
+      "tickCount": {"signal": "ceil(height/40)"},
+      "domain": false,
+      "labels": false,
+      "aria": false,
+      "maxExtent": 0,
+      "minExtent": 0,
+      "ticks": false,
+      "zindex": 0
+    },
+    {
       "scale": "x",
       "orient": "bottom",
       "grid": false,
       "title": "Months",
-      "labelAlign": "right",
-      "labelAngle": 270,
-      "labelBaseline": "middle",
-      "labelOverlap": true,
-      "zindex": 1
+      "labelAngle": 0,
+      "labelBaseline": "top",
+      "zindex": 0
     },
     {
       "scale": "y",
@@ -300,19 +319,6 @@
       "title": "Amount",
       "labelOverlap": true,
       "tickCount": {"signal": "ceil(height/40)"},
-      "zindex": 1
-    },
-    {
-      "scale": "y",
-      "orient": "left",
-      "gridScale": "x",
-      "grid": true,
-      "tickCount": {"signal": "ceil(height/40)"},
-      "domain": false,
-      "labels": false,
-      "maxExtent": 0,
-      "minExtent": 0,
-      "ticks": false,
       "zindex": 0
     }
   ],

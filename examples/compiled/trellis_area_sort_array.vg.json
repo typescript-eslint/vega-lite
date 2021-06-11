@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega/v5.json",
   "description": "Stock prices of four large companies as a small multiples of area charts.",
-  "autosize": "pad",
+  "background": "white",
   "padding": 5,
   "data": [
     {
@@ -10,11 +10,6 @@
       "format": {"type": "csv", "parse": {"date": "date"}},
       "transform": [
         {"type": "filter", "expr": "datum.symbol !== 'GOOG'"},
-        {
-          "type": "formula",
-          "expr": "datum[\"symbol\"]===\"MSFT\" ? 0 : datum[\"symbol\"]===\"AAPL\" ? 1 : datum[\"symbol\"]===\"IBM\" ? 2 : datum[\"symbol\"]===\"AMZN\" ? 3 : 4",
-          "as": "row_symbol_sort_index"
-        },
         {
           "type": "formula",
           "expr": "datum[\"symbol\"]===\"MSFT\" ? 0 : datum[\"symbol\"]===\"AAPL\" ? 1 : datum[\"symbol\"]===\"IBM\" ? 2 : datum[\"symbol\"]===\"AMZN\" ? 3 : 4",
@@ -85,7 +80,9 @@
         "order": "ascending"
       },
       "title": {
-        "text": {"signal": "''+parent[\"symbol\"]"},
+        "text": {
+          "signal": "isValid(parent[\"symbol\"]) ? parent[\"symbol\"] : \"\"+parent[\"symbol\"]"
+        },
         "orient": "left",
         "style": "guide-label",
         "frame": "group",
@@ -100,7 +97,7 @@
           "title": "Price",
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_height/40)"},
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -115,15 +112,11 @@
           "orient": "bottom",
           "grid": false,
           "title": "Time",
+          "format": "%Y",
           "labelFlush": true,
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_width/40)"},
-          "encode": {
-            "labels": {
-              "update": {"text": {"signal": "timeFormat(datum.value, '%Y')"}}
-            }
-          },
-          "zindex": 1
+          "zindex": 0
         }
       ]
     },
@@ -175,20 +168,20 @@
               "name": "child_marks",
               "type": "area",
               "style": ["area"],
-              "sort": {"field": "datum[\"date\"]", "order": "descending"},
+              "sort": {"field": "datum[\"date\"]"},
               "from": {"data": "faceted_path_child_main"},
               "encode": {
                 "update": {
                   "orient": {"value": "vertical"},
                   "fill": {"scale": "color", "field": "symbol"},
-                  "tooltip": {
-                    "signal": "{\"Time\": timeFormat(datum[\"date\"], '%Y'), \"Price\": format(datum[\"price\"], \"\"), \"symbol\": ''+datum[\"symbol\"]}"
+                  "description": {
+                    "signal": "\"Time: \" + (timeFormat(datum[\"date\"], '%Y')) + \"; Price: \" + (format(datum[\"price\"], \"\")) + \"; symbol: \" + (isValid(datum[\"symbol\"]) ? datum[\"symbol\"] : \"\"+datum[\"symbol\"])"
                   },
                   "x": {"scale": "x", "field": "date"},
                   "y": {"scale": "y", "field": "price_end"},
                   "y2": {"scale": "y", "field": "price_start"},
                   "defined": {
-                    "signal": "datum[\"date\"] !== null && !isNaN(datum[\"date\"]) && datum[\"price\"] !== null && !isNaN(datum[\"price\"])"
+                    "signal": "isValid(datum[\"date\"]) && isFinite(+datum[\"date\"]) && isValid(datum[\"price\"]) && isFinite(+datum[\"price\"])"
                   }
                 }
               }
@@ -220,12 +213,5 @@
       "range": "category"
     }
   ],
-  "legends": [
-    {
-      "fill": "color",
-      "gradientLength": {"signal": "clamp(child_height, 64, 200)"},
-      "symbolType": "circle",
-      "title": "symbol"
-    }
-  ]
+  "legends": [{"fill": "color", "symbolType": "circle", "title": "symbol"}]
 }

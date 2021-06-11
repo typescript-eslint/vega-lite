@@ -1,5 +1,3 @@
-/* tslint:disable quotemark */
-
 // TODO:
 // test mark-tick with the following test cases,
 // looking at mark-point.test.ts as inspiration
@@ -17,11 +15,10 @@ describe('Mark: Tick', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
       mark: 'tick',
       encoding: {
-        x: {aggregate: 'sum', field: 'a', type: 'quantitative'},
+        x: {aggregate: 'sum', field: 'a', type: 'quantitative', stack: 'zero'},
         color: {field: 'b', type: 'ordinal'}
       },
-      data: {url: 'data/barley.json'},
-      config: {stack: 'zero'}
+      data: {url: 'data/barley.json'}
     });
 
     const props = tick.encodeEntry(model);
@@ -37,11 +34,10 @@ describe('Mark: Tick', () => {
     const model = parseUnitModelWithScaleAndLayoutSize({
       mark: 'tick',
       encoding: {
-        y: {aggregate: 'sum', field: 'a', type: 'quantitative'},
+        y: {aggregate: 'sum', field: 'a', type: 'quantitative', stack: 'zero'},
         color: {field: 'b', type: 'ordinal'}
       },
-      data: {url: 'data/barley.json'},
-      config: {stack: 'zero'}
+      data: {url: 'data/barley.json'}
     });
 
     const props = tick.encodeEntry(model);
@@ -70,7 +66,7 @@ describe('Mark: Tick', () => {
       expect(props.xc).toEqual({scale: X, field: 'Horsepower'});
     });
 
-    it('width should tick thickness with orient vertical', () => {
+    it('has width equal to tick thickness with orient vertical', () => {
       expect(props.width).toEqual({value: 1});
     });
   });
@@ -94,7 +90,7 @@ describe('Mark: Tick', () => {
       expect(props.yc).toEqual({scale: Y, field: 'Cylinders'});
     });
 
-    it('height should tick thickness with orient horizontal', () => {
+    it('has height equal to tick thickness with orient horizontal', () => {
       expect(props.height).toEqual({value: 1});
     });
   });
@@ -118,7 +114,7 @@ describe('Mark: Tick', () => {
       expect(props.yc).toEqual({scale: Y, field: 'Cylinders'});
     });
 
-    it('wiidth should be tick thickness with default orient vertical', () => {
+    it('width should be tick thickness with default orient vertical', () => {
       expect(props.width).toEqual({value: 1});
     });
 

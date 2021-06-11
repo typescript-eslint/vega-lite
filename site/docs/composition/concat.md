@@ -13,13 +13,14 @@ To place views side-by-side, Vega-Lite's [view composition](composition.html) pr
 
 If you concatenate similar views where the only difference is the field that is used in an encoding, use the [`repeat` operator](repeat.html).
 
+<!--prettier-ignore-start-->
 ## Documentation Overview
-
 {:.no_toc}
 
-<!-- prettier-ignore -->
 - TOC
 {:toc}
+
+<!--prettier-ignore-end-->
 
 {:#hconcat}
 
@@ -67,6 +68,8 @@ In addition to [common properties of a view specification](spec.html#common), a 
 
 <span class="vl-example" data-name="vconcat_weather"></span>
 
+{:#concat}
+
 ## General (Wrappable) Concatenation
 
 To put multiple views into a flexible flow layout, set the `"concat"` to an array of view specifications and specify the `"columns"` property to set the number of maximum items per rows.
@@ -94,6 +97,8 @@ In addition to [common properties of a view specification](spec.html#common), a 
 ## Resolve
 
 The default [resolutions](resolve.html) for concatenation are independent scales and axes for [position channels](encoding.html#position) and shared scales and legends for all other channels. Currently, Vega-Lite does not support shared axes for concatenated views.
+
+{:#config}
 
 ## Concat Configuration
 

@@ -6,17 +6,16 @@
  */
 
 const fs = require('fs');
-const examples = require('../_data/examples.json');
-const svg2png = require('svg2png-many');
+const examples = require('../site/_data/examples.json');
 
 function createPage(example) {
   return `---
 layout: page
-${example.description ? `description: ${example.description}` : ''}
+${example.description ? `description: "${example.description.replace(/"/g, '\\"')}"` : ''}
 title: ${example.title}
 menu: examples
 permalink: /examples/${example.name}.html
-image: /examples/compiled/${example.name}.png
+image: /examples/${example.name}.png
 edit_path: _data/examples.json
 ---
 
@@ -26,8 +25,6 @@ ${example.description || ''}
 `;
 }
 
-const fileMap = {};
-
 for (const category of Object.keys(examples)) {
   for (const subcategory of Object.keys(examples[category])) {
     for (const example of examples[category][subcategory]) {
@@ -35,11 +32,14 @@ for (const category of Object.keys(examples)) {
 
       console.log('Processing', name);
 
-      fs.writeFileSync(`site/examples/${name}.vl.json`, fs.readFileSync(`examples/specs/${name}.vl.json`));
+      const fileContent = fs.readFileSync(`examples/specs/${name}.vl.json`);
+
+      if (!example.description) {
+        const parsed = JSON.parse(fileContent);
+        example.description = parsed.description;
+      }
+
       fs.writeFileSync(`site/examples/${name}.md`, createPage(example));
-      fileMap[`examples/compiled/${name}.svg`] = `examples/compiled/${name}.png`;
     }
   }
 }
-
-svg2png.svg2PngFiles(fileMap);

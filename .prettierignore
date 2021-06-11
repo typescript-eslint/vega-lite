@@ -1,2 +1,6 @@
+build/
+coverage/
 examples/specs/*.vl.json
+site/_includes/*
 site/examples/*
+site/_site/*

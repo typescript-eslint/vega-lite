@@ -1,5 +1,3 @@
-/* tslint:disable quotemark */
-
 import {geoshape} from '../../../src/compile/mark/geoshape';
 import {parseUnitModelWithScaleAndLayoutSize} from '../../util';
 
@@ -30,6 +28,9 @@ describe('Mark: Geoshape', () => {
       });
       const props = geoshape.encodeEntry(model);
       expect({
+        ariaRoleDescription: {
+          value: 'geoshape'
+        },
         fill: {
           value: 'black'
         },
